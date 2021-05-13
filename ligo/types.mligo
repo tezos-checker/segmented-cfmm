@@ -18,7 +18,6 @@ type tick_state = {
     sqrt_price : nat
 }
 
-
 type tick_map = (tick_index, tick_state) big_map
 
 (* Position types, representing LP positions. *)
@@ -35,6 +34,8 @@ type storage = {
     balance : balance_nat ;
     ticks : tick_map ;
     positions : position_map ;
+    time_weighted_ic_sum : nat ;
+    last_ic_sum_update : timestamp ;
 }
 
 (* Entrypoints types *)

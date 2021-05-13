@@ -5,9 +5,6 @@
 #include "math.mligo"
 #include "swaps.mligo"
 
-
-(* TODO, twap oracle *)
-
 (* Useful for initial state, TODO, move out of this file *)
 let max_tick_state = {
     prev = {i=-const_max_tick} ;
@@ -28,8 +25,6 @@ let min_tick_state = {
 }
 
 (* </initial_state> *)
-
-
 
 let rec initialize_tick ((ticks, i, i_l, initial_fee_growth_outside, initial_seconds_outside) : tick_map * tick_index * tick_index * balance_nat) : tick_map =
     if Big_map.mem i ticks then
@@ -104,9 +99,6 @@ let collect_fees (s : storage) (key : position_index) : storage * balance_nat =
 let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : tick_index) (i_u_l : tick_index) (delta_liquidity : int) (to_x : address) (to_y : address) : result =
     (* Initialize ticks if need be. *)
     let ticks = s.ticks in
-
-initial_seconds_outside
-
     let ticks = if s.i_c >= i_l.i then
         initialize_tick (ticks, i_l, i_l_l, s.fee_growth, Tezos.now - ("2020-01-01T00:00:00Z":timestamp))
     else
@@ -186,14 +178,31 @@ initial_seconds_outside
 
     ([op_x ; op_y], {s with positions = positions; ticks = ticks})
 
+
+type views =
+    | IC_sum of nat
+
+let get_time_weighted_sum (s : storage) (c : views contract) : result =
+    ([Tezos.transfer 0mutez (IC_sum s.time_weighted_ic_sum) value c], s)
+
 type parameter =
 | X_to_Y of x_to_y_param
 | Y_to_X of y_to_x_param
 | Set_position of set_position_param (* TODO add deadline, maximum tokens contributed, and maximum liquidity present *)
 | X_to_X_prime of address (* equivalent to token_to_token *)
+| Get_time_weighted_sum of nat contract
 
-let main ((p, s) : parameter * storage) : result = match p with
+let update_time_weighted_sum (s : storage) : storage =
+    let new_sum = s.time_weighted_ic_sum + (Tezos.now - s.last_ic_sum_update) * s.i_c
+    in {s with time_weighted_ic_sum = new_sum ; last_ic_sum_update = Tezos.now}
+
+let main ((p, s) : parameter * storage) : result =
+(* start by updating the time weighted price oracle *)
+let s = update_time_weighted_sum s in
+(* dispatch call to the proper entrypoint *)
+ match p with
 | X_to_Y p -> x_to_y s p
 | Y_to_X p -> y_to_x s p
 | Set_position p -> set_position s p.i_l p.i_u p.i_l_l p.i_u_l p.delta_liquidity p.to_x p.to_y
+| Get_time_weighted_sum contract -> get_time_weighted_sum s contract
 | X_to_X_prime -> (failwith "not implemented" : result) (*TODO implement iff Y is FA12 *)
