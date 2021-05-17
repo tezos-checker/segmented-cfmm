@@ -26,7 +26,7 @@ let min_tick_state = {
 
 (* </initial_state> *)
 
-let rec initialize_tick ((ticks, i, i_l, initial_fee_growth_outside, initial_seconds_outside) : tick_map * tick_index * tick_index * balance_nat) : tick_map =
+let rec initialize_tick ((ticks, i, i_l, initial_fee_growth_outside, initial_seconds_outside) : tick_map * tick_index * tick_index * balance_nat * nat) : tick_map =
     if Big_map.mem i ticks then
         ticks
     else if i_l.i > i.i then
@@ -100,13 +100,13 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
     (* Initialize ticks if need be. *)
     let ticks = s.ticks in
     let ticks = if s.i_c >= i_l.i then
-        initialize_tick (ticks, i_l, i_l_l, s.fee_growth, Tezos.now - ("2020-01-01T00:00:00Z":timestamp))
+        initialize_tick (ticks, i_l, i_l_l, s.fee_growth, assert_nat (Tezos.now - epoch_time))
     else
-        initialize_tick (ticks, i_l, i_l_l, {x = 0n ; y = 0n}, 0)  in
+        initialize_tick (ticks, i_l, i_l_l, {x = 0n ; y = 0n}, 0n)  in
     let ticks = if s.i_c >= i_u.i then
-        initialize_tick (ticks, i_u, i_u_l, s.fee_growth, Tezos.now - ("2020-01-01T00:00:00Z":timestamp))
+        initialize_tick (ticks, i_u, i_u_l, s.fee_growth, assert_nat (Tezos.now - epoch_time))
     else
-        initialize_tick (ticks, i_u, i_u_l, {x = 0n ; y = 0n}, 0)  in
+        initialize_tick (ticks, i_u, i_u_l, {x = 0n ; y = 0n}, 0n)  in
 
     (* Form position key. *)
     let position_key = {owner=Tezos.sender ; lo=i_l; hi=i_u} in
@@ -180,17 +180,17 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
 
 
 type views =
-    | IC_sum of nat
+    | IC_sum of int
 
 let get_time_weighted_sum (s : storage) (c : views contract) : result =
-    ([Tezos.transfer 0mutez (IC_sum s.time_weighted_ic_sum) value c], s)
+    ([Tezos.transaction (IC_sum s.time_weighted_ic_sum) 0mutez c], s)
 
 type parameter =
 | X_to_Y of x_to_y_param
 | Y_to_X of y_to_x_param
 | Set_position of set_position_param (* TODO add deadline, maximum tokens contributed, and maximum liquidity present *)
 | X_to_X_prime of address (* equivalent to token_to_token *)
-| Get_time_weighted_sum of nat contract
+| Get_time_weighted_sum of views contract
 
 let update_time_weighted_sum (s : storage) : storage =
     let new_sum = s.time_weighted_ic_sum + (Tezos.now - s.last_ic_sum_update) * s.i_c

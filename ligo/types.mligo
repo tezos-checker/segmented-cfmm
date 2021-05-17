@@ -34,7 +34,7 @@ type storage = {
     balance : balance_nat ;
     ticks : tick_map ;
     positions : position_map ;
-    time_weighted_ic_sum : nat ;
+    time_weighted_ic_sum : int ;
     last_ic_sum_update : timestamp ;
 }
 

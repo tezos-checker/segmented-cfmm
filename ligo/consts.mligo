@@ -14,3 +14,4 @@
 [@inline] let const_fee_bps : nat = 10n  (* CHANGEME if need be *)
 [@inline] let const_one_minus_fee_bps : nat = 9990n (* CHANGEME if need be*)
 #endif
+[@inline] let epoch_time = ("1970-01-01T00:00:00Z" : timestamp)

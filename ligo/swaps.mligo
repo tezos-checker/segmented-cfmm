@@ -10,7 +10,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
         p
     else
         (* The fee that would be extracted from selling dx. *)
-        let fee  = ceildiv (p.dfee_grox * const_fee_bps) 10000n in
+        let fee  = ceildiv (p.dx * const_fee_bps) 10000n in
         (* What the new price will be, assuming it's within the current tick. *)
         let sqrt_price_new = sqrt_price_move p.s.liquidity p.s.sqrt_price (assert_nat (p.dx - fee)) in
         (* What the new value of ic will be. *)
@@ -44,7 +44,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             let fee_growth_outside_new = {tick.fee_growth_outside with x = assert_nat (fee_growth_x_new - tick.fee_growth_outside.x)} in
             let fee_growth_new = {p.s.fee_growth with x=fee_growth_x_new} in
             (* Flip time growth. *)
-            let seconds_outside_new = Tezos.now - tick.seconds_outside in
+            let seconds_outside_new = assert_nat ((Tezos.now - epoch_time) - tick.seconds_outside) in
             let tick_new = {tick with
                 fee_growth_outside = fee_growth_outside_new ;
                 seconds_outside = seconds_outside_new } in
