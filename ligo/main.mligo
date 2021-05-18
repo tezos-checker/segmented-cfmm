@@ -5,26 +5,6 @@
 #include "math.mligo"
 #include "swaps.mligo"
 
-(* Useful for initial state, TODO, move out of this file *)
-let max_tick_state = {
-    prev = {i=-const_max_tick} ;
-    next = {i=int(const_max_tick)} ;
-    delta_liquidity = 0 ;
-    n_positions = 1n ; (* prevents garbage collection *)
-    fee_growth_outside = {x = 0n ; y = 0n} ;
-    sqrt_price = 71107673757466966990985105047137336834554167630n ; (* Round[Exp[5/100000*(2^20-1)]*2^80] *)
-} (* TODO consider using 2^90 precision instead so that every tick has a distinct sqrt_price *)
-
-let min_tick_state = {
-    prev = {i=-const_max_tick} ;
-    next = {i=int(const_max_tick)} ;
-    delta_liquidity = 0 ;
-    n_positions = 1n ; (* prevents garbage collection *)
-    fee_growth_outside = {x = 0n ; y = 0n} ;
-    sqrt_price = 21n ; (* Round[Exp[-5/100000*(2^20-1)]*2^80] *)
-}
-
-(* </initial_state> *)
 
 let rec initialize_tick ((ticks, i, i_l, initial_fee_growth_outside, initial_seconds_outside) : tick_map * tick_index * tick_index * balance_nat * nat) : tick_map =
     if Big_map.mem i ticks then
