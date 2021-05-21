@@ -5,8 +5,12 @@
 #include "math.mligo"
 #include "swaps.mligo"
 
+(* TODO: make positions into an FA2 *)
 
-let rec initialize_tick ((ticks, i, i_l, initial_fee_growth_outside, initial_seconds_outside) : tick_map * tick_index * tick_index * balance_nat * nat) : tick_map =
+let rec initialize_tick ((ticks, i, i_l,
+    initial_fee_growth_outside,
+    initial_seconds_outside,
+    initial_seconds_per_liquidity_outside) : tick_map * tick_index * tick_index * balance_nat * nat * nat) : tick_map =
     if Big_map.mem i ticks then
         ticks
     else if i_l.i > i.i then
@@ -25,10 +29,11 @@ let rec initialize_tick ((ticks, i, i_l, initial_fee_growth_outside, initial_sec
                 n_positions = 0n ;
                 fee_growth_outside = initial_fee_growth_outside;
                 seconds_outside = initial_seconds_outside;
+                seconds_per_liquidity_outside = initial_seconds_per_liquidity_outside;
                 sqrt_price = half_bps_pow i.i}) ticks in
             ticks
         else
-            initialize_tick (ticks, i, i_next, initial_fee_growth_outside, initial_seconds_outside)
+            initialize_tick (ticks, i, i_next, initial_fee_growth_outside, initial_seconds_outside, initial_seconds_per_liquidity_outside)
 
 let incr_n_positions (ticks : tick_map) (i : tick_index) (incr : int) =
     let tick = get_tick ticks i in
@@ -80,20 +85,20 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
     (* Initialize ticks if need be. *)
     let ticks = s.ticks in
     let ticks = if s.i_c >= i_l.i then
-        initialize_tick (ticks, i_l, i_l_l, s.fee_growth, assert_nat (Tezos.now - epoch_time))
+        initialize_tick (ticks, i_l, i_l_l, s.fee_growth, assert_nat (Tezos.now - epoch_time), 42n (*FIXME*))
     else
-        initialize_tick (ticks, i_l, i_l_l, {x = 0n ; y = 0n}, 0n)  in
+        initialize_tick (ticks, i_l, i_l_l, {x = 0n ; y = 0n}, 0n, 0n)  in
     let ticks = if s.i_c >= i_u.i then
-        initialize_tick (ticks, i_u, i_u_l, s.fee_growth, assert_nat (Tezos.now - epoch_time))
+        initialize_tick (ticks, i_u, i_u_l, s.fee_growth, assert_nat (Tezos.now - epoch_time), 42n (*FIXME*))
     else
-        initialize_tick (ticks, i_u, i_u_l, {x = 0n ; y = 0n}, 0n)  in
+        initialize_tick (ticks, i_u, i_u_l, {x = 0n ; y = 0n}, 0n, 0n)  in
 
     (* Form position key. *)
     let position_key = {owner=Tezos.sender ; lo=i_l; hi=i_u} in
     (* Grab existing position or create an empty one *)
     let (position, is_new) = match (Big_map.find_opt position_key s.positions) with
     | Some position -> (position, false)
-    | None -> ({liquidity = 0n ; fee_growth_inside = {x = 0n ; y = 0n} ; fee_growth_inside_last = {x = 0n; y = 0n}}, true) in
+    | None -> ({liquidity = 0n ; fee_growth_inside = {x = 0n ; y = 0n} ; fee_growth_inside_last = {x = 0n; y = 0n} ; seconds_per_liquidity_inside = 0n}, true) in
     (* Get accumulated fees for this position. *)
     let s, fees = collect_fees s position_key in
     (* Update liquidity of position. *)

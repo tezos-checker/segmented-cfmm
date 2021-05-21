@@ -15,6 +15,7 @@ type tick_state = {
     n_positions : nat ;
     fee_growth_outside : balance_nat ;
     seconds_outside : nat ;
+    seconds_per_liquidity_outside : nat ;
     sqrt_price : nat
 }
 
@@ -22,7 +23,12 @@ type tick_map = (tick_index, tick_state) big_map
 
 (* Position types, representing LP positions. *)
 type position_index = {owner : address ; lo : tick_index ; hi : tick_index}
-type position_state = {liquidity : nat ; fee_growth_inside : balance_nat ; fee_growth_inside_last : balance_nat}
+type position_state = {
+    liquidity : nat ;
+    fee_growth_inside : balance_nat ;
+    fee_growth_inside_last : balance_nat ;
+    seconds_per_liquidity_inside : nat ;
+    }
 type position_map = (position_index, position_state) big_map
 
 type storage = {
@@ -36,6 +42,7 @@ type storage = {
     positions : position_map ;
     time_weighted_ic_sum : int ;
     last_ic_sum_update : timestamp ;
+    seconds_per_liquidity : nat ;
 }
 
 (* Entrypoints types *)
