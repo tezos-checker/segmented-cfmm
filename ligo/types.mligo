@@ -25,7 +25,6 @@ type tick_map = (tick_index, tick_state) big_map
 type position_index = {owner : address ; lo : tick_index ; hi : tick_index}
 type position_state = {
     liquidity : nat ;
-    fee_growth_inside : balance_nat ;
     fee_growth_inside_last : balance_nat ;
     seconds_per_liquidity_inside : nat ;
     }

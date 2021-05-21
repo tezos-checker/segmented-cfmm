@@ -98,7 +98,7 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
     (* Grab existing position or create an empty one *)
     let (position, is_new) = match (Big_map.find_opt position_key s.positions) with
     | Some position -> (position, false)
-    | None -> ({liquidity = 0n ; fee_growth_inside = {x = 0n ; y = 0n} ; fee_growth_inside_last = {x = 0n; y = 0n} ; seconds_per_liquidity_inside = 0n}, true) in
+    | None -> ({liquidity = 0n ; fee_growth_inside_last = {x = 0n; y = 0n} ; seconds_per_liquidity_inside = 0n}, true) in
     (* Get accumulated fees for this position. *)
     let s, fees = collect_fees s position_key in
     (* Update liquidity of position. *)
