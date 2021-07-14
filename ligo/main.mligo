@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2021 Arthur Breitman
+// SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
+
 #include "types.mligo"
 #include "consts.mligo"
 #include "helpers.mligo"
@@ -190,4 +193,4 @@ let s = update_time_weighted_sum s in
 | Y_to_X p -> y_to_x s p
 | Set_position p -> set_position s p.i_l p.i_u p.i_l_l p.i_u_l p.delta_liquidity p.to_x p.to_y
 | Get_time_weighted_sum contract -> get_time_weighted_sum s contract
-| X_to_X_prime -> (failwith "not implemented" : result) (*TODO implement iff Y is FA12 *)
+| X_to_X_prime _ -> (failwith "not implemented" : result) (*TODO implement iff Y is FA12 *)

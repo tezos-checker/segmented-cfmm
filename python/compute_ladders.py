@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2021 Arthur Breitman
+# SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
+
 from sage.all import *
 
 b_range = range(Integer(0), Integer(20))  # powers 2^0 to 2^19
