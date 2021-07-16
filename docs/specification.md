@@ -203,6 +203,348 @@ where `position_liquidity` is the amount of liquidity provided by the user's pos
 rate * position_liquidity * (seconds_per_liquidity_cumulative_t1 - seconds_per_liquidity_cumulative_t0)
 ```
 
+# Configuration
+
+This contract relies on some constants and known external conditions which can
+differ between instantiations.
+
+To accomodate this, configuration options are given at compile-time, which means
+that:
+- to make different choices a new compilation is required
+- a contract cannot change these choices after deployment
+
+## Compilation options
+
+- `x` token contract type, can be either [`FA1.2`][fa1.2] or [`FA2`][fa2].
+- `y` token contract type, can be either [`FA1.2`][fa1.2], [`FA2`][fa2], or [`ctez`][ctez].
+- `swap_fee`, a fraction determining how much of the tokens sent in a swap will
+  be subtracted beforehand, see [fees](#fees) for more info.
+- `protocol_fee`, a percentage to be subtracted from the `ctez` tokens being
+  deposited/withdrawn on every swap.
+  See [fees](#fees) for more info.
+  This option is only valid when the `y` token is `ctez`.
+
+# Entrypoints
+
+## Standard FA2 entrypoints
+
+Entrypoints present in the [*FA2 Standard*][fa2].
+
+In the context of this contract, [positions](#positions) are NFTs and these
+entrypoints can be used to manage them.
+
+Note: this contract implements the [Default Transfer Permission Policy](https://gitlab.com/tezos/tzip/-/blob/master/proposals/tzip-12/tzip-12.md#default-transfer-permission-policy).
+
+
+### **transfer**
+
+Can be used by the `owner` or the `operator` of a [position](#positions) to
+transfer its ownership to a different address.
+
+- This entrypoint adheres to the [FA2][fa2] requirements.
+- If there is no position associated to the given `token_id`, fails with
+  `FA2_TOKEN_UNDEFINED`
+- If an `amount` is `0` it does not fail, but effectively there will be no
+  difference.
+- If any `amount` is higher than `1`, fails with `FA2_INSUFFICIENT_BALANCE`, as
+  NFTs/`position`s are unique.
+- If any transfer was not initiated by the `position` `owner` or an allowed
+  `operator`, fails with `FA2_NOT_OPERATOR`.
+
+```ocaml
+type position_id = nat
+
+type transfer_destination =
+  [@layout:comb]
+  { to_ : address
+  ; token_id : position_id
+  ; amount : nat
+  }
+
+type transfer_item =
+  [@layout:comb]
+  { from_ : address
+  ; txs : transfer_destination list
+  }
+
+type transfer_params = transfer_item list
+```
+
+### **balance_of**
+
+This can be used by another contract to query the ownership of a [position](#positions).
+
+- This entrypoint adheres to the [FA2][fa2] requirements.
+- If the given `owner` does not own the given `position_id`, the returned `balance`
+  will be `0`, otherwise it will be `1`.
+
+```ocaml
+type position_id = nat
+
+type balance_request_item =
+  [@layout:comb]
+  { owner : address
+  ; token_id : position_id
+  }
+
+type balance_response_item =
+  [@layout:comb]
+  { request : balance_request_item
+  ; balance : nat
+  }
+
+type balance_request_params =
+  [@layout:comb]
+  { requests : balance_request_item list
+  ; callback : balance_response_item list contract
+  }
+```
+
+### **update_operators**
+
+Updates (adds or removes) `operator`s of a [position](#positions) for the
+specified token `owner`.
+
+- This entrypoint adheres to the [FA2][fa2] requirements.
+- If two different updates change the same `operator` for the same
+  `owner` and `position`, the last update will take effect.
+- Operators can be updated for for an `owner` that does not yet own the given
+  `position`.
+
+```ocaml
+type position_id = nat
+
+type operator_param =
+  [@layout:comb]
+  { owner : address
+  ; operator : address
+  ; token_id : position_id
+  }
+
+type update_operator =
+  [@layout:comb]
+  | Add_operator of operator_param
+  | Remove_operator of operator_param
+
+type update_operators_param = update_operator list
+```
+
+## CFMM-specific entrypoints
+
+### **x_to_y**
+
+Perform a token [swap](#swaps) from `x` to `y`.
+
+Note: in order to be able to perform a swap, this contract must be made an
+`operator` or be `approve`d (depending if `x` is an FA2 or FA1.2 contract) to
+`transfer` the requested amount of tokens.
+
+- The `dx` amount of tokens `x` is `transfer`ed from the `SENDER` account to
+  this contract's.
+- The [swap fee](#fees) is subtracted from this amount and later awarded to LPs
+  with active positions.
+- When the `y` token is `ctez`, a [protocol fee](#fees) is subtracted
+  after converting the `x` tokens to `ctez`.
+- If the swap is no longer acceptable because the `deadline` was not met, fails
+  with `TIMED_OUT`.
+- If less than `min_dy` amount of token `y` would be obtained from the swap, fails
+  with `UNDER_MIN`.
+- If the swap is successful, the computed converted `y` tokens will be `transfer`red
+  to the `to_dy` account
+
+```ocaml
+type x_to_y_param = {
+    dx : nat ;
+    deadline : timestamp ;
+    min_dy : nat ;
+    to_dy : address ;
+}
+```
+
+
+### **y_to_x**
+
+Perform a token [swap](#swaps) from `y` to `x`.
+
+Analogous to the [`x_to_y`](#x_to_y) entrypoint, with the following caveats:
+
+- When the `y` token is `ctez`, a [protocol fee](#fees) is subtracted
+  _before_ converting the `ctez` tokens to `x` (and after applying the swap fee).
+
+```ocaml
+type y_to_x_param = {
+    dy : nat ;
+    deadline : timestamp ;
+    min_dx : nat ;
+    to_dx : address ;
+}
+```
+
+### **x_to_x_prime**
+
+Perform a token [swap](#swaps) across two Segmented-CFMM, from this contract's
+`x` to the other's `x` (hereby called `x_prime`).
+
+This entrypoint allows one to make a swap between two tokens that aren't directly
+in a pair, but both of which are paired with the same `y`.
+
+Note: in order to be able to perform a swap, this contract must be made an
+`operator` or be `approve`d (depending if `x` is an FA1.2 or FA2 contract) to
+`transfer` the requested amount of tokens.
+
+- The `dx` amount of tokens `x` is `transfer`ed from the `SENDER` account to
+  this contract's.
+- The [swap fee](#fees) is subtracted from this amount and later awarded to LPs
+  with active positions.
+- When the `y` token is `ctez`, a [protocol fee](#fees) is subtracted
+  after converting the `x` tokens to `ctez`.
+- If the swap is no longer acceptable because the `deadline` was not met, fails
+  with `TIMED_OUT`.
+- Instead of completing the single swap, the `x_prime_contract` will be called.
+- If less than `min_dx_prime` amount of token `x_prime` would be obtained from
+  the swap second swap, `x_prime_contract` is expected to fail with `UNDER_MIN`.
+- If the swap is successful, the computed converted `x_prime` tokens are expected
+  to be `transfer`red by the `x_prime_contract` to the `to_dx_prime` account.
+
+```ocaml
+type x_to_x_prime_param = {
+    dx : nat ;
+    x_prime_contract : y_to_x_param contract ;
+    deadline : timestamp ;
+    min_dx_prime : nat ;
+    to_dx_prime : address ;
+}
+```
+
+
+### **set_position**
+
+Updates or creates a new [position](#positions) in the given range.
+
+- `i_l` determines the lowest tick index in which this position will be active.
+- `i_u` determines the highest tick index in which this position will be active.
+- `i_l_l` is a witness (already initialized tick) index lower than `i_l`.
+  It should be as close as possible to `i_l`, for efficiency.
+- `i_u_l` is a witness (already initialized tick) index lower than `i_u`.
+  It should be as close as possible to `i_u`, for efficiency.
+- The liquidity of the `SENDER` will be updated by `delta_liquidity`, increased
+  or decreased depending on the sign, for both tokens of the pair.
+- In case, after adding eventual accrued fees, the `delta_liquidity` is:
+  * positive in `x` and/or `y`: this amount will be `transfer`red **from** the `SENDER`
+  * negative in `x`: this amount will be `transfer`red **to** `to_x`
+  * negative in `y`: this amount will be `transfer`red **to** `to_y`
+- If the position update is no longer acceptable because the `deadline` was not
+  met, fails with `TIMED_OUT`
+- If the amount of tokens that needs to be `transfer`red to the contract is
+  higher than `maximum_tokens_contributed`, fails with `HIGH_TOKENS`.
+- A user can set `delta_liquidity` to `0` on an existing position to simply retrieve
+  any uncollected fees.
+
+```ocaml
+type set_position_param = {
+    i_l : tick_index ;
+    i_u : tick_index ;
+    i_l_l : tick_index ;
+    i_u_l : tick_index ;
+    delta_liquidity : int ;
+    to_x : address ;
+    to_y : address ;
+    deadline : timestamp ;
+    maximum_tokens_contributed : nat ;
+}
+```
+
+### **snapshot_cumulatives_inside**
+
+Oracle `view` for a snapshot of the tick cumulative, seconds per liquidity and
+seconds inside the given range.
+
+- `i_l` determines the lowest tick index of the range.
+- `i_u` determines the highest tick index of the range.
+- the `callback` contract will be called with the computed values.
+- `tick_cumulative_inside` is the computed snapshot of the tick cumulative for
+  the given range.
+- `seconds_per_liquidity_inside` is the computed snapshot of the seconds per
+  liquidity for the given range.
+- `seconds_inside` is the computed snapshot of the seconds for the given range.
+
+```ocaml
+type sci_view_param = {
+    tick_cumulative_inside : int ;
+    seconds_per_liquidity_inside : nat ;
+    seconds_inside : nat ;
+}
+
+type sci_param = {
+    i_l : tick_index ;
+    i_u : tick_index ;
+    callback : sci_view_param contract ;
+}
+```
+
+
+### **observe**
+
+Oracle `view` for the cumulative tick and liquidity-in-range, calculated for each
+`timestamp`s in a list.
+
+- Each value in `times` will be used to calculate a `cumulative_entry`.
+  The order of the computed entries is the same as that of the given `timestamp`s.
+- The `callback` contract will be called with the computed values.
+- For each `timestamp`/`cumulative_entry` pair:
+  * `tick_cumulative` is the cumulative tick value at that `timestamp`.
+  * `seconds_per_liquidity_cumulative` is the cumulative seconds per
+    liquidity-in-range at that `timestamp`.
+- The contract stores a fixed number of past observations, with recent observations overwriting the oldest.
+  * As a result, if any of the timestamps given in the entrypoint's parameter
+  is too far back in the past, the entrypoint fails with `INVALID_TIMESTAMP`.
+  * Note that the amount of observations stored by the contract can be increased
+  via the `increase_observation_count` entrypoint.
+
+```ocaml
+type cumulative_entry = {
+    tick_cumulative : int ;
+    seconds_per_liquidity_cumulative : nat ;
+}
+
+type oracle_view_param = cumulative_entry list
+
+type observe_param = {
+    times : timestamp list ;
+    callback : oracle_view_param contract ;
+}
+```
+
+### **increase_observation_count**
+
+Increase the number of observations of `tick_cumulative` and
+`seconds_per_liquidity_cumulative` taken and stored in the contract.
+The greater the number, the further back in time users will be able to
+retrieve data using [`observe`][#observe].
+
+The caller of this entrypoint will pay for the additional storage costs.
+
+If the pool already stores more observations than the given number, then this is a no-op.
+
+```ocaml
+type increase_observation_count_param = {
+    observation_count: nat;
+}
+```
+
+# Errors
+
+TODO: to account for all validation and internal errors, a complete list will be
+provided during the implementation of the contract.
+
+### Design decisions
+
+* The contract stores a fixed number of past [observations](#observe).
+  The alternative would be to store an unbound number of observations, which implies users would
+  continually pay additional storage costs every time a block is baked, which is not desirable.
+
  [uniswap-v3]: https://uniswap.org/whitepaper-v3.pdf
  [spot-price]: https://www.investopedia.com/terms/s/spotprice.asp
+ [fa1.2]: https://gitlab.com/tezos/tzip/-/blob/master/proposals/tzip-7/tzip-7.md
+ [fa2]: https://gitlab.com/tezos/tzip/-/blob/master/proposals/tzip-12/tzip-12.md
  [ctez]: https://github.com/tezos-checker/ctez
