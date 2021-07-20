@@ -2,6 +2,11 @@
 # SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
 
 steps:
+  - label: hlint
+    commands:
+    - nix run -f ci.nix pkgs.hlint -c
+        ./scripts/lint.sh
+
   - label: reuse lint
     commands:
     - nix run -f ci.nix pkgs.reuse -c
@@ -18,9 +23,29 @@ steps:
       automatic:
         limit: 1
 
+  - label: check cabal files
+    commands:
+    - nix run -f ci.nix stack2cabal pkgs.diffutils -c ./scripts/ci/validate-cabal-files.sh
+
   - label: build-ligo
     key: build-ligo
     commands:
       - nix-build ci.nix -A build-ligo -o ./ligo-out/
     artifact_paths:
       - ligo-out/segmented_cfmm.tz
+
+  - label: build-haskell
+    key: build-haskell
+    commands:
+    - nix-build ci.nix -A all-components
+
+  - label: weeder
+    depends_on: build-haskell
+    commands:
+    - nix-build ci.nix -A weeder-script
+    - ./result
+
+  - label: haddock
+    depends_on: build-haskell
+    commands:
+    - nix-build ci.nix -A haddock --no-out-link
