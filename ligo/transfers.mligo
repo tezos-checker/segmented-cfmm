@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2021 Arthur Breitman
+// SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
+
 #define X_IS_FA2
 //#define Y_IS_FA2
 

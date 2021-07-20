@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2021 Arthur Breitman
+// SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
+
 #if MATH_MLIGO
 #else
 #define MATH_MLIGO

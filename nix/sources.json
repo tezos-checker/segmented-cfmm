@@ -1,0 +1,112 @@
+{
+    "hackage.nix": {
+        "branch": "master",
+        "description": "Automatically generated Nix expressions for Hackage",
+        "homepage": "",
+        "owner": "input-output-hk",
+        "repo": "hackage.nix",
+        "rev": "112586bd4cb58c2ed8ad50745cdf4952d3804556",
+        "sha256": "1fdwg08y9kc1nvnblqwhfh06bmqbqyzzv4fxka2ybpm11jpxkrjm",
+        "type": "tarball",
+        "url": "https://github.com/input-output-hk/hackage.nix/archive/112586bd4cb58c2ed8ad50745cdf4952d3804556.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "haskell-nix-weeder": {
+        "branch": "master",
+        "description": "haskell.nix + weeder",
+        "homepage": null,
+        "owner": "serokell",
+        "repo": "haskell-nix-weeder",
+        "rev": "a959fce7499df473e13336959cba77fbc87f3b7f",
+        "sha256": "1pmlndvbhzxj1k5f87d9dxfa00zbvmkmvnbd1davzwg77bd639l0",
+        "type": "tarball",
+        "url": "https://github.com/serokell/haskell-nix-weeder/archive/a959fce7499df473e13336959cba77fbc87f3b7f.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "haskell.nix": {
+        "branch": "zhenya/ops1122-fix-snapshot-path-pin",
+        "description": "Alternative Haskell Infrastructure for Nixpkgs",
+        "homepage": "https://input-output-hk.github.io/haskell.nix",
+        "owner": "serokell",
+        "repo": "haskell.nix",
+        "rev": "43cb0fc8957be7ab027f8bd5d48bc22479032c1f",
+        "sha256": "0m7h9y3rwdgnwmcyjlkrzf8pf1jbrymvxfc5lmzv0i832r1nc318",
+        "type": "tarball",
+        "url": "https://github.com/serokell/haskell.nix/archive/43cb0fc8957be7ab027f8bd5d48bc22479032c1f.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "ligo": {
+        "sha256": "8f12f5f4e3e0630c3305befc6e8d304144b86debf4df845e6b9778876825b697",
+        "type": "file",
+        "url": "https://gitlab.com/ligolang/ligo/-/jobs/1266799625/artifacts/raw/ligo",
+        "url_template": "https://gitlab.com/ligolang/ligo/-/jobs/1266799625/artifacts/raw/ligo"
+    },
+    "morley": {
+        "sha256": "0g9mdqb7l85z8qa931lxmcqrzhscq6451plz1k18v738ylx4dxmj",
+        "type": "tarball",
+        "url": "https://gitlab.com/morley-framework/morley/-/archive/morley-1.13.0/morley-morley-1.13.0.tar.gz",
+        "url_template": "https://gitlab.com/morley-framework/morley/-/archive/morley-<version>/morley-morley-<version>.tar.gz",
+        "version": "1.13.0"
+    },
+    "nix-npm-buildpackage": {
+        "branch": "master",
+        "description": "Build nix packages that use npm/yarn",
+        "homepage": "",
+        "owner": "serokell",
+        "repo": "nix-npm-buildpackage",
+        "rev": "d24a0ab6a289a1ea1ab6771a914973cf9c3c1719",
+        "sha256": "1fki2qiyhzrvi630wnqndm2w1dvjjqnvlsxb1a6478wabywk3l7g",
+        "type": "tarball",
+        "url": "https://github.com/serokell/nix-npm-buildpackage/archive/d24a0ab6a289a1ea1ab6771a914973cf9c3c1719.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "nixpkgs": {
+        "branch": "master",
+        "description": "Pinned Nixpkgs tree (master follows nixos-unstable-small, only tags have stable history)",
+        "homepage": "",
+        "owner": "serokell",
+        "repo": "nixpkgs",
+        "rev": "cc2f27a5b70d89cbb987027d86c477befadfd08f",
+        "sha256": "05rhwkz89bdjxf7d0sv1gjj9mhjisn1r5h9mwinirb4v7krmiz9w",
+        "type": "tarball",
+        "url": "https://github.com/serokell/nixpkgs/archive/cc2f27a5b70d89cbb987027d86c477befadfd08f.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "stackage.nix": {
+        "branch": "master",
+        "description": "Automatically generated Nix expressions of Stackage snapshots",
+        "homepage": "",
+        "owner": "input-output-hk",
+        "repo": "stackage.nix",
+        "rev": "5e095b5a139ea53a4758717ba7fa8382e36f6cce",
+        "sha256": "0d2iq90xfgvl1dl98fq3kvccqnkjkq9lr2kzplmqkjrbg0yapb7j",
+        "type": "tarball",
+        "url": "https://github.com/input-output-hk/stackage.nix/archive/5e095b5a139ea53a4758717ba7fa8382e36f6cce.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "tezos-packaging": {
+        "branch": "v9.2-1",
+        "description": "Various form of distribution for tezos-related executables",
+        "homepage": "",
+        "owner": "serokell",
+        "repo": "tezos-packaging",
+        "rev": "4ff58e4163ef2fca6baf8a12aad16b5c84443037",
+        "sha256": "084smlxxyczja6px38sx3zbxx0p0n1bmjwsg6k1ssnv9q6nm2qjm",
+        "type": "tarball",
+        "url": "https://github.com/serokell/tezos-packaging/archive/4ff58e4163ef2fca6baf8a12aad16b5c84443037.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "xrefcheck": {
+        "branch": "v0.1.2",
+        "description": "Check cross-references in repository documents",
+        "homepage": "",
+        "owner": "serokell",
+        "repo": "xrefcheck",
+        "rev": "53344d09ceed236d37154b4e583495c9759c7ef3",
+        "sha256": "17fawxqpshd29gviffzb59mjjskifrnkljc8nic6lbvsvml5fsv3",
+        "type": "tarball",
+        "url": "https://github.com/serokell/xrefcheck/archive/53344d09ceed236d37154b4e583495c9759c7ef3.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz",
+        "version": "0.1.2"
+    }
+}
