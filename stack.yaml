@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2021 Arthur Breitman
+# SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
+
+resolver: lts-17.3
+
+packages:
+  - haskell
+
+# You might have to update hackage index used by CI when you update
+# packages in this list, see the comment at the top of the file
+extra-deps:
+- morley-prelude-0.4.0
+- hex-text-0.1.0.0
+- named-0.3.0.1
+- show-type-0.1.1
+- git: https://github.com/serokell/base-noprelude.git
+  commit: 87df0899801dcdffd08ef7c3efd3c63e67e623c2
+- git: https://github.com/serokell/galois-field.git
+  commit: 576ba98ec947370835a1f308895037c7aa7f8b71
+- git: https://github.com/serokell/elliptic-curve.git
+  commit: b8a3d0cf8f7bacfed77dc3b697f5d08bd33396a8
+- git: https://github.com/serokell/pairing.git
+  commit: cf86cf1f6b03f478a439703b050c520a9d455353
+- git:
+    https://gitlab.com/morley-framework/morley.git
+  # ^ CI cannot use ssh, so we use http clone here
+  commit:
+    ac7d485d35a81fe60658447e68710ac62b3f34ad # master
+  subdirs:
+    - code/morley
+    - code/lorentz

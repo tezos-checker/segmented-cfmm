@@ -1,0 +1,72 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.34.3.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 1a50858a02f396977d3a1e2a77f42dd56602644d8125b15347d49713dcb6ba3a
+
+name:           segmented-cfmm
+version:        0.0.1.0
+description:    Tools and tests for the Segmented CFMM contract.
+author:         Serokell, Arthur Breitman
+maintainer:     Serokell, Arthur Breitman
+copyright:      2021 Arthur Breitman
+license:        MIT
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: git@github.com:serokell/segmented-cfmm.git
+
+library
+  exposed-modules:
+      SegCFMM.Types
+      Util
+  other-modules:
+      Paths_segmented_cfmm
+  autogen-modules:
+      Paths_segmented_cfmm
+  hs-source-dirs:
+      src
+  default-extensions: AllowAmbiguousTypes BangPatterns BlockArguments ConstraintKinds DataKinds DefaultSignatures DeriveAnyClass DeriveDataTypeable DeriveFoldable DeriveFunctor DeriveGeneric DeriveTraversable DerivingStrategies DerivingVia EmptyCase ExistentialQuantification FlexibleContexts FlexibleInstances GADTs GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NegativeLiterals NoImplicitPrelude NumDecimals OverloadedLabels OverloadedStrings PatternSynonyms PolyKinds QuasiQuotes RankNTypes RecordWildCards RecursiveDo ScopedTypeVariables StandaloneDeriving StrictData TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators UndecidableInstances UndecidableSuperClasses ViewPatterns RebindableSyntax
+  ghc-options: -Weverything -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missed-specialisations -Wno-all-missed-specialisations -Wno-unsafe -Wno-safe -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-implicit-prelude -Wno-unused-packages -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -Wno-unused-do-bind
+  build-depends:
+      base-noprelude >=4.7 && <5
+    , fmt
+    , lorentz
+    , morley
+    , morley-prelude
+    , template-haskell
+    , text
+    , universum
+  default-language: Haskell2010
+
+test-suite segmented-cfmm-test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Test.SegCFMM
+      Test.SegCFMM.Contract
+      Test.SegCFMM.Types
+      Paths_segmented_cfmm
+  hs-source-dirs:
+      test
+  default-extensions: AllowAmbiguousTypes BangPatterns BlockArguments ConstraintKinds DataKinds DefaultSignatures DeriveAnyClass DeriveDataTypeable DeriveFoldable DeriveFunctor DeriveGeneric DeriveTraversable DerivingStrategies DerivingVia EmptyCase ExistentialQuantification FlexibleContexts FlexibleInstances GADTs GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NegativeLiterals NoImplicitPrelude NumDecimals OverloadedLabels OverloadedStrings PatternSynonyms PolyKinds QuasiQuotes RankNTypes RecordWildCards RecursiveDo ScopedTypeVariables StandaloneDeriving StrictData TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators UndecidableInstances UndecidableSuperClasses ViewPatterns
+  ghc-options: -Weverything -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missed-specialisations -Wno-all-missed-specialisations -Wno-unsafe -Wno-safe -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-implicit-prelude -Wno-unused-packages -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -threaded -eventlog "-with-rtsopts=-N -A64m -AL256m "
+  build-tool-depends:
+      tasty-discover:tasty-discover
+  build-depends:
+      HUnit
+    , base-noprelude >=4.7 && <5
+    , fmt
+    , morley
+    , morley-prelude
+    , segmented-cfmm
+    , tasty
+    , tasty-hunit-compat
+    , universum
+  default-language: Haskell2010

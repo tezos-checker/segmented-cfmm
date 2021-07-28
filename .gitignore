@@ -52,4 +52,8 @@ dune-project
 ## File-based project format:
 *.iws
 
+# Ligo output
 out/
+
+# Haskell
+.stack-work/

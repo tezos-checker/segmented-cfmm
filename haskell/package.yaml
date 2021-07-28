@@ -1,0 +1,122 @@
+# SPDX-FileCopyrightText: 2021 Arthur Breitman
+# SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
+
+name:                segmented-cfmm
+version:             0.0.1.0
+license:             MIT
+license-file:        LICENSE
+author:              Serokell, Arthur Breitman
+git:                 git@github.com:serokell/segmented-cfmm.git
+copyright:           2021 Arthur Breitman
+
+extra-source-files:
+- README.md
+
+description:         Tools and tests for the Segmented CFMM contract.
+
+verbatim:
+  cabal-version: 2.2
+
+default-extensions:
+  - AllowAmbiguousTypes
+  - BangPatterns
+  - BlockArguments
+  - ConstraintKinds
+  - DataKinds
+  - DefaultSignatures
+  - DeriveAnyClass
+  - DeriveDataTypeable
+  - DeriveFoldable
+  - DeriveFunctor
+  - DeriveGeneric
+  - DeriveTraversable
+  - DerivingStrategies
+  - DerivingVia
+  - EmptyCase
+  - ExistentialQuantification
+  - FlexibleContexts
+  - FlexibleInstances
+  - GADTs
+  - GeneralizedNewtypeDeriving
+  - LambdaCase
+  - MultiParamTypeClasses
+  - MultiWayIf
+  - NamedFieldPuns
+  - NegativeLiterals
+  - NoImplicitPrelude
+  - NumDecimals
+  - OverloadedLabels
+  - OverloadedStrings
+  - PatternSynonyms
+  - PolyKinds
+  - QuasiQuotes
+  - RankNTypes
+  - RecordWildCards
+  - RecursiveDo
+  - ScopedTypeVariables
+  - StandaloneDeriving
+  - StrictData
+  - TemplateHaskell
+  - TupleSections
+  - TypeApplications
+  - TypeFamilies
+  - TypeOperators
+  - UndecidableInstances
+  - UndecidableSuperClasses
+  - ViewPatterns
+
+ghc-options:
+  -Weverything
+  -Wno-missing-exported-signatures
+  -Wno-missing-import-lists
+  -Wno-missed-specialisations
+  -Wno-all-missed-specialisations
+  -Wno-unsafe
+  -Wno-safe
+  -Wno-missing-local-signatures
+  -Wno-monomorphism-restriction
+  -Wno-implicit-prelude
+  -Wno-unused-packages
+  -Wno-prepositive-qualified-module
+  -Wno-missing-safe-haskell-mode
+
+dependencies:
+  - name: base-noprelude
+    version: ">= 4.7 && < 5"
+
+library:
+  source-dirs: src
+  default-extensions: [ RebindableSyntax ]
+  ghc-options: [ -Wno-unused-do-bind ]
+
+  generated-other-modules:
+    - Paths_segmented_cfmm
+  dependencies:
+    - text
+    - fmt
+    - lorentz
+    - morley
+    - morley-prelude
+    - template-haskell
+    - universum
+
+tests:
+  segmented-cfmm-test:
+    main:        Main.hs
+    source-dirs: test
+    build-tools: tasty-discover:tasty-discover
+
+    ghc-options:
+    - -threaded
+    - -eventlog
+    - '"-with-rtsopts=-N -A64m -AL256m "'
+
+    dependencies:
+    - segmented-cfmm
+    - fmt
+    - HUnit
+    - morley
+    - morley-prelude
+    - tasty
+    - tasty-hunit-compat
+    - universum
