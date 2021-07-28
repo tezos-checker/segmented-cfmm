@@ -3,8 +3,6 @@ cabal-version: 2.2
 -- This file has been generated from package.yaml by hpack version 0.34.3.
 --
 -- see: https://github.com/sol/hpack
---
--- hash: 1a50858a02f396977d3a1e2a77f42dd56602644d8125b15347d49713dcb6ba3a
 
 name:           segmented-cfmm
 version:        0.0.1.0
@@ -25,6 +23,7 @@ source-repository head
 library
   exposed-modules:
       SegCFMM.Types
+      SegCFMM.TZIP16Metadata
       Util
   other-modules:
       Paths_segmented_cfmm
@@ -36,12 +35,35 @@ library
   ghc-options: -Weverything -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missed-specialisations -Wno-all-missed-specialisations -Wno-unsafe -Wno-safe -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-implicit-prelude -Wno-unused-packages -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -Wno-unused-do-bind
   build-depends:
       base-noprelude >=4.7 && <5
+    , containers
     , fmt
     , lorentz
     , morley
+    , morley-ledgers
+    , morley-metadata
     , morley-prelude
     , template-haskell
     , text
+    , universum
+  default-language: Haskell2010
+
+executable segmented-cfmm
+  main-is: Main.hs
+  other-modules:
+      Paths_segmented_cfmm
+  hs-source-dirs:
+      app
+  default-extensions: AllowAmbiguousTypes BangPatterns BlockArguments ConstraintKinds DataKinds DefaultSignatures DeriveAnyClass DeriveDataTypeable DeriveFoldable DeriveFunctor DeriveGeneric DeriveTraversable DerivingStrategies DerivingVia EmptyCase ExistentialQuantification FlexibleContexts FlexibleInstances GADTs GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NegativeLiterals NoImplicitPrelude NumDecimals OverloadedLabels OverloadedStrings PatternSynonyms PolyKinds QuasiQuotes RankNTypes RecordWildCards RecursiveDo ScopedTypeVariables StandaloneDeriving StrictData TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators UndecidableInstances UndecidableSuperClasses ViewPatterns
+  ghc-options: -Weverything -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missed-specialisations -Wno-all-missed-specialisations -Wno-unsafe -Wno-safe -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-implicit-prelude -Wno-unused-packages -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode
+  build-depends:
+      aeson-pretty
+    , base-noprelude >=4.7 && <5
+    , fmt
+    , morley
+    , morley-ledgers
+    , morley-prelude
+    , optparse-applicative
+    , segmented-cfmm
     , universum
   default-language: Haskell2010
 

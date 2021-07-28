@@ -1,5 +1,6 @@
 -- SPDX-FileCopyrightText: 2021 Arthur Breitman
 -- SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
+{-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 -- | Types mirrored from LIGO implementation.
@@ -13,6 +14,7 @@ import Universum
 import Fmt (Buildable, build, genericF)
 
 import Lorentz hiding (now)
+import qualified Lorentz.Contracts.Spec.TZIP16Interface as TZIP16
 
 data Parameter
   = X_to_Y XToYParam
@@ -101,11 +103,19 @@ data Storage = Storage
   , sTimeWeightIcSum :: Integer
   , sLastIcSumUpdate :: Timestamp
   , sSecondsPerLiquidity :: Natural
+
+  , sMetadata :: TZIP16.MetadataMap BigMap
   }
 
 instance Buildable Storage where
   build = genericF
 
+-- Needed by `sMetadata`
+instance Buildable (ByteString) where
+  build = build . show @Text
+
+instance HasFieldOfType Storage name field => StoreHasField Storage name field where
+  storeFieldOps = storeFieldOpsADT
 
 
 data BalanceNat = BalanceNat
