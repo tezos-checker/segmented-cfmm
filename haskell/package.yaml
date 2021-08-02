@@ -92,12 +92,29 @@ library:
   generated-other-modules:
     - Paths_segmented_cfmm
   dependencies:
+    - containers
     - text
     - fmt
     - lorentz
     - morley
+    - morley-ledgers
+    - morley-metadata
     - morley-prelude
     - template-haskell
+    - universum
+
+executables:
+  segmented-cfmm:
+    main:                Main.hs
+    source-dirs:         app
+    dependencies:
+    - aeson-pretty
+    - segmented-cfmm
+    - fmt
+    - morley
+    - morley-ledgers
+    - morley-prelude
+    - optparse-applicative
     - universum
 
 tests:

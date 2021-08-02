@@ -31,7 +31,11 @@ type position_state = {
     fee_growth_inside_last : balance_nat ;
     seconds_per_liquidity_inside : nat ;
     }
+
 type position_map = (position_index, position_state) big_map
+
+// TZIP-16 metadata map
+type metadata_map = (string, bytes) big_map
 
 type storage = {
     liquidity : nat ; (* virtual liquidity, the value L for which the curve locally looks like x * y = L^2 *)
@@ -45,6 +49,8 @@ type storage = {
     time_weighted_ic_sum : int ;
     last_ic_sum_update : timestamp ;
     seconds_per_liquidity : nat ;
+
+    metadata : metadata_map ;
 }
 
 (* Entrypoints types *)
