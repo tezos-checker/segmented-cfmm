@@ -1,0 +1,20 @@
+{
+  "name": "segmented-cfmm-sdk",
+  "version": "1.0.0",
+  "description": "A Typescript SDK to interact with Segmtend CFMM contracts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "api-extract-init": "api-extractor init",
+    "api-extract": "api-extractor run --local --verbose"
+  },
+  "devDependencies": {
+    "typescript": "^4.1.5"
+  },
+  "dependencies": {
+    "@microsoft/api-extractor": "^7.13.1",
+    "@taquito/michel-codec": "^10.0.0",
+    "@taquito/signer": "^10.0.0",
+    "@taquito/taquito": "^10.0.0"
+  }
+}

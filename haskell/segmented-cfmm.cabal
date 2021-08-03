@@ -24,6 +24,7 @@ library
   exposed-modules:
       SegCFMM.Types
       SegCFMM.TZIP16Metadata
+      Typescript
       Util
   other-modules:
       Paths_segmented_cfmm
@@ -36,6 +37,7 @@ library
   build-depends:
       base-noprelude >=4.7 && <5
     , containers
+    , filepath
     , fmt
     , lorentz
     , morley
