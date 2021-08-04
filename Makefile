@@ -10,6 +10,9 @@ BUILD = $(LIGO) compile-contract --syntax cameligo
 # Where to put build files
 OUT ?= out
 
+# Where to put typescript files
+TS_OUT ?= typescript
+
 # Utility function to escape double quotes
 escape_double_quote = $(subst $\",$\\",$(1))
 
@@ -48,3 +51,11 @@ metadata: lib all
 test: all
 	$(MAKE) -C haskell test PACKAGE=segmented-cfmm \
 		SEGMENTED_CFMM_PATH=../$(OUT)/segmented_cfmm.tz
+
+typescript: all
+	$(MAKE) -C haskell build PACKAGE=segmented-cfmm \
+		STACK_DEV_OPTIONS="--fast --ghc-options -Wwarn" \
+		SEGMENTED_CFMM_PATH=../$(OUT)/segmented_cfmm.tz
+
+	rm -rf $(TS_OUT)/segmented-cfmm/src/generated/*
+	stack exec -- segmented-cfmm generate-typescript --target=$(TS_OUT)/segmented-cfmm/src/generated/

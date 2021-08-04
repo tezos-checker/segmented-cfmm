@@ -20,6 +20,8 @@ import Util.Main
 import Util.Named
 
 import SegCFMM.TZIP16Metadata
+import SegCFMM.Types
+import Typescript
 
 main :: IO ()
 main = wrapMain $ do
@@ -28,6 +30,8 @@ main = wrapMain $ do
     PrintMetadata mc ->
       putTextLn . decodeUtf8 . encodePretty $
         mkSegCfmmMetadata (mkMetadataSettings mc)
+    GenerateTypescript fp ->
+      void $ generateTs @Parameter fp
 
 --------------------------------------------------------------------------------
 -- Arguments parsing
@@ -35,6 +39,7 @@ main = wrapMain $ do
 
 data CmdArgs
   = PrintMetadata MetadataConfig
+  | GenerateTypescript FilePath
 
 cmdArgsParser :: Opt.Parser CmdArgs
 cmdArgsParser = asum
@@ -42,6 +47,10 @@ cmdArgsParser = asum
       mkCommandParser "print-metadata"
         (PrintMetadata <$> metadataConfigParser)
         "Print the TZIP-16 metadata."
+  , Opt.hsubparser $
+      mkCommandParser "generate-typescript"
+        (GenerateTypescript <$> (mkCLOptionParser Nothing (#name  .! "target") (#help .! "Path to which generated files should be written.")))
+        "Generate typescript type to represent the parameter"
   ]
 
 programInfo :: Opt.ParserInfo CmdArgs

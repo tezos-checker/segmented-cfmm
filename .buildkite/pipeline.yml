@@ -39,6 +39,21 @@ steps:
     commands:
     - nix-build ci.nix -A all-components
 
+  - label: check typescript api
+    depends_on:
+      - build-ligo
+      - build-haskell
+    commands:
+      - nix run -f ci.nix packages.segmented-cfmm.exes.segmented-cfmm pkgs.diffutils -c ./scripts/ci/validate-typescript-api.sh
+
+
+  - label: typescript-build
+    depends_on:
+      - build-ligo
+      - build-haskell
+    commands:
+    - nix-build ci.nix -A build-typescript --arg release false
+
   - label: weeder
     depends_on: build-haskell
     commands:

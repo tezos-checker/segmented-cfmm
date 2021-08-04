@@ -97,6 +97,14 @@ rec {
     installPhase = "mkdir -p $out; cp -r out/* $out";
   };
 
+  build-typescript = buildYarnPackage {
+    src = ./typescript/segmented-cfmm;
+    yarnBuild = ''
+      yarn install
+      yarn tsc
+    '';
+  };
+
   # nixpkgs has weeder 2, but we use weeder 1
   weeder-legacy = pkgs.haskellPackages.callHackageDirect {
     pkg = "weeder";

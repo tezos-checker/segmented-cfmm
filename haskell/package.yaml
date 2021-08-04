@@ -94,6 +94,7 @@ library:
   dependencies:
     - containers
     - text
+    - filepath
     - fmt
     - lorentz
     - morley

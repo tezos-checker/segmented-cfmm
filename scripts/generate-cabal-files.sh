@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# SPDX-FileCopyrightText: 2021 Tocqueville Group
+# SPDX-FileCopyrightText: 2021 Arthur Breitman
 #
 # SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
 
