@@ -25,7 +25,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             let s_new = {p.s with
                 sqrt_price = sqrt_price_new ;
                 cur_tick_index = i_c_new ;
-                fee_growth = {p.s.fee_growth with x = p.s.fee_growth.x + fee / p.s.liquidity}} in
+                fee_growth = {p.s.fee_growth with x = {x128 = p.s.fee_growth.x.x128 + fee / p.s.liquidity}}} in
             {p with s = s_new ; dx = 0n ; dy = p.dy + dy}
         else
             (*We did cross the tick. *)
@@ -43,9 +43,10 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             let dx_consummed = ceildiv (dx_for_dy * 10000n) const_one_minus_fee_bps in
             (* Deduct the fee we will actually be paying. *)
             let fee = assert_nat (dx_consummed - dx_for_dy, internal_impossible_err) in
-            let fee_growth_x_new = p.s.fee_growth.x + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity) in
+            let fee_growth_x_new = {x128 = p.s.fee_growth.x.x128 + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity)} in
             (* Flip fee growth. *)
-            let fee_growth_outside_new = {tick.fee_growth_outside with x = assert_nat (fee_growth_x_new - tick.fee_growth_outside.x, flip_fee_growth_outside_err)} in
+            let fee_growth_outside_new = {tick.fee_growth_outside with
+                x = {x128 = assert_nat (fee_growth_x_new.x128 - tick.fee_growth_outside.x.x128, flip_fee_growth_outside_err)}} in
             let fee_growth_new = {p.s.fee_growth with x=fee_growth_x_new} in
             (* Flip time growth. *)
             let seconds_outside_new = assert_nat ((Tezos.now - epoch_time) - tick.seconds_outside, internal_epoch_bigger_than_now_err) in
@@ -85,7 +86,7 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             let s_new = {p.s with
                 sqrt_price = sqrt_price_new ;
                 cur_tick_index = i_c_new ;
-                fee_growth = {p.s.fee_growth with y = p.s.fee_growth.y + fee / p.s.liquidity}} in
+                fee_growth = {p.s.fee_growth with y = {x128 = p.s.fee_growth.y.x128 + fee / p.s.liquidity}}} in
             {p with s = s_new ; dy = 0n ; dx = p.dx + dx}
         else
             (*We did cross the tick. *)
@@ -105,9 +106,10 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             let dy_consummed = ceildiv (dy_for_dx * 10000n) const_one_minus_fee_bps in
             (* Deduct the fee we will actually be paying. *)
             let fee = assert_nat (dy_consummed - dy_for_dx, internal_impossible_err) in
-            let fee_growth_y_new = p.s.fee_growth.y + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity) in
+            let fee_growth_y_new = {x128 = p.s.fee_growth.y.x128 + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity)} in
             (* Flip fee growth. *)
-            let fee_growth_outside_new = {tick.fee_growth_outside with y = assert_nat (fee_growth_y_new - tick.fee_growth_outside.y, flip_fee_growth_outside_err)} in
+            let fee_growth_outside_new = {tick.fee_growth_outside with
+                y = {x128 = assert_nat (fee_growth_y_new.x128 - tick.fee_growth_outside.y.x128, flip_fee_growth_outside_err)}} in
             let fee_growth_new = {p.s.fee_growth with y=fee_growth_y_new} in
             let tick_new = {tick with fee_growth_outside = fee_growth_outside_new} in
             let ticks_new = Big_map.update p.s.cur_tick_witness (Some tick_new) p.s.ticks  in

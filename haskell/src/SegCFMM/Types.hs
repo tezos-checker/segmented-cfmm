@@ -123,12 +123,11 @@ data Storage = Storage
     -- ^ Current tick index: The highest tick corresponding to a price less than or
     -- equal to sqrt_price^2, does not necessarily corresponds to a boundary.
   , sCurTickWitness :: TickIndex
-    -- ^ The highest initialized tick lower than or equal to cur_tick_index.
-  , sFeeGrowth :: BalanceNat
+    -- ^ The highest initialized tick lower than or equal to cur_tick_index
+  , sFeeGrowth :: PerToken (X 128 Natural)
     -- ^ Represent the total amount of fees that have been earned per unit of
     -- virtual liquidity, over the entire history of the contract.
-  , sBalance :: BalanceNat
-    -- ^ Tokens' balances.
+  , sBalance :: PerToken Natural
   , sTicks :: TickMap
     -- ^ Ticks' states.
   , sPositions :: PositionMap
@@ -137,7 +136,7 @@ data Storage = Storage
     -- ^ Cumulative time-weighted sum of the 'sIC'.
   , sLastIcSumUpdate :: Timestamp
     -- ^ Last time 'sLastIcSumUpdate' was updated.
-  , sSecondsPerLiquidity :: Natural
+  , sSecondsPerLiquidityCumulative :: Natural
 
   , sMetadata :: TZIP16.MetadataMap BigMap
     -- ^ TZIP-16 metadata.
@@ -154,12 +153,12 @@ instance HasFieldOfType Storage name field => StoreHasField Storage name field w
   storeFieldOps = storeFieldOpsADT
 
 
-data BalanceNat = BalanceNat
-  { bnX :: Natural
-  , bnY :: Natural
+data PerToken a = PerToken
+  { ptX :: a
+  , ptY :: a
   }
 
-instance Buildable BalanceNat where
+instance Buildable a => Buildable (PerToken a) where
   build = genericF
 
 -- | Tick types, representing pieces of the curve offered between different tick segments.
@@ -189,7 +188,7 @@ data TickState = TickState
     -- ^ Overall number of seconds spent below or above this tick
     --   (below or above - depends on whether the current tick
     --    is below or above this tick).
-  , tsFeeGrowthOutside :: BalanceNat
+  , tsFeeGrowthOutside :: PerToken (X 128 Natural)
     -- ^ Track fees accumulated below or above this tick.
   , tsSecondsPerLiquidityOutside :: Natural
   , tsSqrtPrice :: X 80 Natural
@@ -220,7 +219,7 @@ data PositionState = PositionState
     -- ^ Amount of virtual liquidity that the position represented the last
     -- time it was touched. This amount does not reflect the fees that have
     -- been accumulated since the contract was last touched.
-  , psFeeGrowthInsideLast :: BalanceNat
+  , psFeeGrowthInsideLast :: PerToken (X 128 Natural)
     -- ^ Used to calculate uncollected fees.
   }
 
@@ -268,9 +267,9 @@ instance ParameterHasEntrypoints Parameter where
   type ParameterEntrypointsDerivation Parameter = EpdDelegate
 
 
-customGeneric "BalanceNat" ligoLayout
-deriving anyclass instance IsoValue BalanceNat
-instance HasAnnotation BalanceNat where
+customGeneric "PerToken" ligoLayout
+deriving anyclass instance IsoValue a => IsoValue (PerToken a)
+instance HasAnnotation a => HasAnnotation (PerToken a) where
   annOptions = segCfmmAnnOptions
 
 customGeneric "TickState" ligoLayout

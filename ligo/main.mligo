@@ -17,7 +17,7 @@ This is an example of conditionally present code, remove it once normal pragmas 
 let rec initialize_tick ((ticks, i, i_l,
     initial_fee_growth_outside,
     initial_seconds_outside,
-    initial_seconds_per_liquidity_outside) : tick_map * tick_index * tick_index * balance_nat * nat * nat) : tick_map =
+    initial_seconds_per_liquidity_outside) : tick_map * tick_index * tick_index * balance_nat_x128 * nat * nat) : tick_map =
     if Big_map.mem i ticks then
         ticks
     else if i_l.i > i.i then
@@ -68,21 +68,21 @@ let collect_fees (s : storage) (key : position_index) : storage * balance_nat =
     let tick_lo = get_tick s.ticks key.lower_tick_index internal_tick_not_exist_err in
     let tick_hi = get_tick s.ticks key.upper_tick_index internal_tick_not_exist_err in
     let f_a = if s.cur_tick_index >= key.upper_tick_index.i then
-        { x = assert_nat (s.fee_growth.x - tick_hi.fee_growth_outside.x, internal_311);
-          y = assert_nat (s.fee_growth.y - tick_hi.fee_growth_outside.y, internal_311)}
+        { x = {x128 = assert_nat (s.fee_growth.x.x128 - tick_hi.fee_growth_outside.x.x128, internal_311)};
+          y = {x128 = assert_nat (s.fee_growth.y.x128 - tick_hi.fee_growth_outside.y.x128, internal_311)}}
     else
         tick_hi.fee_growth_outside in
     let f_b = if s.cur_tick_index >= key.lower_tick_index.i then
         tick_lo.fee_growth_outside
     else
-        { x = assert_nat (s.fee_growth.x - tick_lo.fee_growth_outside.x, internal_312) ;
-          y = assert_nat (s.fee_growth.y - tick_lo.fee_growth_outside.y, internal_312) } in
+        { x = {x128 = assert_nat (s.fee_growth.x.x128 - tick_lo.fee_growth_outside.x.x128, internal_312)} ;
+          y = {x128 = assert_nat (s.fee_growth.y.x128 - tick_lo.fee_growth_outside.y.x128, internal_312)} } in
     let fee_growth_inside = {
-        x = assert_nat (s.fee_growth.x - f_a.x - f_b.x, internal_314) ;
-        y = assert_nat (s.fee_growth.y - f_a.y - f_b.y, internal_315) } in
+        x = {x128 = assert_nat (s.fee_growth.x.x128 - f_a.x.x128 - f_b.x.x128, internal_314)} ;
+        y = {x128 = assert_nat (s.fee_growth.y.x128 - f_a.y.x128 - f_b.y.x128, internal_315)} } in
     let fees = {
-        x = Bitwise.shift_right ((assert_nat (fee_growth_inside.x - position.fee_growth_inside_last.x, internal_316)) * position.liquidity) 128n;
-        y = Bitwise.shift_right ((assert_nat (fee_growth_inside.y - position.fee_growth_inside_last.y, internal_317)) * position.liquidity) 128n} in
+        x = Bitwise.shift_right ((assert_nat (fee_growth_inside.x.x128 - position.fee_growth_inside_last.x.x128, internal_316)) * position.liquidity) 128n;
+        y = Bitwise.shift_right ((assert_nat (fee_growth_inside.y.x128 - position.fee_growth_inside_last.y.x128, internal_317)) * position.liquidity) 128n} in
     let position = {position with fee_growth_inside_last = fee_growth_inside} in
     let positions = Big_map.update key (Some position) s.positions in
     ({s with positions = positions}, fees)
@@ -94,18 +94,18 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
     let ticks = if s.cur_tick_index >= i_l.i then
         initialize_tick (ticks, i_l, i_l_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), 42n (*FIXME*))
     else
-        initialize_tick (ticks, i_l, i_l_l, {x = 0n ; y = 0n}, 0n, 0n)  in
+        initialize_tick (ticks, i_l, i_l_l, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, 0n)  in
     let ticks = if s.cur_tick_index >= i_u.i then
         initialize_tick (ticks, i_u, i_u_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), 42n (*FIXME*))
     else
-        initialize_tick (ticks, i_u, i_u_l, {x = 0n ; y = 0n}, 0n, 0n)  in
+        initialize_tick (ticks, i_u, i_u_l, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, 0n)  in
 
     (* Form position key. *)
     let position_key = {owner=Tezos.sender ; lower_tick_index=i_l; upper_tick_index=i_u} in
     (* Grab existing position or create an empty one *)
     let (position, is_new) = match (Big_map.find_opt position_key s.positions) with
     | Some position -> (position, false)
-    | None -> ({liquidity = 0n ; fee_growth_inside_last = {x = 0n; y = 0n}}, true) in
+    | None -> ({liquidity = 0n ; fee_growth_inside_last = {x = {x128 = 0n}; y = {x128 = 0n}}}, true) in
     (* Get accumulated fees for this position. *)
     let s, fees = collect_fees s position_key in
     (* Update liquidity of position. *)

@@ -8,10 +8,13 @@
 (* Keeps a positive value with -2^80 precision. *)
 type x80n = { x80 : nat }
 
+(* Keeps a positive value with -2^128 precision. *)
+type x128n = { x128 : nat }
+
 (* Tick types, representing pieces of the curve offered between different tick segments. *)
 type tick_index = {i : int}
 type balance_nat = {x : nat ; y : nat}
-type balance_int = {x : int ; y : int}
+type balance_nat_x128 = {x : x128n ; y : x128n}
 
 (* Information stored for every initialized tick. *)
 type tick_state = {
@@ -67,7 +70,7 @@ type tick_state = {
 
         For intuition for "outside" word, see `seconds_outside`.
        *)
-    fee_growth_outside : balance_nat ;
+    fee_growth_outside : balance_nat_x128 ;
 
     (* Seconds-weighted 1/L value accumulator s_lo, it accounts only for
         "outside" periods. For intuition for "outside" word, see `seconds_outside`.
@@ -95,7 +98,7 @@ type position_state = {
     (* Total fees earned by the position at the moment of last fees collection for this position.
         This helps to evaluate the next portion of fees to collect.
     *)
-    fee_growth_inside_last : balance_nat ;
+    fee_growth_inside_last : balance_nat_x128 ;
 }
 
 type position_map = (position_index, position_state) big_map
@@ -122,7 +125,7 @@ type storage = {
     (* The total amount of fees that have been earned per unit of virtual liquidity (L),
         over the entire history of the contract.
     *)
-    fee_growth : balance_nat ;
+    fee_growth : balance_nat_x128 ;
 
     (* Tokens' amounts. *)
     balance : balance_nat ;
