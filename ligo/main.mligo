@@ -143,17 +143,17 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
         (s, {
             (* If I'm adding liquidity, x will be positive, I want to overestimate it, if x I'm taking away
                 liquidity, I want to to underestimate what I'm receiving. *)
-            x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u - srp_l, internal_sqrt_price_grow_err_1)) 90n))) (int (srp_l * srp_u)) ;
+            x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - srp_l.x80, internal_sqrt_price_grow_err_1)) 80n))) (int (srp_l.x80 * srp_u.x80)) ;
             y = 0})
     else if i_l.i <= s.cur_tick_index && s.cur_tick_index < i_u.i then
         (* update interval we are in, if need be ... *)
         let s = {s with cur_tick_witness = if i_l.i > s.cur_tick_witness.i then i_l else s.cur_tick_witness ; liquidity = assert_nat (s.liquidity + liquidity_delta, internal_liquidity_below_zero_err)} in
         (s, {
-            x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u - s.sqrt_price, internal_sqrt_price_grow_err_1)) 90n))) (int (s.sqrt_price * srp_u)) ;
-            y = shift_int (liquidity_delta * (s.sqrt_price - srp_l)) (-80)
+            x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - s.sqrt_price.x80, internal_sqrt_price_grow_err_1)) 80n))) (int (s.sqrt_price.x80 * srp_u.x80)) ;
+            y = shift_int (liquidity_delta * (s.sqrt_price.x80 - srp_l.x80)) (-80)
             })
     else (* cur_tick_index >= i_u *)
-        (s, {x = 0 ; y = shift_int (liquidity_delta * (srp_u - srp_l)) (-80) }) in
+        (s, {x = 0 ; y = shift_int (liquidity_delta * (srp_u.x80 - srp_l.x80)) (-80) }) in
 
     (* Collect fees to increase withdrawal or reduce required deposit. *)
     let delta = {x = delta.x - fees.x ; y = delta.y - fees.y} in

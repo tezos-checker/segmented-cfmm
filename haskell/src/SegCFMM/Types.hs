@@ -5,7 +5,10 @@
 
 -- | Types mirrored from LIGO implementation.
 module SegCFMM.Types
-  ( Storage (..)
+  ( X (..)
+  , mkX
+
+  , Storage (..)
   , Parameter (..)
   ) where
 
@@ -15,6 +18,23 @@ import Fmt (Buildable, build, genericF)
 
 import Lorentz hiding (now)
 import qualified Lorentz.Contracts.Spec.TZIP16Interface as TZIP16
+
+-- | A value with @2^-n@ precision.
+newtype X (n :: Nat) a = X
+  { pickX :: a
+    -- ^ Get the value multiplied by @2^n@.
+  } deriving stock (Show, Eq, Generic)
+    deriving newtype (IsoValue, HasAnnotation)
+
+instance (Buildable a, KnownNat n) => Buildable (X n a) where
+  build x = build (pickX x) <> " X 2^" <> build (powerOfX x)
+
+powerOfX :: KnownNat n => X n a -> Natural
+powerOfX (X{} :: X n a) = natVal (Proxy @n)
+
+-- | Convert a fraction to 'X'.
+mkX :: forall n a. (KnownNat n, RealFrac a, Integral a) => a -> X n a
+mkX = X . round . (* 2 ^ natVal (Proxy @n))
 
 data Parameter
   = X_to_Y XToYParam
@@ -97,7 +117,7 @@ instance Buildable SetPositionParam where
 data Storage = Storage
   { sLiquidity :: Natural
     -- ^ Virtual liquidity, the value L for which the curve locally looks like x * y = L^2
-  , sSqrtPrice :: Natural
+  , sSqrtPrice :: X 80 Natural
     -- ^ Square root of the virtual price, the value P for which P = x / y
   , sCurTickIndex :: Integer
     -- ^ Current tick index: The highest tick corresponding to a price less than or
@@ -172,7 +192,7 @@ data TickState = TickState
   , tsFeeGrowthOutside :: BalanceNat
     -- ^ Track fees accumulated below or above this tick.
   , tsSecondsPerLiquidityOutside :: Natural
-  , tsSqrtPrice :: Natural
+  , tsSqrtPrice :: X 80 Natural
     -- ^ Square root of the price associated with this tick.
   }
 

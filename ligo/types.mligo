@@ -5,6 +5,9 @@
 #else
 #define TYPES_MLIGO
 
+(* Keeps a positive value with -2^80 precision. *)
+type x80n = { x80 : nat }
+
 (* Tick types, representing pieces of the curve offered between different tick segments. *)
 type tick_index = {i : int}
 type balance_nat = {x : nat ; y : nat}
@@ -74,7 +77,7 @@ type tick_state = {
     seconds_per_liquidity_outside : nat ;
 
     (* sqrt(P) = sqrt(X/Y) associated with this tick. *)
-    sqrt_price : nat
+    sqrt_price : x80n
 }
 
 type tick_map = (tick_index, tick_state) big_map
@@ -105,7 +108,7 @@ type storage = {
     liquidity : nat ;
 
     (* Square root of the virtual price, the value P for which P = x / y. *)
-    sqrt_price : nat ;
+    sqrt_price : x80n ;
 
     (* Index of the highest tick corresponding to a price less than or equal to sqrt_price^2,
         does not necessarily corresponds to a boundary.
