@@ -14,6 +14,8 @@ license:        MIT
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
+    test/segmented_cfmm.tz
+extra-doc-files:
     README.md
 
 source-repository head
