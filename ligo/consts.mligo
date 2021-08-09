@@ -4,8 +4,6 @@
 #if CONSTS_MLIGO
 #else
 #define CONSTS_MLIGO
-(* TODO implement error strings as nat error codes *)
-
 
 [@inline] let const_max_tick : nat = 1048575n
 

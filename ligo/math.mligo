@@ -19,7 +19,7 @@ let floordiv (numerator : nat) (denominator : nat) : nat =  numerator / denomina
 let floor_log_half_bps ((x, y) : nat * nat) : int =
     let tenx = 10n * x in
     if tenx < 7n * y or tenx > 15n * y then
-        (failwith "Log out of bounds" : int)
+        (failwith log_out_of_bounds_err : int)
     else
         let x_plus_y = x + y in
         let num : int = 60003 * (x - y) * (int x_plus_y) in
@@ -30,9 +30,9 @@ let shift_int (x : int) (n : int): int =
     (if x < 0 then -1 else 1) * (int (if n > 0 then Bitwise.shift_left (abs x) (abs n) else Bitwise.shift_right (abs x) (abs n)))
 
 
-let assert_nat (x : int) : nat =
+let assert_nat (x, error_code : int * nat) : nat =
     match is_nat x with
-    | None -> (failwith "x should be positive" : nat)
+    | None -> (failwith error_code : nat)
     | Some n -> n
 
 (* TODO move ladders to a bigmap and load lazily *)
@@ -86,9 +86,9 @@ let rec half_bps_pow_rec ((tick, acc, ladder) : nat * fixed_point * (fixed_point
     if tick = 0n then
         acc
     else
-        let (half, rem) = match ediv tick 2n with | None -> (failwith "impossible" : nat * nat) | Some d -> d in
+        let (half, rem) = match ediv tick 2n with | None -> (failwith internal_impossible_err : nat * nat) | Some d -> d in
         match ladder with
-        | [] -> (failwith "should not reach end of ladder" : fixed_point)
+        | [] -> (failwith end_ladder_reached_err : fixed_point)
         | h :: t -> half_bps_pow_rec (half, (if rem = 0n then acc else fixed_point_mul h acc), t)
 
 let half_bps_pow (tick : int) : nat =

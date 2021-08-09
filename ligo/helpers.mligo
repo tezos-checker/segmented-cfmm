@@ -5,6 +5,7 @@
 #else
 #define HELPERS_MLIGO
 
+#include "errors.mligo"
 #include "math.mligo"
 
 let sqrt_price_move (liquidity : nat) (sqrt_price : nat) (dx : nat) =
@@ -15,9 +16,9 @@ let sqrt_price_move (liquidity : nat) (sqrt_price : nat) (dx : nat) =
 
 
 (* Helper function to grab a tick we know exists in the tick indexed state. *)
-let get_tick (ticks : (tick_index, tick_state) big_map) (index: tick_index) : tick_state =
+let get_tick (ticks : (tick_index, tick_state) big_map) (index: tick_index) (error_code: nat) : tick_state =
     match Big_map.find_opt index ticks with
-    | None -> failwith "Assertion error, tick should be initialized"
+    | None -> failwith error_code
     | Some state -> state
 
 #endif

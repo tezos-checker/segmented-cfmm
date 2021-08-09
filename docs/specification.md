@@ -346,9 +346,9 @@ Note: in order to be able to perform a swap, this contract must be made an
 - When the `y` token is `ctez`, a [protocol fee](#fees) is subtracted
   after converting the `x` tokens to `ctez`.
 - If the swap is no longer acceptable because the `deadline` was not met, fails
-  with `TIMED_OUT`.
+  with `past_deadline_err` error code.
 - If less than `min_dy` amount of token `y` would be obtained from the swap, fails
-  with `UNDER_MIN`.
+  with `smaller_than_min_asset_err` error code.
 - If the swap is successful, the computed converted `y` tokens will be `transfer`red
   to the `to_dy` account
 
@@ -399,7 +399,7 @@ Note: in order to be able to perform a swap, this contract must be made an
 - When the `y` token is `ctez`, a [protocol fee](#fees) is subtracted
   after converting the `x` tokens to `ctez`.
 - If the swap is no longer acceptable because the `deadline` was not met, fails
-  with `TIMED_OUT`.
+  with `past_deadline_err` error code.
 - Instead of completing the single swap, the `x_prime_contract` will be called.
 - If less than `min_dx_prime` amount of token `x_prime` would be obtained from
   the swap second swap, `x_prime_contract` is expected to fail with `UNDER_MIN`.
@@ -434,9 +434,9 @@ Updates or creates a new [position](#positions) in the given range.
   * negative in `x`: this amount will be `transfer`red **to** `to_x`
   * negative in `y`: this amount will be `transfer`red **to** `to_y`
 - If the position update is no longer acceptable because the `deadline` was not
-  met, fails with `TIMED_OUT`
+  met, fails with `past_deadline_err` error code
 - If the amount of tokens that needs to be `transfer`red to the contract is
-  higher than `maximum_tokens_contributed`, fails with `HIGH_TOKENS`.
+  higher than `maximum_tokens_contributed`, fails with `high_tokens_err` error code.
 - A user can set `delta_liquidity` to `0` on an existing position to simply retrieve
   any uncollected fees.
 
@@ -497,7 +497,7 @@ Oracle `view` for the cumulative tick and liquidity-in-range, calculated for eac
     liquidity-in-range at that `timestamp`.
 - The contract stores a fixed number of past observations, with recent observations overwriting the oldest.
   * As a result, if any of the timestamps given in the entrypoint's parameter
-  is too far back in the past, the entrypoint fails with `INVALID_TIMESTAMP`.
+  is too far back in the past, the entrypoint fails with `invaild_timestamp_err` error code.
   * Note that the amount of observations stored by the contract can be increased
   via the `increase_observation_count` entrypoint.
 
@@ -534,8 +534,7 @@ type increase_observation_count_param = {
 
 # Errors
 
-TODO: to account for all validation and internal errors, a complete list will be
-provided during the implementation of the contract.
+See the [Error Codes](/docs/error-codes.md) file for the list of error codes.
 
 ### Design decisions
 

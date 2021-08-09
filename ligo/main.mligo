@@ -21,12 +21,12 @@ let rec initialize_tick ((ticks, i, i_l,
     if Big_map.mem i ticks then
         ticks
     else if i_l.i > i.i then
-        (failwith "Invalid witness" : tick_map)
+        (failwith invalid_witness_err : tick_map)
     else
-        let tick = get_tick ticks i_l in
+        let tick = get_tick ticks i_l tick_not_exist_err in
         let i_next = tick.next in
         if i_next.i > i.i then
-            let tick_next = get_tick ticks i_next in
+            let tick_next = get_tick ticks i_next internal_tick_not_exist_err in
             let ticks = Big_map.update i_l (Some {tick with next = i}) ticks in
             let ticks = Big_map.update i_next (Some {tick_next with prev = i}) ticks in
             let ticks = Big_map.update i (Some {
@@ -43,14 +43,14 @@ let rec initialize_tick ((ticks, i, i_l,
             initialize_tick (ticks, i, i_next, initial_fee_growth_outside, initial_seconds_outside, initial_seconds_per_liquidity_outside)
 
 let incr_n_positions (ticks : tick_map) (i : tick_index) (incr : int) =
-    let tick = get_tick ticks i in
-    let n_pos = assert_nat (tick.n_positions + incr) in
+    let tick = get_tick ticks i internal_tick_not_exist_err in
+    let n_pos = assert_nat (tick.n_positions + incr, internal_position_underflow_err) in
     if n_pos = 0n then
         (*  Garbage collect the tick.
             The largest and smallest tick are initialized with n_positions = 1 so they cannot
             be accidentally garbage collected. *)
-        let prev = get_tick ticks tick.prev in
-        let next = get_tick ticks tick.next in
+        let prev = get_tick ticks tick.prev internal_tick_not_exist_err in
+        let next = get_tick ticks tick.next internal_tick_not_exist_err in
         (* prev links to next and next to prev, skipping the deleted tick *)
         let prev = {prev with next = tick.next} in
         let next = {next with prev = tick.prev} in
@@ -63,26 +63,26 @@ let incr_n_positions (ticks : tick_map) (i : tick_index) (incr : int) =
 
 let collect_fees (s : storage) (key : position_index) : storage * balance_nat =
     let position = match Big_map.find_opt key s.positions with
-    | None -> (failwith "position does not exist" : position_state)
+    | None -> (failwith "position does not exist" : position_state) // TODO: [TCFMM-16] This error is a bug.
     | Some position -> position in
-    let tick_lo = get_tick s.ticks key.lo in
-    let tick_hi = get_tick s.ticks key.hi in
+    let tick_lo = get_tick s.ticks key.lo internal_tick_not_exist_err in
+    let tick_hi = get_tick s.ticks key.hi internal_tick_not_exist_err in
     let f_a = if s.i_c >= key.hi.i then
-        { x = assert_nat (s.fee_growth.x - tick_hi.fee_growth_outside.x);
-          y = assert_nat (s.fee_growth.y - tick_hi.fee_growth_outside.y)}
+        { x = assert_nat (s.fee_growth.x - tick_hi.fee_growth_outside.x, internal_311);
+          y = assert_nat (s.fee_growth.y - tick_hi.fee_growth_outside.y, internal_311)}
     else
         tick_hi.fee_growth_outside in
     let f_b = if s.i_c >= key.lo.i then
         tick_lo.fee_growth_outside
     else
-        { x = assert_nat (s.fee_growth.x - tick_lo.fee_growth_outside.x) ;
-          y = assert_nat (s.fee_growth.y - tick_lo.fee_growth_outside.y) } in
+        { x = assert_nat (s.fee_growth.x - tick_lo.fee_growth_outside.x, internal_312) ;
+          y = assert_nat (s.fee_growth.y - tick_lo.fee_growth_outside.y, internal_312) } in
     let fee_growth_inside = {
-        x = assert_nat (s.fee_growth.x - f_a.x - f_b.x) ;
-        y = assert_nat (s.fee_growth.y - f_a.y - f_b.y) } in
+        x = assert_nat (s.fee_growth.x - f_a.x - f_b.x, internal_314) ;
+        y = assert_nat (s.fee_growth.y - f_a.y - f_b.y, internal_315) } in
     let fees = {
-        x = Bitwise.shift_right ((assert_nat (fee_growth_inside.x - position.fee_growth_inside_last.x)) * position.liquidity) 128n;
-        y = Bitwise.shift_right ((assert_nat (fee_growth_inside.y - position.fee_growth_inside_last.y)) * position.liquidity) 128n} in
+        x = Bitwise.shift_right ((assert_nat (fee_growth_inside.x - position.fee_growth_inside_last.x, internal_316)) * position.liquidity) 128n;
+        y = Bitwise.shift_right ((assert_nat (fee_growth_inside.y - position.fee_growth_inside_last.y, internal_317)) * position.liquidity) 128n} in
     let position = {position with fee_growth_inside_last = fee_growth_inside} in
     let positions = Big_map.update key (Some position) s.positions in
     ({s with positions = positions}, fees)
@@ -92,11 +92,11 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
     (* Initialize ticks if need be. *)
     let ticks = s.ticks in
     let ticks = if s.i_c >= i_l.i then
-        initialize_tick (ticks, i_l, i_l_l, s.fee_growth, assert_nat (Tezos.now - epoch_time), 42n (*FIXME*))
+        initialize_tick (ticks, i_l, i_l_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), 42n (*FIXME*))
     else
         initialize_tick (ticks, i_l, i_l_l, {x = 0n ; y = 0n}, 0n, 0n)  in
     let ticks = if s.i_c >= i_u.i then
-        initialize_tick (ticks, i_u, i_u_l, s.fee_growth, assert_nat (Tezos.now - epoch_time), 42n (*FIXME*))
+        initialize_tick (ticks, i_u, i_u_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), 42n (*FIXME*))
     else
         initialize_tick (ticks, i_u, i_u_l, {x = 0n ; y = 0n}, 0n, 0n)  in
 
@@ -109,7 +109,7 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
     (* Get accumulated fees for this position. *)
     let s, fees = collect_fees s position_key in
     (* Update liquidity of position. *)
-    let liquidity_new = assert_nat (position.liquidity + delta_liquidity) in
+    let liquidity_new = assert_nat (position.liquidity + delta_liquidity, internal_liquidity_below_zero_err) in
     let position = {position with liquidity = liquidity_new} in
     (* Reference counting the positions associated with a tick *)
     let ticks = (if liquidity_new = 0n then
@@ -132,8 +132,8 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
     (* Compute how much should be deposited / withdrawn to change liquidity by delta_liquidity *)
 
     (* Grab cached prices for the interval *)
-    let tick_u = get_tick ticks i_u in
-    let tick_l = get_tick ticks i_l in
+    let tick_u = get_tick ticks i_u internal_tick_not_exist_err in
+    let tick_l = get_tick ticks i_l internal_tick_not_exist_err in
     let srp_u = tick_u.sqrt_price in
     let srp_l = tick_l.sqrt_price in
 
@@ -143,13 +143,13 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
         (s, {
             (* If I'm adding liquidity, x will be positive, I want to overestimate it, if x I'm taking away
                 liquidity, I want to to underestimate what I'm receiving. *)
-            x = ceildiv_int (delta_liquidity * (int (Bitwise.shift_left (assert_nat (srp_u - srp_l)) 90n))) (int (srp_l * srp_u)) ;
+            x = ceildiv_int (delta_liquidity * (int (Bitwise.shift_left (assert_nat (srp_u - srp_l, internal_sqrt_price_grow_err_1)) 90n))) (int (srp_l * srp_u)) ;
             y = 0})
     else if i_l.i <= s.i_c && s.i_c < i_u.i then
         (* update interval we are in, if need be ... *)
-        let s = {s with lo = if i_l.i > s.lo.i then i_l else s.lo ; liquidity = assert_nat (s.liquidity + delta_liquidity)} in
+        let s = {s with lo = if i_l.i > s.lo.i then i_l else s.lo ; liquidity = assert_nat (s.liquidity + delta_liquidity, internal_liquidity_below_zero_err)} in
         (s, {
-            x = ceildiv_int (delta_liquidity * (int (Bitwise.shift_left (assert_nat (srp_u - s.sqrt_price)) 90n))) (int (s.sqrt_price * srp_u)) ;
+            x = ceildiv_int (delta_liquidity * (int (Bitwise.shift_left (assert_nat (srp_u - s.sqrt_price, internal_sqrt_price_grow_err_1)) 90n))) (int (s.sqrt_price * srp_u)) ;
             y = shift_int (delta_liquidity * (s.sqrt_price - srp_l)) (-80)
             })
     else (* i_c >= i_u *)

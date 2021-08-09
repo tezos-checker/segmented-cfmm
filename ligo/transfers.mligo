@@ -27,7 +27,7 @@ type y_contract_transfer = address * (address * nat)
 let x_transfer (from : address) (to_ : address) (amnt : nat) : operation =
     let x_contract: x_contract_transfer contract =
     match (Tezos.get_contract_opt const_x_token_entrypoint : x_contract_transfer contract option) with
-    | None -> (failwith "Invalid entrypoint for x contract transfer" : x_contract_transfer contract)
+    | None -> (failwith asset_transfer_invalid_entrypoints_err : x_contract_transfer contract)
     | Some contract -> contract in
 #if X_IS_FA2
     Tezos.transaction [(from, [(to_, (const_x_token_id, amnt))])] 0mutez x_contract
@@ -38,7 +38,7 @@ let x_transfer (from : address) (to_ : address) (amnt : nat) : operation =
 let y_transfer (from : address) (to_ : address) (amnt : nat) : operation =
     let y_contract: y_contract_transfer contract =
     match (Tezos.get_contract_opt const_y_token_entrypoint : y_contract_transfer contract option) with
-    | None -> (failwith "Invalid entrypoint for x contract transfer" : y_contract_transfer contract)
+    | None -> (failwith asset_transfer_invalid_entrypoints_err : y_contract_transfer contract)
     | Some contract -> contract in
 #if Y_IS_FA2
     Tezos.transaction [(from, [(to_, (const_y_token_id, amnt))])] 0mutez y_contract

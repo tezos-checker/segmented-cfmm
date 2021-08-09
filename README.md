@@ -52,3 +52,11 @@ etc.). There is no implicit conversion to Michelson's binary format (`PACK`) nor
 quoting mechanism.
 
 After the conversion, the bytes can be use in the field `metadata` when originating the contract.
+
+## Error Codes
+
+In error scenarios, the contract fails with an error code.
+
+See the [Error Codes](docs/error-codes.md) file for the list of error codes.
+
+
