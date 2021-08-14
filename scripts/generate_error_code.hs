@@ -159,6 +159,9 @@ internalErrors = errorsEnumerate 300
   , "internal_observe_bin_search_failed"
       :? "Some issue with binary search in `observe` entrypoint."
 
+  , "internal_non_empty_position_gc_err"
+      :? "Attempt to garbade collect a tick with non-zero liquidity net."
+
   ]
 
 
