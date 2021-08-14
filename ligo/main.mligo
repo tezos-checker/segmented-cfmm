@@ -42,13 +42,18 @@ let rec initialize_tick ((ticks, i, i_l,
         else
             initialize_tick (ticks, i, i_next, initial_fee_growth_outside, initial_seconds_outside, initial_seconds_per_liquidity_outside)
 
-let incr_n_positions (ticks : tick_map) (i : tick_index) (incr : int) =
+(* Account for the fact that this tick is a boundary for one more (or one less) position. *)
+let cover_tick_with_position (ticks : tick_map) (i : tick_index) (pos_delta : int) (liquidity_delta : int) =
     let tick = get_tick ticks i in
-    let n_pos = assert_nat (tick.n_positions + incr) in
+    let n_pos = assert_nat (tick.n_positions + pos_delta) in
+    let new_liquidity = tick.liquidity_net + liquidity_delta in
     if n_pos = 0n then
         (*  Garbage collect the tick.
             The largest and smallest tick are initialized with n_positions = 1 so they cannot
             be accidentally garbage collected. *)
+        let _ : unit = if new_liquidity <> 0 then
+            failwith "a tick with non-zero liquidity was unexpectedly garbage collected"
+            else unit in
         let prev = get_tick ticks tick.prev in
         let next = get_tick ticks tick.next in
         (* prev links to next and next to prev, skipping the deleted tick *)
@@ -59,7 +64,11 @@ let incr_n_positions (ticks : tick_map) (i : tick_index) (incr : int) =
         let ticks = Big_map.update tick.next (Some next) ticks in
         ticks
     else
-        Big_map.update i (Some {tick with n_positions = n_pos}) ticks
+        Big_map.update i
+            (Some {tick with
+                    n_positions = n_pos;
+                    liquidity_net = new_liquidity })
+            ticks
 
 let collect_fees (s : storage) (key : position_index) : storage * balance_nat =
     let position = match Big_map.find_opt key s.positions with
@@ -116,13 +125,13 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
         if is_new then
             ticks
         else
-            let ticks = incr_n_positions ticks i_l (-1) in
-            let ticks = incr_n_positions ticks i_u (-1) in
+            let ticks = cover_tick_with_position ticks i_l (-1) (-liquidity_delta) in
+            let ticks = cover_tick_with_position ticks i_u (-1) liquidity_delta in
             ticks
     else
         if is_new then
-            let ticks = incr_n_positions ticks i_l (1) in
-            let ticks = incr_n_positions ticks i_u (1) in
+            let ticks = cover_tick_with_position ticks i_l (1) liquidity_delta in
+            let ticks = cover_tick_with_position ticks i_u (1) (-liquidity_delta) in
             ticks
         else
             ticks) in
