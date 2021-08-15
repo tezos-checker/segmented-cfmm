@@ -10,6 +10,10 @@
 
 (* TODO: make positions into an FA2 *)
 
+#if !DUMMY_PRAGMA1
+This is an example of conditionally present code, remove it once normal pragmas are set.
+#endif
+
 let rec initialize_tick ((ticks, i, i_l,
     initial_fee_growth_outside,
     initial_seconds_outside,
