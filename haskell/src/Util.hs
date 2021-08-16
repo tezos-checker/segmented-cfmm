@@ -23,7 +23,7 @@ import Michelson.Typed
 -- types in error messages on types mismatch.
 fetchContract :: forall cp st. (KnownT cp, KnownT st) => String -> TH.ExpQ
 fetchContract envKey = do
-  path <- resolveSourcePath "haskell/test/segmented_cfmm.tz" envKey
+  path <- resolveSourcePath "haskell/test/segmented_cfmm_default.tz" envKey
                           -- ↑ This default path works on CI.
                           -- There it's relative to the repo root, apparently.
   contract <- readDependentSource path
