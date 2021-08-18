@@ -16,7 +16,7 @@ TS_OUT ?= typescript
 # Utility function to escape double quotes
 escape_double_quote = $(subst $\",$\\",$(1))
 
-.PHONY: all
+.PHONY: all lib metadata test typescript clean
 
 # Builds LIGO contract. Arguments:
 #   1: The source file
@@ -75,3 +75,7 @@ typescript: all
 
 	rm -rf $(TS_OUT)/segmented-cfmm/src/generated/*
 	stack exec -- segmented-cfmm generate-typescript --target=$(TS_OUT)/segmented-cfmm/src/generated/
+
+clean:
+	rm -rf $(OUT)
+	$(MAKE) -C haskell clean
