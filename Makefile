@@ -31,7 +31,7 @@ define build_ligo
 	@echo "#include \"$(notdir $(1))\"" >> $(TOTAL_FILE)
 
 	# ============== Compiling `$(1)` with options `$(3)` ============== #
-	@$(BUILD) $(TOTAL_FILE) main --output-file $(2)
+	@$(BUILD) $(TOTAL_FILE) main --output-file $(2) || ( rm $(TOTAL_FILE) && exit 1 )
 	@rm $(TOTAL_FILE)
 endef
 
