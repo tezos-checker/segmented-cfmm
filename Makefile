@@ -25,10 +25,10 @@ escape_double_quote = $(subst $\",$\\",$(1))
 define build_ligo
 	@mkdir -p $(dir $(2))
 
-	@ #Add necessary #define pragmas first
+	@ #Create a file and put necessary #define pragmas to it first
 	$(eval TOTAL_FILE := $(shell mktemp $(1).total-XXX))
 	$(foreach CVAR,$(3),$(file >>$(TOTAL_FILE),#define $(CVAR)))
-	@cat $(1) >> $(TOTAL_FILE)
+	@echo "#include \"$(notdir $(1))\"" >> $(TOTAL_FILE)
 
 	# ============== Compiling `$(1)` with options `$(3)` ============== #
 	@$(BUILD) $(TOTAL_FILE) main --output-file $(2)
