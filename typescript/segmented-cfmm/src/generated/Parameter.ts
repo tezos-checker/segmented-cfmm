@@ -1,6 +1,7 @@
 import {Balance_of} from  './Balance_of';
 import {Call_fa2} from  './Call_fa2';
-import {Get_time_weighted_sum} from  './Get_time_weighted_sum';
+import {Increase_observation_count} from  './Increase_observation_count';
+import {Observe} from  './Observe';
 import {Set_position} from  './Set_position';
 import {Transfer} from  './Transfer';
 import {Update_operators} from  './Update_operators';
@@ -10,7 +11,8 @@ import {Y_to_x} from  './Y_to_x';
 export type Parameter =
   | Balance_of
   | Call_fa2
-  | Get_time_weighted_sum
+  | Increase_observation_count
+  | Observe
   | Set_position
   | Transfer
   | Update_operators

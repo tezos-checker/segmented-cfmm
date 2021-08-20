@@ -15,6 +15,16 @@
 This is an example of conditionally present code, remove it once normal pragmas are set.
 #endif
 
+[@inline]
+let get_registered_cumulatives_unsafe (buffer : timed_cumulatives_buffer) (i : nat) : timed_cumulatives =
+    match Big_map.find_opt i buffer.map with
+        | None -> failwith internal_bad_access_to_observation_buffer
+        | Some v -> v
+
+[@inline]
+let get_last_cumulatives (buffer : timed_cumulatives_buffer) : timed_cumulatives =
+    get_registered_cumulatives_unsafe buffer buffer.last
+
 let rec initialize_tick ((ticks, i, i_l,
     initial_fee_growth_outside,
     initial_seconds_outside,
@@ -101,11 +111,21 @@ let set_position (s : storage) (p : set_position_param) : result =
     (* Initialize ticks if need be. *)
     let ticks = s.ticks in
     let ticks = if s.cur_tick_index.i >= p.lower_tick_index.i then
-        initialize_tick (ticks, p.lower_tick_index, p.lower_tick_witness, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), s.seconds_per_liquidity_cumulative)
+        let sums = get_last_cumulatives s.cumulatives_buffer in
+        initialize_tick
+            ( ticks, p.lower_tick_index, p.lower_tick_witness, s.fee_growth
+            , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
+            , sums.lps.sum
+            )
     else
         initialize_tick (ticks, p.lower_tick_index, p.lower_tick_witness, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
     let ticks = if s.cur_tick_index.i >= p.upper_tick_index.i then
-        initialize_tick (ticks, p.upper_tick_index, p.upper_tick_witness, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), s.seconds_per_liquidity_cumulative)
+        let sums = get_last_cumulatives s.cumulatives_buffer in
+        initialize_tick
+            ( ticks, p.upper_tick_index, p.upper_tick_witness, s.fee_growth
+            , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
+            , sums.lps.sum
+            )
     else
         initialize_tick (ticks, p.upper_tick_index, p.upper_tick_witness, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
 
@@ -220,21 +240,135 @@ let set_position (s : storage) (p : set_position_param) : result =
       }
     )
 
-let get_time_weighted_sum (s : storage) (c : views contract) : result =
-    ([Tezos.transaction (IC_sum s.time_weighted_ic_sum) 0mutez c], s)
+// Increase the number of stored accumulators.
+let increase_observation_count (s, p : storage * increase_observation_count_param) : result =
+    let buffer = s.cumulatives_buffer in
+#if !DEBUG
+    let dummy_timed_cumulatives = get_last_cumulatives buffer in
+#else
+    // This helps to faster detect access to garbage values
+    let dummy_timed_cumulatives = init_timed_cumulatives in
+#endif
+    let new_reserved_length = buffer.reserved_length + p.added_observation_count in
 
-let update_time_weighted_sum (s : storage) : storage =
-    let new_sum = s.time_weighted_ic_sum + (Tezos.now - s.last_ic_sum_update) * s.cur_tick_index.i
-    in {s with time_weighted_ic_sum = new_sum ; last_ic_sum_update = Tezos.now}
+    let stop_allocation_index = buffer.first + new_reserved_length in
+    let rec allocate_buffer_slots (buffer_map, idx : (nat, timed_cumulatives) big_map * nat) : (nat, timed_cumulatives) big_map =
+        if idx >= stop_allocation_index
+        then buffer_map
+        else
+            let new_buffer_map = Big_map.add idx dummy_timed_cumulatives buffer_map
+            in allocate_buffer_slots(new_buffer_map, idx + 1n)
+        in
+
+    let buffer_map = allocate_buffer_slots(buffer.map, buffer.last + 1n) in
+    let buffer = {buffer with reserved_length = new_reserved_length; map = buffer_map}
+    in (([] : operation list), {s with cumulatives_buffer = buffer})
+
+// Recursive helper for `get_cumulatives`
+let rec find_cumulatives_around (buffer, t, l, r : timed_cumulatives_buffer * timestamp * (nat * timed_cumulatives) * (nat * timed_cumulatives)) : (timed_cumulatives * timed_cumulatives * nat) =
+    let (l_i, l_v) = l in
+    let (r_i, r_v) = r in
+    // Binary search, invariant: l_v.time <= t && t < r_v.time
+    if l_i + 1n < r_i
+    then
+        let m_i = (l_i + r_i) / 2n in
+        let m_v = get_registered_cumulatives_unsafe buffer m_i in
+        let m = (m_i, m_v) in
+        if m_v.time > t
+        then find_cumulatives_around (buffer, t, l, m)
+        else find_cumulatives_around (buffer, t, m, r)
+    else
+        (l_v, r_v, assert_nat (t - l_v.time, internal_observe_bin_search_failed))
+
+let get_cumulatives (buffer : timed_cumulatives_buffer) (t : timestamp) : cumulatives_value =
+    let l_i = buffer.first in
+    let r_i = buffer.last in
+    let l_v = get_registered_cumulatives_unsafe buffer l_i in
+    let r_v = get_registered_cumulatives_unsafe buffer r_i in
+
+    let _: unit = if t < l_v.time then failwith observe_outdated_timestamp_err else unit in
+    let _: unit = if t > r_v.time then failwith observe_future_timestamp_err else unit in
+
+    if t < r_v.time then
+        let (sums_at_left, sums_at_right, time_delta) = find_cumulatives_around (buffer, t, (l_i, l_v), (r_i, r_v))
+
+        // When no updates to contract are performed, time-weighted accumulators grow
+        // linearly. Extrapolating to get the value at timestamp in-between.
+        //
+        // tick_cumulative(t) and liqudity_per_second_cumulative(t) functions produced
+        // by this extrapolation are continuous.
+        // 1. At [left, right) range found by the binary search above, cumulatives are
+        //    continuous by construction - our extrapolation is linear.
+        // 2. At (right - o, right] range they are also continous, because we will
+        //    use the same formula for calculating cumulatives at `right - o` (here)
+        //    and at `right` (see how `sum` fields are updated in `update_timed_cumulatives`).
+        in  { tick_cumulative =
+                let at_left_block_end_tick_value = sums_at_right.tick.block_start_value
+                in sums_at_left.tick.sum + time_delta * at_left_block_end_tick_value.i
+            ; seconds_per_liquidity_cumulative =
+                let at_left_block_end_lps_value = sums_at_right.lps.block_start_liquidity_value
+                in {x128 = sums_at_left.lps.sum.x128 +
+                    Bitwise.shift_left time_delta 128n / at_left_block_end_lps_value }
+            }
+    else // t = r_v.time
+        // This means that t = timestamp of the last recorded entry,
+        // and we cannot use extrapolation as above
+        { tick_cumulative = r_v.tick.sum
+        ; seconds_per_liquidity_cumulative = r_v.lps.sum
+        }
+
+let observe (s : storage) (p : observe_param) : result =
+    let value = List.map (get_cumulatives s.cumulatives_buffer) p.times
+    in ([Tezos.transaction value 0mutez p.callback], s)
+
+// Update the cumulative values stored for the recent timestamps.
+//
+// This has to be called on every update to the contract, not necessarily
+// for each block. Currently all cumulatives keep time-weighted sum of something,
+// so we can extrapolate these cumulatives on periods of the contract's inactivity.
+let update_timed_cumulatives (s : storage) : storage =
+    let buffer = s.cumulatives_buffer in
+
+    let last_value = get_last_cumulatives buffer in
+    (* Update not more often than once per block *)
+    if last_value.time = Tezos.now then s
+    else
+        let time_passed = abs (Tezos.now - last_value.time) in
+        let new_value =
+            { tick =
+                { block_start_value = s.cur_tick_index
+                ; sum = last_value.tick.sum + time_passed * s.cur_tick_index.i
+                }
+            ; lps =
+                { block_start_liquidity_value = s.liquidity
+                ; sum = {x128 = last_value.lps.sum.x128 + Bitwise.shift_left time_passed 128n / s.liquidity};
+                }
+            ; time = Tezos.now
+            } in
+
+        let new_last = buffer.last + 1n in
+        let new_first =
+            // preserve the oldest element if reserves allow this
+            if buffer.last - buffer.first < buffer.reserved_length - 1
+            then buffer.first else buffer.first + 1n in
+
+        let new_buffer = {
+            map = Big_map.add new_last new_value buffer.map ;
+            last = new_last ;
+            first = new_first ;
+            reserved_length = buffer.reserved_length ;
+        }
+        in {s with cumulatives_buffer = new_buffer}
 
 let main ((p, s) : parameter * storage) : result =
-(* start by updating the time weighted price oracle *)
-let s = update_time_weighted_sum s in
+(* start by updating the oracles *)
+let s = update_timed_cumulatives s in
 (* dispatch call to the proper entrypoint *)
  match p with
 | X_to_y p -> x_to_y s p
 | Y_to_x p -> y_to_x s p
 | Set_position p -> set_position s p
-| Get_time_weighted_sum contract -> get_time_weighted_sum s contract
 | X_to_x_prime p -> x_to_x_prime s p
 | Call_fa2 p -> call_fa2 s p
+| Observe p -> observe s p
+| Increase_observation_count n -> increase_observation_count(s, n)

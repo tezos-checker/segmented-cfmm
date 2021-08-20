@@ -44,7 +44,7 @@ powerOfX :: KnownNat n => X n a -> Natural
 powerOfX (X{} :: X n a) = natVal (Proxy @n)
 
 -- | Convert a fraction to 'X'.
-mkX :: forall n a b. (KnownNat n, RealFrac a, Integral b) => a -> X n b
+mkX :: forall a n b. (KnownNat n, RealFrac a, Integral b) => a -> X n b
 mkX = X . round . (* 2 ^ natVal (Proxy @n))
 
 data Parameter
@@ -56,17 +56,14 @@ data Parameter
     -- ^ Equivalent to token_to_token
   | Set_position SetPositionParam
     -- ^ Updates or creates a new position in the given range.
-  | Get_time_weighted_sum (ContractRef Views)
   | Call_fa2 FA2.Parameter
+    -- ^ Call FA2 interface
+  | Observe ObserveParam
+    -- ^ Get geometric mean price
+  | Increase_observation_count Natural
+    -- ^ Set the number of stored accumulators for geometric mean price oracle.
 
 instance Buildable Parameter where
-  build = genericF
-
-
-data Views =
-  IC_sum Integer
-
-instance Buildable Views where
   build = genericF
 
 -- | Parameter of @X_to_Y@ entrypoints
@@ -142,7 +139,13 @@ data SetPositionParam = SetPositionParam
 instance Buildable SetPositionParam where
   build = genericF
 
+data ObserveParam = ObserveParam
+  { opTimes :: [Timestamp]
+  , opCallback :: ContractRef [CumulativesValue]
+  }
 
+instance Buildable ObserveParam where
+  build = genericF
 
 -----------------------------------------------------------------
 -- Storage
@@ -167,12 +170,8 @@ data Storage = Storage
   , sPositions :: PositionMap
     -- ^ Positions' states.
   , sPositionIndexes :: PositionIndexMap
-    -- ^ One-to-one relation from `postion_id` to `position_index`.
-  , sTimeWeightIcSum :: Integer
-    -- ^ Cumulative time-weighted sum of the 'sIC'.
-  , sLastIcSumUpdate :: Timestamp
-    -- ^ Last time 'sLastIcSumUpdate' was updated.
-  , sSecondsPerLiquidityCumulative :: Natural
+  , sCumulativesBuffer :: CumulativesBuffer
+    -- ^ Stored cumulative time-weighted values.
 
   , sMetadata :: TZIP16.MetadataMap BigMap
     -- ^ TZIP-16 metadata.
@@ -298,6 +297,62 @@ type PositionMap = BigMap PositionIndex PositionState
 type PositionIndexMap = BigMap PositionId PositionIndex
 
 
+-- | Return value of observation entrypoint.
+data CumulativesValue = CumulativesValue
+  { cvTickCumulative :: Integer
+  , cvSecondsPerLiquidityCumulative :: X 128 Natural
+  }
+
+data TickCumulative = TickCumulative
+  { tcSum :: Integer
+  , tcBlockStartValue :: TickIndex
+  }
+
+instance Buildable TickCumulative where
+  build = genericF
+
+data LpsCumulative = LpsCumulative
+  { lcSum :: X 128 Natural
+  , lcBlockStartLiquidityValue :: Natural
+  }
+
+instance Buildable LpsCumulative where
+  build = genericF
+
+data TimedCumulatives = TimedCumulatives
+  { tcTime :: Timestamp
+  , tcTick :: TickCumulative
+  , tcLps :: LpsCumulative
+  }
+
+initTimedCumulatives :: TimedCumulatives
+initTimedCumulatives = TimedCumulatives
+  { tcTime = timestampFromSeconds 100
+  , tcTick = TickCumulative 0 (TickIndex 0)
+  , tcLps = LpsCumulative (mkX @Double 0) 1
+  }
+
+instance Buildable TimedCumulatives where
+  build = genericF
+
+data CumulativesBuffer = CumulativesBuffer
+  { tbMap :: BigMap Natural TimedCumulatives
+  , tbFirst :: Natural
+  , tbLast :: Natural
+  , tbReservedLength :: Natural
+  }
+
+instance Buildable CumulativesBuffer where
+  build = genericF
+
+initCumulativesBuffer :: Natural -> CumulativesBuffer
+initCumulativesBuffer extraReservedSlots = CumulativesBuffer
+  { tbMap = mkBigMap $ foldMap (one . (, initTimedCumulatives)) [0 .. extraReservedSlots]
+  , tbFirst = 0
+  , tbLast = 0
+  , tbReservedLength = extraReservedSlots + 1
+  }
+
 ------------------------------------------------------------------------
 -- Operators
 ------------------------------------------------------------------------
@@ -329,11 +384,6 @@ segCfmmAnnOptions = defaultAnnOptions
 -----------------------------------------------------------------
 -- TH
 -----------------------------------------------------------------
-
-customGeneric "Views" ligoLayout
-deriving anyclass instance IsoValue Views
-instance HasAnnotation Views where
-  annOptions = segCfmmAnnOptions
 
 customGeneric "XToYParam" ligoLayout
 deriving anyclass instance IsoValue XToYParam
@@ -368,6 +418,10 @@ instance HasAnnotation FA2.Parameter where
 instance ParameterHasEntrypoints FA2.Parameter where
   type ParameterEntrypointsDerivation FA2.Parameter = EpdPlain
 
+customGeneric "ObserveParam" ligoLayout
+deriving anyclass instance IsoValue ObserveParam
+instance HasAnnotation ObserveParam where
+  annOptions = segCfmmAnnOptions
 
 customGeneric "Parameter" ligoLayout
 deriving anyclass instance IsoValue Parameter
@@ -396,6 +450,34 @@ deriving anyclass instance IsoValue PositionState
 instance HasAnnotation PositionState where
   annOptions = segCfmmAnnOptions
 
+customGeneric "CumulativesValue" ligoLayout
+deriving anyclass instance IsoValue CumulativesValue
+instance HasAnnotation CumulativesValue where
+  annOptions = segCfmmAnnOptions
+
+customGeneric "TickCumulative" ligoLayout
+deriving anyclass instance IsoValue TickCumulative
+instance HasAnnotation TickCumulative where
+  annOptions = segCfmmAnnOptions
+
+customGeneric "LpsCumulative" ligoLayout
+deriving anyclass instance IsoValue LpsCumulative
+instance HasAnnotation LpsCumulative where
+  annOptions = segCfmmAnnOptions
+
+customGeneric "TimedCumulatives" ligoLayout
+deriving anyclass instance IsoValue TimedCumulatives
+instance HasAnnotation TimedCumulatives where
+  annOptions = segCfmmAnnOptions
+
+customGeneric "CumulativesBuffer" ligoLayout
+deriving anyclass instance IsoValue CumulativesBuffer
+instance HasAnnotation CumulativesBuffer where
+  annOptions = segCfmmAnnOptions
+
+deriveRPCWithStrategy "CumulativesBuffer" ligoLayout
+instance Buildable CumulativesBufferRPC where
+  build = genericF
 
 customGeneric "Storage" ligoLayout
 deriving anyclass instance IsoValue Storage

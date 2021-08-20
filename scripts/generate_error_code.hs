@@ -64,6 +64,11 @@ invalidInputErrors = errorsEnumerate 100
   , "invalid_x_prime_contract_err"
       :? "The X prime contract address provided is not a segmented-cfmm contract."
 
+  , "observe_outdated_timestamp_err"
+      :? "Some of the timestamps passed to the `observe` entrypoint are too far back in the past."
+
+  , "observe_future_timestamp_err"
+      :? "Some of the timestamps passed to the `observe` entrypoint are yet in the future."
   ]
 
 invalidConfigErrors :: [ErrorItem]
@@ -147,6 +152,12 @@ internalErrors = errorsEnumerate 300
 
   , "internal_negative_seconds_outside_err"
       :? "Thrown when `seconds_outside` is negative."
+
+  , "internal_bad_access_to_observation_buffer"
+      :? "Failed to access a value in time-weighted i_c cumulative sums buffer."
+
+  , "internal_observe_bin_search_failed"
+      :? "Some issue with binary search in `observe` entrypoint."
 
   ]
 

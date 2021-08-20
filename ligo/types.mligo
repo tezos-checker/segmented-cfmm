@@ -177,6 +177,87 @@ type position_map = (position_index, position_state) big_map
 Used for querying `position_state` with just a `position_id`. *)
 type position_index_map = (position_id, position_index) big_map
 
+// What we return when someone requests for the values of cumulatives.
+type cumulatives_value =
+    { tick_cumulative : int
+    ; seconds_per_liquidity_cumulative : x128n
+    }
+
+// Tick index cumulative
+type tick_cumulative = {
+    (* The time-weighted cumulative value. *)
+    sum : int;
+    (* Tick index value at the beginning of the block. *)
+    block_start_value : tick_index
+}
+
+// Liquidity per seconds cumulative
+type lps_cumulative = {
+    (* The time-weighted cumulative value. *)
+    sum : x128n ;
+    (* Liquidity value at the beginning of the block. *)
+    block_start_liquidity_value : nat
+}
+
+type timed_cumulatives =
+    { time : timestamp
+    ; tick : tick_cumulative
+    ; lps : lps_cumulative
+    }
+
+let init_timed_cumulatives : timed_cumulatives =
+    { time = (100 : timestamp)  // Should not really matter
+    ; tick = { sum = 0; block_start_value = {i = 0} }
+    ; lps = { sum = {x128 = 0n}; block_start_liquidity_value = 0n }
+    }
+
+// Extendable ring buffer with time-weighted 1/L cumulative values.
+type timed_cumulatives_buffer = {
+    // For each index this stores:
+    // 1. Cumulative values for every second in the history of the contract
+    //    till specific moment of time, as well as last known value for
+    //    the sake of future linear extrapolation.
+    // 2. Timestamp when this sum was registered.
+    //    This allows for bin search by timestamp.
+    //
+    // Invariants:
+    // a. The set of indices that have an associated element with them is continuous;
+    // b. Timestamps in values grow strictly monotonically
+    //    (as well as accumulators ofc);
+    map : (nat, timed_cumulatives) big_map ;
+
+    // Index of the oldest stored value.
+    first : nat ;
+
+    // Index of the most recently stored value.
+    last : nat ;
+
+    // Number of actually allocated slots.
+    //
+    // This value is normally equal to `last - first + 1`.
+    // However, in case recently there was a request to extend the set of
+    // stored values, this var will keep the demanded number of stored values,
+    // while values in the map past `last` will be initialized with garbage.
+    //
+    // We need to have initialized slots with trash because when the size of
+    // the map increases, someone has to pay for the storage diff.
+    // And we want it to be paid by the one who requested the extension.
+    reserved_length : nat ;
+}
+
+let init_cumulatives_buffer (extra_reserved_slots : nat) : timed_cumulatives_buffer =
+    // Fill [0..n] slots with dummy values
+    let rec fill_map (n, map : nat * (nat, timed_cumulatives) big_map) : (nat, timed_cumulatives) big_map =
+            let map = Big_map.add n init_timed_cumulatives map in
+            match is_nat(n - 1) with
+                | None -> map
+                | Some n -> fill_map(n, map)
+        in
+    { map = fill_map(extra_reserved_slots, (Big_map.empty : (nat, timed_cumulatives) big_map))
+    ; first = 0n
+    ; last = 0n
+    ; reserved_length = extra_reserved_slots + 1n
+    }
 
 // TZIP-16 metadata map
 type metadata_map = (string, bytes) big_map
@@ -214,17 +295,8 @@ type storage = {
     (* One-to-one relation from `postion_id` to `position_index`. *)
     position_indexes : position_index_map ;
 
-    (* Cumulative time-weighted sum of the i_c.
-        This is needed to evaluate time weighted geometric mean price
-        over various time periods.
-    *)
-    time_weighted_ic_sum : int ;
-
-    (* Last time `time_weighted_ic_sum` was updated. *)
-    last_ic_sum_update : timestamp ;
-
-    (* Cumulative time-weighted sum of 1/L. *)
-    seconds_per_liquidity_cumulative : x128n ;
+    (* Cumulative values stored for the recent timestamps. *)
+    cumulatives_buffer : timed_cumulatives_buffer ;
 
     (* TZIP-16 metadata. *)
     metadata : metadata_map ;
@@ -298,6 +370,17 @@ type y_to_x_param = {
 
 type y_to_x_rec_param = x_to_y_rec_param
 
+type oracle_view_param = cumulatives_value list
+
+type observe_param = {
+    times : timestamp list;
+    callback : oracle_view_param contract
+}
+
+type increase_observation_count_param = {
+    added_observation_count: nat;
+}
+
 type result = (operation list) * storage
 
 type x_to_x_prime_param = {
@@ -323,7 +406,8 @@ type parameter =
   | Y_to_x of y_to_x_param
   | X_to_x_prime of x_to_x_prime_param (* equivalent to token_to_token *)
   | Set_position of set_position_param (* TODO add deadline, maximum tokens contributed, and maximum liquidity present *)
-  | Get_time_weighted_sum of views contract
   | Call_fa2 of fa2_parameter
+  | Observe of observe_param
+  | Increase_observation_count of increase_observation_count_param
 
 #endif
