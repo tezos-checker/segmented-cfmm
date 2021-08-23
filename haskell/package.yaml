@@ -142,3 +142,8 @@ tests:
     - tasty
     - tasty-hunit-compat
     - universum
+    - named
+    - cleveland
+    - morley-ledgers
+    - lorentz
+    - bytestring

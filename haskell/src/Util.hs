@@ -15,6 +15,7 @@ import Language.Haskell.TH.Syntax (qAddDependentFile)
 import qualified Language.Haskell.TH.Syntax as TH
 import System.Environment (lookupEnv)
 
+import Lorentz.Constraints.Scopes (KnownValue)
 import Michelson.Runtime.Import (readContract, readValue)
 import Michelson.Typed
 
@@ -22,14 +23,14 @@ import Michelson.Typed
 --
 -- This is not an ideal implementation, e.g. it does not pretty-print
 -- types in error messages on types mismatch.
-fetchContract :: forall cp st. (KnownT cp, KnownT st) => String -> TH.ExpQ
+fetchContract :: forall cp st. (KnownValue cp, KnownValue st) => String -> TH.ExpQ
 fetchContract envKey = do
   path <- resolveSourcePath "test/segmented_cfmm_default.tz" envKey
                           -- ↑ This default path works on CI.
                           -- There it's relative to the repo root, apparently.
   contract <- readDependentSource path
 
-  case readContract @cp @st path contract of
+  case readContract @(ToT cp) @(ToT st) path contract of
     Left e ->
       -- Emit a compiler error if the contract cannot be read.
       fail (pretty e)

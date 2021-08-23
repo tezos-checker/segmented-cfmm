@@ -14,4 +14,4 @@ import Util (fetchContract)
 
 segCFMMContract :: Contract (ToT Parameter) (ToT Storage)
 segCFMMContract =
- $(fetchContract @(ToT Parameter) @(ToT Storage) "SEGMENTED_CFMM_PATH")
+ $(fetchContract @Parameter @Storage "SEGMENTED_CFMM_PATH")

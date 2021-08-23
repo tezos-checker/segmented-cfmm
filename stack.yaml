@@ -12,10 +12,12 @@ extra-deps:
   - git:
       https://gitlab.com/morley-framework/indigo.git
     commit:
-      34002106ca904e3dca6aff0237ad05dbbebcf619 # master
+      f564a0ea3ec66edb3fd074c75a1e9bc5a80f3d35 # master
     subdirs:
       - .
-  - morley-prelude-0.4.0
+  - morley-prelude-0.4.2
+  - morley-1.15.1
+  - lorentz-0.12.0
   - hex-text-0.1.0.0
   - named-0.3.0.1
   - show-type-0.1.1
@@ -32,19 +34,21 @@ extra-deps:
       https://gitlab.com/morley-framework/morley.git
     # ^ CI cannot use ssh, so we use http clone here
     commit:
-      ac7d485d35a81fe60658447e68710ac62b3f34ad # master
+      a726d42f89f83aa794f381b5332a542b634ba057 # master
     subdirs:
-      - code/morley
-      - code/lorentz
       - code/cleveland
       - code/morley-client
   - git: https://github.com/int-index/caps.git
     commit: c5d61837eb358989b581ed82b1e79158c4823b1b
   - git: https://gitlab.com/morley-framework/morley-ledgers.git
-    commit: b5b2834fd535ccc75e6ac31f3f406e627b1d7ad5 # master
+    commit: 129df0364df17127941efe1beed052bf5c320d3b # master
     subdirs:
       - code/morley-ledgers
   - git: https://gitlab.com/morley-framework/morley-metadata.git
-    commit: 3062eecde947b865364534e0ab1180c12e73dd4f # master
+    commit: cf434b81bd54939855541abc320552adcefd1715 # master
     subdirs:
       - code/morley-metadata
+  # Needed by `summoner-2.0.1.1`, not sure why it is not required in `indigo` or `baseDAO`.
+  - generic-data-0.8.3.0@sha256:fef21320697370fa1fadc14f72ac3ad8092b021f5371b315be3c9f3bde44c274,3710
+  - neat-interpolation-0.3.2.6@sha256:05a7516f4ffc86ba1ca4e9c1cddda5a062131ae518e1d423d6f162c214be4cc1,3066
+  - megaparsec-8.0.0@sha256:362f85e243ecbcb550e1de6e5c74ba5a50c09edaa1208c99bc5b9fd242227fc6,3808
