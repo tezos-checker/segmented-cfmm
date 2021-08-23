@@ -520,7 +520,7 @@ type observe_param = {
 Increase the number of observations of `tick_cumulative` and
 `seconds_per_liquidity_cumulative` taken and stored in the contract.
 The greater the number, the further back in time users will be able to
-retrieve data using [`observe`][#observe].
+retrieve data using [`observe`](#observe).
 
 The caller of this entrypoint will pay for the additional storage costs.
 
