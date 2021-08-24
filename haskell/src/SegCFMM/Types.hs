@@ -202,7 +202,6 @@ data PositionState = PositionState
     -- been accumulated since the contract was last touched.
   , psFeeGrowthInsideLast :: BalanceNat
     -- ^ Used to calculate uncollected fees.
-  , psSecondsPerLiquidityInside :: Natural
   }
 
 instance Buildable PositionState where

@@ -93,8 +93,6 @@ type position_state = {
         This helps to evaluate the next portion of fees to collect.
     *)
     fee_growth_inside_last : balance_nat ;
-    (* TODO: fill description once this field is used. *)
-    seconds_per_liquidity_inside : nat ;
 }
 
 type position_map = (position_index, position_state) big_map
