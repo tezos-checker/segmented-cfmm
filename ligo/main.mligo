@@ -86,10 +86,7 @@ let calc_fee_growth_inside (s : storage) (lower_tick_index : tick_index) (upper_
       y = {x128 = assert_nat (s.fee_growth.y.x128 - fee_above.y.x128 - fee_below.y.x128, internal_315) };
     }
 
-let collect_fees (s : storage) (key : position_index) : storage * balance_nat =
-    let position = match Big_map.find_opt key s.positions with
-    | None -> (failwith "position does not exist" : position_state) // TODO: [TCFMM-16] This error is a bug.
-    | Some position -> position in
+let collect_fees (s : storage) (key : position_index) (position : position_state) : storage * balance_nat =
     let fee_growth_inside = calc_fee_growth_inside s key.lower_tick_index key.upper_tick_index in
     let fees = {
         x = Bitwise.shift_right ((assert_nat (fee_growth_inside.x.x128 - position.fee_growth_inside_last.x.x128, internal_316)) * position.liquidity) 128n;
@@ -126,7 +123,7 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
         if is_new then
             (s, {x = 0n; y = 0n})
         else
-            collect_fees s position_key
+            collect_fees s position_key position
         in
     (* Update liquidity of position. *)
     let liquidity_new = assert_nat (position.liquidity + liquidity_delta, internal_liquidity_below_zero_err) in
