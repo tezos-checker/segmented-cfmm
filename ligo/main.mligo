@@ -122,7 +122,12 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
                 } in
         (new_position, true) in
     (* Get accumulated fees for this position. *)
-    let s, fees = collect_fees s position_key in
+    let s, fees =
+        if is_new then
+            (s, {x = 0n; y = 0n})
+        else
+            collect_fees s position_key
+        in
     (* Update liquidity of position. *)
     let liquidity_new = assert_nat (position.liquidity + liquidity_delta, internal_liquidity_below_zero_err) in
     let position = {position with liquidity = liquidity_new} in
