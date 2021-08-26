@@ -190,7 +190,8 @@ data TickState = TickState
     --    is below or above this tick).
   , tsFeeGrowthOutside :: PerToken (X 128 Natural)
     -- ^ Track fees accumulated below or above this tick.
-  , tsSecondsPerLiquidityOutside :: Natural
+  , tsSecondsPerLiquidityOutside :: X 128 Natural
+    -- ^ Track seconds-weighted 1/L value below or above this tick.
   , tsSqrtPrice :: X 80 Natural
     -- ^ Square root of the price associated with this tick.
   }

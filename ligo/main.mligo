@@ -17,7 +17,7 @@ This is an example of conditionally present code, remove it once normal pragmas 
 let rec initialize_tick ((ticks, i, i_l,
     initial_fee_growth_outside,
     initial_seconds_outside,
-    initial_seconds_per_liquidity_outside) : tick_map * tick_index * tick_index * balance_nat_x128 * nat * nat) : tick_map =
+    initial_seconds_per_liquidity_outside) : tick_map * tick_index * tick_index * balance_nat_x128 * nat * x128n) : tick_map =
     if Big_map.mem i ticks then
         ticks
     else if i_l.i > i.i then
@@ -92,13 +92,13 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
     (* Initialize ticks if need be. *)
     let ticks = s.ticks in
     let ticks = if s.cur_tick_index >= i_l.i then
-        initialize_tick (ticks, i_l, i_l_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), 42n (*FIXME*))
+        initialize_tick (ticks, i_l, i_l_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), s.seconds_per_liquidity_cumulative)
     else
-        initialize_tick (ticks, i_l, i_l_l, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, 0n)  in
+        initialize_tick (ticks, i_l, i_l_l, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
     let ticks = if s.cur_tick_index >= i_u.i then
-        initialize_tick (ticks, i_u, i_u_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), 42n (*FIXME*))
+        initialize_tick (ticks, i_u, i_u_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), s.seconds_per_liquidity_cumulative)
     else
-        initialize_tick (ticks, i_u, i_u_l, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, 0n)  in
+        initialize_tick (ticks, i_u, i_u_l, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
 
     (* Form position key. *)
     let position_key = {owner=Tezos.sender ; lower_tick_index=i_l; upper_tick_index=i_u} in

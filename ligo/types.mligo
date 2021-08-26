@@ -77,7 +77,7 @@ type tick_state = {
 
         This helps us to implement liquidity oracle.
     *)
-    seconds_per_liquidity_outside : nat ;
+    seconds_per_liquidity_outside : x128n ;
 
     (* sqrt(P) = sqrt(X/Y) associated with this tick. *)
     sqrt_price : x80n
@@ -146,7 +146,7 @@ type storage = {
     last_ic_sum_update : timestamp ;
 
     (* Cumulative time-weighted sum of 1/L. *)
-    seconds_per_liquidity_cumulative : nat ;
+    seconds_per_liquidity_cumulative : x128n ;
 
     (* TZIP-16 metadata. *)
     metadata : metadata_map ;
