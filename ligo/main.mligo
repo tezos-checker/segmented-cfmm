@@ -86,14 +86,14 @@ let calc_fee_growth_inside (s : storage) (lower_tick_index : tick_index) (upper_
       y = {x128 = assert_nat (s.fee_growth.y.x128 - fee_above.y.x128 - fee_below.y.x128, internal_315) };
     }
 
-let collect_fees (s : storage) (key : position_index) (position : position_state) : storage * balance_nat =
+let collect_fees (s : storage) (key : position_index) (position : position_state) : storage * balance_nat * position_state =
     let fee_growth_inside = calc_fee_growth_inside s key.lower_tick_index key.upper_tick_index in
     let fees = {
         x = Bitwise.shift_right ((assert_nat (fee_growth_inside.x.x128 - position.fee_growth_inside_last.x.x128, internal_316)) * position.liquidity) 128n;
         y = Bitwise.shift_right ((assert_nat (fee_growth_inside.y.x128 - position.fee_growth_inside_last.y.x128, internal_317)) * position.liquidity) 128n} in
     let position = {position with fee_growth_inside_last = fee_growth_inside} in
     let positions = Big_map.update key (Some position) s.positions in
-    ({s with positions = positions}, fees)
+    ({s with positions = positions}, fees, position)
 
 let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : tick_index) (i_u_l : tick_index) (liquidity_delta : int) (to_x : address) (to_y : address) : result =
     (* Initialize ticks if need be. *)
@@ -119,9 +119,9 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
                 } in
         (new_position, true) in
     (* Get accumulated fees for this position. *)
-    let s, fees =
+    let s, fees, position =
         if is_new then
-            (s, {x = 0n; y = 0n})
+            (s, {x = 0n; y = 0n}, position)
         else
             collect_fees s position_key position
         in
