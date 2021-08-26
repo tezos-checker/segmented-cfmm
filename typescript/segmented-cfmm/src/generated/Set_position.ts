@@ -1,10 +1,10 @@
 import {Lambda} from '../common';
 export interface Set_position {
-  delta_liquidity: number;
-  il: number;
-  ill: number;
-  iu: number;
-  iul: number;
+  liquidity_delta: number;
+  lower_tick_index: number;
+  lower_tick_witness: number;
   to_x: string;
   to_y: string;
+  upper_tick_index: number;
+  upper_tick_witness: number;
 };

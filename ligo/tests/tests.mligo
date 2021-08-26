@@ -10,7 +10,7 @@ let main_file = "../main.mligo"
 let max_tick_state = {
     prev = {i=-const_max_tick} ;
     next = {i=int(const_max_tick)} ;
-    delta_liquidity = 0 ;
+    liquidity_net = 0 ;
     n_positions = 1n ; (* prevents garbage collection *)
     fee_growth_outside = {x = 0n ; y = 0n} ;
     sqrt_price = 71107673757466966990985105047137336834554167630n ; (* Round[Exp[5/100000*(2^20-1)]*2^80] *)
@@ -19,7 +19,7 @@ let max_tick_state = {
 let min_tick_state = {
     prev = {i=-const_max_tick} ;
     next = {i=int(const_max_tick)} ;
-    delta_liquidity = 0 ;
+    liquidity_net = 0 ;
     n_positions = 1n ; (* prevents garbage collection *)
     fee_growth_outside = {x = 0n ; y = 0n} ;
     sqrt_price = 21n ; (* Round[Exp[-5/100000*(2^20-1)]*2^80] *)
@@ -36,7 +36,7 @@ let test =
         liquidity = 0n ;
         sqrt_price = 0n ;
         i_c = 0 ;
-        lo  = { i = -const_max_tick } ;
+        cur_tick_witness  = { i = -const_max_tick } ;
         fee_growth = { x = 0n ; y = 0n } ;
         balance = { x = 0n ; y = 0n } ;
         ticks = ticks ;
@@ -46,5 +46,3 @@ let test =
     }|} : ligo_program)] in
     let (addr, _, _) = Test.originate testme_test "main" init_storage in
     Test.log addr
-
-

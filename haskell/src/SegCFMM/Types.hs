@@ -40,9 +40,13 @@ instance Buildable Views where
 -- | Parameter of @X_to_Y@ entrypoints
 data XToYParam = XToYParam
   { xpDx :: Natural
+    -- ^ Sold tokens amount.
   , xpDeadline :: Timestamp
+    -- ^ Deadline for the exchange.
   , xpMinDy :: Natural
-  , xpToDy :: Address -- Recipient of dy
+    -- ^ Minimal expected number of tokens bought.
+  , xpToDy :: Address
+    -- ^ Recipient of Y tokens.
   }
 
 instance Buildable XToYParam where
@@ -51,9 +55,13 @@ instance Buildable XToYParam where
 -- | Parameter of @Y_to_X@ entrypoints
 data YToXParam = YToXParam
   { ypDy :: Natural
+    -- ^ Sold tokens amount.
   , ypDeadline :: Timestamp
+    -- ^ Deadline for the exchange.
   , ypMinDx :: Natural
-  , ypToDx :: Address -- Recipient of dx
+    -- ^ Minimal expected number of tokens bought.
+  , ypToDx :: Address
+    -- ^ Recipient of X tokens.
   }
 
 instance Buildable YToXParam where
@@ -61,17 +69,20 @@ instance Buildable YToXParam where
 
 
 data SetPositionParam = SetPositionParam
-  { sppIL :: TickIndex
+  { sppLowerTickIndex :: TickIndex
     -- ^ Lower tick
-  , sppIU :: TickIndex
+  , sppUpperTickIndex :: TickIndex
     -- ^ Upper tick
-  , sppILL :: TickIndex
+  , sppLowerTickWitness :: TickIndex
     -- ^ Index of an initialized lower tick lower than `sppIL` (to find it easily in the linked list).
-  , sppIUL :: TickIndex
+  , sppUpperTickWitness :: TickIndex
     -- ^ Index of an initialized upper tick lower than `sppIU` (to find it easily in the linked list).
-  , sppDeltaLiquidity :: Integer
+  , sppLiquidityDelta :: Integer
+    -- ^ How to change liquidity of the position (if not yet exists, assumed to have 0 liquidity).
   , sppToX :: Address
+    -- ^ Where to send freed X tokens, if any.
   , sppToY :: Address
+    -- ^ Where to send freed Y tokens, if any.
   }
 
 instance Buildable SetPositionParam where
@@ -88,23 +99,28 @@ data Storage = Storage
     -- ^ Virtual liquidity, the value L for which the curve locally looks like x * y = L^2
   , sSqrtPrice :: Natural
     -- ^ Square root of the virtual price, the value P for which P = x / y
-  , sIC :: Integer
+  , sCurTickIndex :: Integer
     -- ^ Current tick index: The highest tick corresponding to a price less than or
     -- equal to sqrt_price^2, does not necessarily corresponds to a boundary.
-  , sLo :: TickIndex
-    -- ^ The highest initialized tick lower than or equal to i_c
+  , sCurTickWitness :: TickIndex
+    -- ^ The highest initialized tick lower than or equal to cur_tick_index.
   , sFeeGrowth :: BalanceNat
     -- ^ Represent the total amount of fees that have been earned per unit of
     -- virtual liquidity, over the entire history of the contract.
   , sBalance :: BalanceNat
+    -- ^ Tokens' balances.
   , sTicks :: TickMap
-    -- ^ TODO: Initialized Tick Bitmap?
+    -- ^ Ticks' states.
   , sPositions :: PositionMap
+    -- ^ Positions' states.
   , sTimeWeightIcSum :: Integer
+    -- ^ Cumulative time-weighted sum of the 'sIC'.
   , sLastIcSumUpdate :: Timestamp
+    -- ^ Last time 'sLastIcSumUpdate' was updated.
   , sSecondsPerLiquidity :: Natural
 
   , sMetadata :: TZIP16.MetadataMap BigMap
+    -- ^ TZIP-16 metadata.
   }
 
 instance Buildable Storage where
@@ -141,17 +157,23 @@ instance HasAnnotation TickIndex where
 -- | Information stored for every initialized tick.
 data TickState = TickState
   { tsPrev :: TickIndex
+    -- ^ Index of the previous initialized tick.
   , tsNext :: TickIndex
-  , tsDeltaLiquidity :: Integer
-    -- ^ Track total amount of liquidity that is added/removed.
+    -- ^ Index of the next initialized tick.
+  , tsLiquidityNet :: Integer
+    -- ^ Track total amount of liquidity that is added/removed when
+    -- this tick is crossed.
   , tsNPosition :: Natural
-    -- ^ TODO: liquidityGross ?
-  , tsFeeGrowthOutside :: BalanceNat
-    -- ^ Track fees accumulated within a given range.
+    -- ^ Number of positions that cover this tick.
   , tsSecondsOutside :: Natural
-    -- ^ Track current timestamp in seconds.
+    -- ^ Overall number of seconds spent below or above this tick
+    --   (below or above - depends on whether the current tick
+    --    is below or above this tick).
+  , tsFeeGrowthOutside :: BalanceNat
+    -- ^ Track fees accumulated below or above this tick.
   , tsSecondsPerLiquidityOutside :: Natural
   , tsSqrtPrice :: Natural
+    -- ^ Square root of the price associated with this tick.
   }
 
 instance Buildable TickState where
@@ -163,9 +185,9 @@ type TickMap = BigMap TickIndex TickState
 -- | Position types, representing LP positions.
 data PositionIndex = PositionIndex
   { piOwner :: Address
-  , piLO :: TickIndex
+  , piLowerTickIndex :: TickIndex
     -- ^ Lower bound.
-  , piHI :: TickIndex
+  , piUpperTickIndex :: TickIndex
     -- ^ Upper bound.
   } deriving stock (Ord, Eq)
 
@@ -180,7 +202,6 @@ data PositionState = PositionState
     -- been accumulated since the contract was last touched.
   , psFeeGrowthInsideLast :: BalanceNat
     -- ^ Used to calculate uncollected fees.
-  , psSecondsPerLiquidityInside :: Natural
   }
 
 instance Buildable PositionState where
