@@ -5,10 +5,16 @@
 #else
 #define TYPES_MLIGO
 
+(* Keeps a positive value with -2^80 precision. *)
+type x80n = { x80 : nat }
+
+(* Keeps a positive value with -2^128 precision. *)
+type x128n = { x128 : nat }
+
 (* Tick types, representing pieces of the curve offered between different tick segments. *)
 type tick_index = {i : int}
 type balance_nat = {x : nat ; y : nat}
-type balance_int = {x : int ; y : int}
+type balance_nat_x128 = {x : x128n ; y : x128n}
 
 (* Information stored for every initialized tick. *)
 type tick_state = {
@@ -64,17 +70,17 @@ type tick_state = {
 
         For intuition for "outside" word, see `seconds_outside`.
        *)
-    fee_growth_outside : balance_nat ;
+    fee_growth_outside : balance_nat_x128 ;
 
     (* Seconds-weighted 1/L value accumulator s_lo, it accounts only for
         "outside" periods. For intuition for "outside" word, see `seconds_outside`.
 
         This helps us to implement liquidity oracle.
     *)
-    seconds_per_liquidity_outside : nat ;
+    seconds_per_liquidity_outside : x128n ;
 
     (* sqrt(P) = sqrt(X/Y) associated with this tick. *)
-    sqrt_price : nat
+    sqrt_price : x80n
 }
 
 type tick_map = (tick_index, tick_state) big_map
@@ -92,7 +98,7 @@ type position_state = {
     (* Total fees earned by the position at the moment of last fees collection for this position.
         This helps to evaluate the next portion of fees to collect.
     *)
-    fee_growth_inside_last : balance_nat ;
+    fee_growth_inside_last : balance_nat_x128 ;
 }
 
 type position_map = (position_index, position_state) big_map
@@ -105,13 +111,13 @@ type storage = {
     liquidity : nat ;
 
     (* Square root of the virtual price, the value P for which P = x / y. *)
-    sqrt_price : nat ;
+    sqrt_price : x80n ;
 
     (* Index of the highest tick corresponding to a price less than or equal to sqrt_price^2,
         does not necessarily corresponds to a boundary.
         Article's notation: i_c, tick.
     *)
-    cur_tick_index : int ;
+    cur_tick_index : tick_index ;
 
     (* The highest initialized tick lower than or equal to i_c. *)
     cur_tick_witness : tick_index ;
@@ -119,7 +125,7 @@ type storage = {
     (* The total amount of fees that have been earned per unit of virtual liquidity (L),
         over the entire history of the contract.
     *)
-    fee_growth : balance_nat ;
+    fee_growth : balance_nat_x128 ;
 
     (* Tokens' amounts. *)
     balance : balance_nat ;
@@ -140,7 +146,7 @@ type storage = {
     last_ic_sum_update : timestamp ;
 
     (* Cumulative time-weighted sum of 1/L. *)
-    seconds_per_liquidity_cumulative : nat ;
+    seconds_per_liquidity_cumulative : x128n ;
 
     (* TZIP-16 metadata. *)
     metadata : metadata_map ;

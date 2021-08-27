@@ -17,7 +17,7 @@ This is an example of conditionally present code, remove it once normal pragmas 
 let rec initialize_tick ((ticks, i, i_l,
     initial_fee_growth_outside,
     initial_seconds_outside,
-    initial_seconds_per_liquidity_outside) : tick_map * tick_index * tick_index * balance_nat * nat * nat) : tick_map =
+    initial_seconds_per_liquidity_outside) : tick_map * tick_index * tick_index * balance_nat_x128 * nat * x128n) : tick_map =
     if Big_map.mem i ticks then
         ticks
     else if i_l.i > i.i then
@@ -67,22 +67,22 @@ let collect_fees (s : storage) (key : position_index) : storage * balance_nat =
     | Some position -> position in
     let tick_lo = get_tick s.ticks key.lower_tick_index internal_tick_not_exist_err in
     let tick_hi = get_tick s.ticks key.upper_tick_index internal_tick_not_exist_err in
-    let f_a = if s.cur_tick_index >= key.upper_tick_index.i then
-        { x = assert_nat (s.fee_growth.x - tick_hi.fee_growth_outside.x, internal_311);
-          y = assert_nat (s.fee_growth.y - tick_hi.fee_growth_outside.y, internal_311)}
+    let f_a = if s.cur_tick_index.i >= key.upper_tick_index.i then
+        { x = {x128 = assert_nat (s.fee_growth.x.x128 - tick_hi.fee_growth_outside.x.x128, internal_311)};
+          y = {x128 = assert_nat (s.fee_growth.y.x128 - tick_hi.fee_growth_outside.y.x128, internal_311)}}
     else
         tick_hi.fee_growth_outside in
-    let f_b = if s.cur_tick_index >= key.lower_tick_index.i then
+    let f_b = if s.cur_tick_index.i >= key.lower_tick_index.i then
         tick_lo.fee_growth_outside
     else
-        { x = assert_nat (s.fee_growth.x - tick_lo.fee_growth_outside.x, internal_312) ;
-          y = assert_nat (s.fee_growth.y - tick_lo.fee_growth_outside.y, internal_312) } in
+        { x = {x128 = assert_nat (s.fee_growth.x.x128 - tick_lo.fee_growth_outside.x.x128, internal_312)} ;
+          y = {x128 = assert_nat (s.fee_growth.y.x128 - tick_lo.fee_growth_outside.y.x128, internal_312)} } in
     let fee_growth_inside = {
-        x = assert_nat (s.fee_growth.x - f_a.x - f_b.x, internal_314) ;
-        y = assert_nat (s.fee_growth.y - f_a.y - f_b.y, internal_315) } in
+        x = {x128 = assert_nat (s.fee_growth.x.x128 - f_a.x.x128 - f_b.x.x128, internal_314)} ;
+        y = {x128 = assert_nat (s.fee_growth.y.x128 - f_a.y.x128 - f_b.y.x128, internal_315)} } in
     let fees = {
-        x = Bitwise.shift_right ((assert_nat (fee_growth_inside.x - position.fee_growth_inside_last.x, internal_316)) * position.liquidity) 128n;
-        y = Bitwise.shift_right ((assert_nat (fee_growth_inside.y - position.fee_growth_inside_last.y, internal_317)) * position.liquidity) 128n} in
+        x = Bitwise.shift_right ((assert_nat (fee_growth_inside.x.x128 - position.fee_growth_inside_last.x.x128, internal_316)) * position.liquidity) 128n;
+        y = Bitwise.shift_right ((assert_nat (fee_growth_inside.y.x128 - position.fee_growth_inside_last.y.x128, internal_317)) * position.liquidity) 128n} in
     let position = {position with fee_growth_inside_last = fee_growth_inside} in
     let positions = Big_map.update key (Some position) s.positions in
     ({s with positions = positions}, fees)
@@ -91,21 +91,21 @@ let collect_fees (s : storage) (key : position_index) : storage * balance_nat =
 let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : tick_index) (i_u_l : tick_index) (liquidity_delta : int) (to_x : address) (to_y : address) : result =
     (* Initialize ticks if need be. *)
     let ticks = s.ticks in
-    let ticks = if s.cur_tick_index >= i_l.i then
-        initialize_tick (ticks, i_l, i_l_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), 42n (*FIXME*))
+    let ticks = if s.cur_tick_index.i >= i_l.i then
+        initialize_tick (ticks, i_l, i_l_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), s.seconds_per_liquidity_cumulative)
     else
-        initialize_tick (ticks, i_l, i_l_l, {x = 0n ; y = 0n}, 0n, 0n)  in
-    let ticks = if s.cur_tick_index >= i_u.i then
-        initialize_tick (ticks, i_u, i_u_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), 42n (*FIXME*))
+        initialize_tick (ticks, i_l, i_l_l, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
+    let ticks = if s.cur_tick_index.i >= i_u.i then
+        initialize_tick (ticks, i_u, i_u_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), s.seconds_per_liquidity_cumulative)
     else
-        initialize_tick (ticks, i_u, i_u_l, {x = 0n ; y = 0n}, 0n, 0n)  in
+        initialize_tick (ticks, i_u, i_u_l, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
 
     (* Form position key. *)
     let position_key = {owner=Tezos.sender ; lower_tick_index=i_l; upper_tick_index=i_u} in
     (* Grab existing position or create an empty one *)
     let (position, is_new) = match (Big_map.find_opt position_key s.positions) with
     | Some position -> (position, false)
-    | None -> ({liquidity = 0n ; fee_growth_inside_last = {x = 0n; y = 0n}}, true) in
+    | None -> ({liquidity = 0n ; fee_growth_inside_last = {x = {x128 = 0n}; y = {x128 = 0n}}}, true) in
     (* Get accumulated fees for this position. *)
     let s, fees = collect_fees s position_key in
     (* Update liquidity of position. *)
@@ -139,21 +139,21 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
 
     (* Add or remove liquidity above the current tick *)
     let (s, delta) =
-    if s.cur_tick_index < i_l.i then
+    if s.cur_tick_index.i < i_l.i then
         (s, {
             (* If I'm adding liquidity, x will be positive, I want to overestimate it, if x I'm taking away
                 liquidity, I want to to underestimate what I'm receiving. *)
-            x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u - srp_l, internal_sqrt_price_grow_err_1)) 90n))) (int (srp_l * srp_u)) ;
+            x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - srp_l.x80, internal_sqrt_price_grow_err_1)) 80n))) (int (srp_l.x80 * srp_u.x80)) ;
             y = 0})
-    else if i_l.i <= s.cur_tick_index && s.cur_tick_index < i_u.i then
+    else if i_l.i <= s.cur_tick_index.i && s.cur_tick_index.i < i_u.i then
         (* update interval we are in, if need be ... *)
         let s = {s with cur_tick_witness = if i_l.i > s.cur_tick_witness.i then i_l else s.cur_tick_witness ; liquidity = assert_nat (s.liquidity + liquidity_delta, internal_liquidity_below_zero_err)} in
         (s, {
-            x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u - s.sqrt_price, internal_sqrt_price_grow_err_1)) 90n))) (int (s.sqrt_price * srp_u)) ;
-            y = shift_int (liquidity_delta * (s.sqrt_price - srp_l)) (-80)
+            x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - s.sqrt_price.x80, internal_sqrt_price_grow_err_1)) 80n))) (int (s.sqrt_price.x80 * srp_u.x80)) ;
+            y = shift_int (liquidity_delta * (s.sqrt_price.x80 - srp_l.x80)) (-80)
             })
     else (* cur_tick_index >= i_u *)
-        (s, {x = 0 ; y = shift_int (liquidity_delta * (srp_u - srp_l)) (-80) }) in
+        (s, {x = 0 ; y = shift_int (liquidity_delta * (srp_u.x80 - srp_l.x80)) (-80) }) in
 
     (* Collect fees to increase withdrawal or reduce required deposit. *)
     let delta = {x = delta.x - fees.x ; y = delta.y - fees.y} in
@@ -185,7 +185,7 @@ type parameter =
 | Get_time_weighted_sum of views contract
 
 let update_time_weighted_sum (s : storage) : storage =
-    let new_sum = s.time_weighted_ic_sum + (Tezos.now - s.last_ic_sum_update) * s.cur_tick_index
+    let new_sum = s.time_weighted_ic_sum + (Tezos.now - s.last_ic_sum_update) * s.cur_tick_index.i
     in {s with time_weighted_ic_sum = new_sum ; last_ic_sum_update = Tezos.now}
 
 let main ((p, s) : parameter * storage) : result =

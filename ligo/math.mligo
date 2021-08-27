@@ -26,6 +26,10 @@ let floor_log_half_bps ((x, y) : nat * nat) : int =
         let denom = 2n * (x_plus_y * x_plus_y + 2n * x * y) in
         num / (int denom)
 
+let floor_log_half_bps_x80 ((x, y) : x80n * x80n) : int =
+    match (x, y) with
+        ({x80 = x0}, {x80 = y0}) -> floor_log_half_bps(x0, y0)
+
 let shift_int (x : int) (n : int): int =
     (if x < 0 then -1 else 1) * (int (if n > 0 then Bitwise.shift_left (abs x) (abs n) else Bitwise.shift_right (abs x) (abs n)))
 
@@ -91,14 +95,14 @@ let rec half_bps_pow_rec ((tick, acc, ladder) : nat * fixed_point * (fixed_point
         | [] -> (failwith end_ladder_reached_err : fixed_point)
         | h :: t -> half_bps_pow_rec (half, (if rem = 0n then acc else fixed_point_mul h acc), t)
 
-let half_bps_pow (tick : int) : nat =
+let half_bps_pow (tick : int) : x80n =
     let product = half_bps_pow_rec (abs tick, {v=0n;offset=0}, (if tick > 0  then positive_ladder  else negative_ladder)) in
     let doffset = -80 - product.offset in
     if doffset > 0 then
-        Bitwise.shift_right product.v (abs doffset)
+        {x80 = Bitwise.shift_right product.v (abs doffset)}
     else
         (* This branch should almost never happen, in general the price we get is not a round number. *)
-        Bitwise.shift_left product.v (abs doffset)
+        {x80 = Bitwise.shift_left product.v (abs doffset)}
 
 
 (* ladder explanation

@@ -27,7 +27,7 @@ let min_tick_state = {
 
 let ticks = Big_map.literal [
     ({ i = -const_max_tick}, min_tick_state);
-    ({ i = const_max_tick}, max_tick_state)
+    ({ i = int(const_max_tick)}, max_tick_state)
 ]
 
 let test =

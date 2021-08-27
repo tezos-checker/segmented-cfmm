@@ -5,7 +5,10 @@
 
 -- | Types mirrored from LIGO implementation.
 module SegCFMM.Types
-  ( Storage (..)
+  ( X (..)
+  , mkX
+
+  , Storage (..)
   , Parameter (..)
   ) where
 
@@ -15,6 +18,23 @@ import Fmt (Buildable, build, genericF)
 
 import Lorentz hiding (now)
 import qualified Lorentz.Contracts.Spec.TZIP16Interface as TZIP16
+
+-- | A value with @2^-n@ precision.
+newtype X (n :: Nat) a = X
+  { pickX :: a
+    -- ^ Get the value multiplied by @2^n@.
+  } deriving stock (Show, Eq, Generic)
+    deriving newtype (IsoValue, HasAnnotation)
+
+instance (Buildable a, KnownNat n) => Buildable (X n a) where
+  build x = build (pickX x) <> " X 2^" <> build (powerOfX x)
+
+powerOfX :: KnownNat n => X n a -> Natural
+powerOfX (X{} :: X n a) = natVal (Proxy @n)
+
+-- | Convert a fraction to 'X'.
+mkX :: forall n a. (KnownNat n, RealFrac a, Integral a) => a -> X n a
+mkX = X . round . (* 2 ^ natVal (Proxy @n))
 
 data Parameter
   = X_to_Y XToYParam
@@ -97,18 +117,17 @@ instance Buildable SetPositionParam where
 data Storage = Storage
   { sLiquidity :: Natural
     -- ^ Virtual liquidity, the value L for which the curve locally looks like x * y = L^2
-  , sSqrtPrice :: Natural
+  , sSqrtPrice :: X 80 Natural
     -- ^ Square root of the virtual price, the value P for which P = x / y
-  , sCurTickIndex :: Integer
+  , sCurTickIndex :: TickIndex
     -- ^ Current tick index: The highest tick corresponding to a price less than or
     -- equal to sqrt_price^2, does not necessarily corresponds to a boundary.
   , sCurTickWitness :: TickIndex
-    -- ^ The highest initialized tick lower than or equal to cur_tick_index.
-  , sFeeGrowth :: BalanceNat
+    -- ^ The highest initialized tick lower than or equal to cur_tick_index
+  , sFeeGrowth :: PerToken (X 128 Natural)
     -- ^ Represent the total amount of fees that have been earned per unit of
     -- virtual liquidity, over the entire history of the contract.
-  , sBalance :: BalanceNat
-    -- ^ Tokens' balances.
+  , sBalance :: PerToken Natural
   , sTicks :: TickMap
     -- ^ Ticks' states.
   , sPositions :: PositionMap
@@ -117,7 +136,7 @@ data Storage = Storage
     -- ^ Cumulative time-weighted sum of the 'sIC'.
   , sLastIcSumUpdate :: Timestamp
     -- ^ Last time 'sLastIcSumUpdate' was updated.
-  , sSecondsPerLiquidity :: Natural
+  , sSecondsPerLiquidityCumulative :: Natural
 
   , sMetadata :: TZIP16.MetadataMap BigMap
     -- ^ TZIP-16 metadata.
@@ -134,12 +153,12 @@ instance HasFieldOfType Storage name field => StoreHasField Storage name field w
   storeFieldOps = storeFieldOpsADT
 
 
-data BalanceNat = BalanceNat
-  { bnX :: Natural
-  , bnY :: Natural
+data PerToken a = PerToken
+  { ptX :: a
+  , ptY :: a
   }
 
-instance Buildable BalanceNat where
+instance Buildable a => Buildable (PerToken a) where
   build = genericF
 
 -- | Tick types, representing pieces of the curve offered between different tick segments.
@@ -169,10 +188,11 @@ data TickState = TickState
     -- ^ Overall number of seconds spent below or above this tick
     --   (below or above - depends on whether the current tick
     --    is below or above this tick).
-  , tsFeeGrowthOutside :: BalanceNat
+  , tsFeeGrowthOutside :: PerToken (X 128 Natural)
     -- ^ Track fees accumulated below or above this tick.
-  , tsSecondsPerLiquidityOutside :: Natural
-  , tsSqrtPrice :: Natural
+  , tsSecondsPerLiquidityOutside :: X 128 Natural
+    -- ^ Track seconds-weighted 1/L value below or above this tick.
+  , tsSqrtPrice :: X 80 Natural
     -- ^ Square root of the price associated with this tick.
   }
 
@@ -200,7 +220,7 @@ data PositionState = PositionState
     -- ^ Amount of virtual liquidity that the position represented the last
     -- time it was touched. This amount does not reflect the fees that have
     -- been accumulated since the contract was last touched.
-  , psFeeGrowthInsideLast :: BalanceNat
+  , psFeeGrowthInsideLast :: PerToken (X 128 Natural)
     -- ^ Used to calculate uncollected fees.
   }
 
@@ -248,9 +268,9 @@ instance ParameterHasEntrypoints Parameter where
   type ParameterEntrypointsDerivation Parameter = EpdDelegate
 
 
-customGeneric "BalanceNat" ligoLayout
-deriving anyclass instance IsoValue BalanceNat
-instance HasAnnotation BalanceNat where
+customGeneric "PerToken" ligoLayout
+deriving anyclass instance IsoValue a => IsoValue (PerToken a)
+instance HasAnnotation a => HasAnnotation (PerToken a) where
   annOptions = segCfmmAnnOptions
 
 customGeneric "TickState" ligoLayout

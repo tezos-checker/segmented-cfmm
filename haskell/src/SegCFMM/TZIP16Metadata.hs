@@ -18,12 +18,12 @@ import qualified Data.Map as M
 import Data.Version (showVersion)
 
 import Lorentz hiding (View)
-import Lorentz.Contracts.Spec.TZIP16Interface
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
+import Lorentz.Contracts.Spec.TZIP16Interface
 import Morley.Metadata
 
-import SegCFMM.Types
 import qualified Paths_segmented_cfmm as Paths
+import SegCFMM.Types
 
 -- | Piece of metadata defined by user.
 data MetadataConfig = MetadataConfig
@@ -117,7 +117,7 @@ getSqrtPriceView MetadataSettings{} = View
   , vPure = Just True
   , vImplementations =
       [ VIMichelsonStorageView $
-          mkMichelsonStorageView @Storage @Natural Nothing [] $
+          mkMichelsonStorageView @Storage @(X 80 Natural) Nothing [] $
             unsafeCompileViewCode $ WithoutParam $ do
               stToField #sSqrtPrice
       ]

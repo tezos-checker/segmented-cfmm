@@ -9,8 +9,11 @@ author:              Serokell, Arthur Breitman
 git:                 git@github.com:serokell/segmented-cfmm.git
 copyright:           2021 Arthur Breitman
 
-extra-source-files:
+extra-doc-files:
 - README.md
+
+extra-source-files:
+- test/segmented_cfmm.tz
 
 description:         Tools and tests for the Segmented CFMM contract.
 
