@@ -7,8 +7,7 @@
 #include "transfers.mligo"
 #include "math.mligo"
 #include "swaps.mligo"
-
-(* TODO: make positions into an FA2 *)
+#include "token/fa2.mligo"
 
 #if !DUMMY_PRAGMA1
 This is an example of conditionally present code, remove it once normal pragmas are set.
@@ -116,6 +115,7 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
         let new_position =
                 { liquidity = 0n;
                   fee_growth_inside_last = calc_fee_growth_inside s position_key.lower_tick_index position_key.upper_tick_index;
+                  position_id = s.new_position_id;
                 } in
         (new_position, true) in
     (* Get accumulated fees for this position. *)
@@ -144,8 +144,21 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
         else
             ticks) in
     (* delete the position if liquidity has fallen to 0 *)
-    let position_entry : position_state option = if liquidity_new = 0n then None else Some {position with liquidity = liquidity_new} in
-    let positions = Big_map.update position_key position_entry s.positions in
+    let (positions, position_indexes, new_position_id) =
+        if liquidity_new = 0n then
+            ( Big_map.remove position_key s.positions
+            , Big_map.remove position.position_id s.position_indexes
+            , s.new_position_id
+            )
+        else
+            ( Big_map.add position_key ({position with liquidity = liquidity_new}) s.positions
+            , ( if is_new then
+                  Big_map.add position.position_id position_key s.position_indexes
+                else s.position_indexes
+              )
+            , ( if is_new then s.new_position_id + 1n else s.new_position_id )
+            ) in
+
     (* Compute how much should be deposited / withdrawn to change liquidity by liquidity_net *)
 
     (* Grab cached prices for the interval *)
@@ -185,21 +198,17 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
     else
         y_transfer Tezos.self_address to_y (abs delta.y) in
 
-    ([op_x ; op_y], {s with positions = positions; ticks = ticks})
-
-
-type views =
-    | IC_sum of int
+    ( [op_x ; op_y]
+    , { s with
+        positions = positions
+      ; position_indexes = position_indexes
+      ; new_position_id = new_position_id
+      ; ticks = ticks
+      }
+    )
 
 let get_time_weighted_sum (s : storage) (c : views contract) : result =
     ([Tezos.transaction (IC_sum s.time_weighted_ic_sum) 0mutez c], s)
-
-type parameter =
-| X_to_Y of x_to_y_param
-| Y_to_X of y_to_x_param
-| Set_position of set_position_param (* TODO add deadline, maximum tokens contributed, and maximum liquidity present *)
-| X_to_X_prime of address (* equivalent to token_to_token *)
-| Get_time_weighted_sum of views contract
 
 let update_time_weighted_sum (s : storage) : storage =
     let new_sum = s.time_weighted_ic_sum + (Tezos.now - s.last_ic_sum_update) * s.cur_tick_index.i
@@ -215,3 +224,4 @@ let s = update_time_weighted_sum s in
 | Set_position p -> set_position s p.lower_tick_index p.upper_tick_index p.lower_tick_witness p.upper_tick_witness p.liquidity_delta p.to_x p.to_y
 | Get_time_weighted_sum contract -> get_time_weighted_sum s contract
 | X_to_X_prime _ -> (failwith "not implemented" : result) (*TODO implement iff Y is FA12 *)
+| Call_FA2 p -> call_fa2 s p
