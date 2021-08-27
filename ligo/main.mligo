@@ -67,12 +67,12 @@ let collect_fees (s : storage) (key : position_index) : storage * balance_nat =
     | Some position -> position in
     let tick_lo = get_tick s.ticks key.lower_tick_index internal_tick_not_exist_err in
     let tick_hi = get_tick s.ticks key.upper_tick_index internal_tick_not_exist_err in
-    let f_a = if s.cur_tick_index >= key.upper_tick_index.i then
+    let f_a = if s.cur_tick_index.i >= key.upper_tick_index.i then
         { x = {x128 = assert_nat (s.fee_growth.x.x128 - tick_hi.fee_growth_outside.x.x128, internal_311)};
           y = {x128 = assert_nat (s.fee_growth.y.x128 - tick_hi.fee_growth_outside.y.x128, internal_311)}}
     else
         tick_hi.fee_growth_outside in
-    let f_b = if s.cur_tick_index >= key.lower_tick_index.i then
+    let f_b = if s.cur_tick_index.i >= key.lower_tick_index.i then
         tick_lo.fee_growth_outside
     else
         { x = {x128 = assert_nat (s.fee_growth.x.x128 - tick_lo.fee_growth_outside.x.x128, internal_312)} ;
@@ -91,11 +91,11 @@ let collect_fees (s : storage) (key : position_index) : storage * balance_nat =
 let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : tick_index) (i_u_l : tick_index) (liquidity_delta : int) (to_x : address) (to_y : address) : result =
     (* Initialize ticks if need be. *)
     let ticks = s.ticks in
-    let ticks = if s.cur_tick_index >= i_l.i then
+    let ticks = if s.cur_tick_index.i >= i_l.i then
         initialize_tick (ticks, i_l, i_l_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), s.seconds_per_liquidity_cumulative)
     else
         initialize_tick (ticks, i_l, i_l_l, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
-    let ticks = if s.cur_tick_index >= i_u.i then
+    let ticks = if s.cur_tick_index.i >= i_u.i then
         initialize_tick (ticks, i_u, i_u_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), s.seconds_per_liquidity_cumulative)
     else
         initialize_tick (ticks, i_u, i_u_l, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
@@ -139,13 +139,13 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
 
     (* Add or remove liquidity above the current tick *)
     let (s, delta) =
-    if s.cur_tick_index < i_l.i then
+    if s.cur_tick_index.i < i_l.i then
         (s, {
             (* If I'm adding liquidity, x will be positive, I want to overestimate it, if x I'm taking away
                 liquidity, I want to to underestimate what I'm receiving. *)
             x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - srp_l.x80, internal_sqrt_price_grow_err_1)) 80n))) (int (srp_l.x80 * srp_u.x80)) ;
             y = 0})
-    else if i_l.i <= s.cur_tick_index && s.cur_tick_index < i_u.i then
+    else if i_l.i <= s.cur_tick_index.i && s.cur_tick_index.i < i_u.i then
         (* update interval we are in, if need be ... *)
         let s = {s with cur_tick_witness = if i_l.i > s.cur_tick_witness.i then i_l else s.cur_tick_witness ; liquidity = assert_nat (s.liquidity + liquidity_delta, internal_liquidity_below_zero_err)} in
         (s, {
@@ -185,7 +185,7 @@ type parameter =
 | Get_time_weighted_sum of views contract
 
 let update_time_weighted_sum (s : storage) : storage =
-    let new_sum = s.time_weighted_ic_sum + (Tezos.now - s.last_ic_sum_update) * s.cur_tick_index
+    let new_sum = s.time_weighted_ic_sum + (Tezos.now - s.last_ic_sum_update) * s.cur_tick_index.i
     in {s with time_weighted_ic_sum = new_sum ; last_ic_sum_update = Tezos.now}
 
 let main ((p, s) : parameter * storage) : result =

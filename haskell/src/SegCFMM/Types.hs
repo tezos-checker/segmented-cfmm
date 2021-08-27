@@ -119,7 +119,7 @@ data Storage = Storage
     -- ^ Virtual liquidity, the value L for which the curve locally looks like x * y = L^2
   , sSqrtPrice :: X 80 Natural
     -- ^ Square root of the virtual price, the value P for which P = x / y
-  , sCurTickIndex :: Integer
+  , sCurTickIndex :: TickIndex
     -- ^ Current tick index: The highest tick corresponding to a price less than or
     -- equal to sqrt_price^2, does not necessarily corresponds to a boundary.
   , sCurTickWitness :: TickIndex

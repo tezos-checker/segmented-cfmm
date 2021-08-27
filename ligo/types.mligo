@@ -117,7 +117,7 @@ type storage = {
         does not necessarily corresponds to a boundary.
         Article's notation: i_c, tick.
     *)
-    cur_tick_index : int ;
+    cur_tick_index : tick_index ;
 
     (* The highest initialized tick lower than or equal to i_c. *)
     cur_tick_witness : tick_index ;
