@@ -61,32 +61,39 @@ let incr_n_positions (ticks : tick_map) (i : tick_index) (incr : int) =
     else
         Big_map.update i (Some {tick with n_positions = n_pos}) ticks
 
-let collect_fees (s : storage) (key : position_index) : storage * balance_nat =
-    let position = match Big_map.find_opt key s.positions with
-    | None -> (failwith "position does not exist" : position_state) // TODO: [TCFMM-16] This error is a bug.
-    | Some position -> position in
-    let tick_lo = get_tick s.ticks key.lower_tick_index internal_tick_not_exist_err in
-    let tick_hi = get_tick s.ticks key.upper_tick_index internal_tick_not_exist_err in
-    let f_a = if s.cur_tick_index.i >= key.upper_tick_index.i then
-        { x = {x128 = assert_nat (s.fee_growth.x.x128 - tick_hi.fee_growth_outside.x.x128, internal_311)};
-          y = {x128 = assert_nat (s.fee_growth.y.x128 - tick_hi.fee_growth_outside.y.x128, internal_311)}}
-    else
-        tick_hi.fee_growth_outside in
-    let f_b = if s.cur_tick_index.i >= key.lower_tick_index.i then
-        tick_lo.fee_growth_outside
-    else
-        { x = {x128 = assert_nat (s.fee_growth.x.x128 - tick_lo.fee_growth_outside.x.x128, internal_312)} ;
-          y = {x128 = assert_nat (s.fee_growth.y.x128 - tick_lo.fee_growth_outside.y.x128, internal_312)} } in
-    let fee_growth_inside = {
-        x = {x128 = assert_nat (s.fee_growth.x.x128 - f_a.x.x128 - f_b.x.x128, internal_314)} ;
-        y = {x128 = assert_nat (s.fee_growth.y.x128 - f_a.y.x128 - f_b.y.x128, internal_315)} } in
+let calc_fee_growth_inside (s : storage) (lower_tick_index : tick_index) (upper_tick_index : tick_index) : balance_nat_x128 =
+    let lower_tick = get_tick s.ticks lower_tick_index internal_tick_not_exist_err in
+    let upper_tick = get_tick s.ticks upper_tick_index internal_tick_not_exist_err in
+
+    // equation 6.17
+    let fee_above =
+        if s.cur_tick_index.i >= upper_tick_index.i then
+            { x = {x128 = assert_nat (s.fee_growth.x.x128 - upper_tick.fee_growth_outside.x.x128, internal_311) };
+              y = {x128 = assert_nat (s.fee_growth.y.x128 - upper_tick.fee_growth_outside.y.x128, internal_311) };
+            }
+        else
+            upper_tick.fee_growth_outside in
+    // equation 6.18
+    let fee_below =
+        if s.cur_tick_index.i >= lower_tick_index.i then
+            lower_tick.fee_growth_outside
+        else
+            { x = {x128 = assert_nat (s.fee_growth.x.x128 - lower_tick.fee_growth_outside.x.x128, internal_312) };
+              y = {x128 = assert_nat (s.fee_growth.y.x128 - lower_tick.fee_growth_outside.y.x128, internal_312) };
+            } in
+    // equation 6.19
+    { x = {x128 = assert_nat (s.fee_growth.x.x128 - fee_above.x.x128 - fee_below.x.x128, internal_314) };
+      y = {x128 = assert_nat (s.fee_growth.y.x128 - fee_above.y.x128 - fee_below.y.x128, internal_315) };
+    }
+
+let collect_fees (s : storage) (key : position_index) (position : position_state) : storage * balance_nat * position_state =
+    let fee_growth_inside = calc_fee_growth_inside s key.lower_tick_index key.upper_tick_index in
     let fees = {
         x = Bitwise.shift_right ((assert_nat (fee_growth_inside.x.x128 - position.fee_growth_inside_last.x.x128, internal_316)) * position.liquidity) 128n;
         y = Bitwise.shift_right ((assert_nat (fee_growth_inside.y.x128 - position.fee_growth_inside_last.y.x128, internal_317)) * position.liquidity) 128n} in
     let position = {position with fee_growth_inside_last = fee_growth_inside} in
     let positions = Big_map.update key (Some position) s.positions in
-    ({s with positions = positions}, fees)
-
+    ({s with positions = positions}, fees, position)
 
 let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : tick_index) (i_u_l : tick_index) (liquidity_delta : int) (to_x : address) (to_y : address) : result =
     (* Initialize ticks if need be. *)
@@ -105,9 +112,19 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
     (* Grab existing position or create an empty one *)
     let (position, is_new) = match (Big_map.find_opt position_key s.positions) with
     | Some position -> (position, false)
-    | None -> ({liquidity = 0n ; fee_growth_inside_last = {x = {x128 = 0n}; y = {x128 = 0n}}}, true) in
+    | None ->
+        let new_position =
+                { liquidity = 0n;
+                  fee_growth_inside_last = calc_fee_growth_inside s position_key.lower_tick_index position_key.upper_tick_index;
+                } in
+        (new_position, true) in
     (* Get accumulated fees for this position. *)
-    let s, fees = collect_fees s position_key in
+    let s, fees, position =
+        if is_new then
+            (s, {x = 0n; y = 0n}, position)
+        else
+            collect_fees s position_key position
+        in
     (* Update liquidity of position. *)
     let liquidity_new = assert_nat (position.liquidity + liquidity_delta, internal_liquidity_below_zero_err) in
     let position = {position with liquidity = liquidity_new} in
