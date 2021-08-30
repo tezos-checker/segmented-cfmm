@@ -8,11 +8,69 @@
 #include "errors.mligo"
 #include "math.mligo"
 
-let sqrt_price_move (liquidity : nat) (sqrt_price : x80n) (dx : nat) : x80n =
+(*  Calculate the new `sqrt_price` after a deposit of `dx` `x` tokens.
+    Derived from equation 6.15:
+        Δ(1 / √P) = Δx / L
+        1 / √P_new - 1 / √P_old = Δx / L
+    Since we store √P mutiplied by 2^80 (i.e. sqrt_price = √P * 2^80):
+        1 / (sqrt_price_new / 2^80) - 1 / (sqrt_price_old / 2^80) = Δx / L
+    Solving for sqrt_price_new:
+        sqrt_price_new = (2^80 * L * sqrt_price_old) / (2^80 * L + Δx * sqrt_price_old)
+
+    Example:
+        Assume a pool with 10 `x` tokens and 1000 `y` tokens, which implies:
+            L = sqrt(xy) = sqrt(10*1000) = 100
+            P = y/x = 1000/10 = 100
+            sqrt_price = sqrt(100) * 2^80 = 12089258196146291747061760
+
+        Adding 10 `x` tokens to the pool should result in:
+            x = 20
+            y = L^2 / x = 500
+            P = 500 / 20 = 25
+            sqrt_price = sqrt(25) * 2^80 = 6044629098073145873530880
+
+        And indeed:
+            $ ligo compile-expression --init-file ligo/helpers.mligo cameligo \
+              "sqrt_price_move_x 100n {x80 = 12089258196146291747061760n} 10n"
+            6044629098073145873530880
+   *)
+let sqrt_price_move_x (liquidity : nat) (sqrt_price_old : x80n) (dx : nat) : x80n =
     (* floordiv because we want to overstate how much this trade lowers the price *)
     {x80 = floordiv
-        (Bitwise.shift_left (liquidity * sqrt_price.x80) 80n)
-        ((Bitwise.shift_left liquidity 80n) + dx * sqrt_price.x80)}
+        (Bitwise.shift_left (liquidity * sqrt_price_old.x80) 80n)
+        ((Bitwise.shift_left liquidity 80n) + dx * sqrt_price_old.x80)}
+
+(*  Calculate the new `sqrt_price` after a deposit of `dy` `y` tokens.
+    Derived from equation 6.13:
+        Δ(√P) = Δy /L
+        √P_new - √P_old = Δy /L
+    Since we store √P mutiplied by 2^80 (i.e. sqrt_price = √P * 2^80):
+        sqrt_price_new / 2^80 - sqrt_price_old / 2^80 = Δy /L
+    Solving for sqrt_price_new:
+        sqrt_price_new = 2^80 * (Δy / L) + sqrt_price_old
+
+    Example:
+        Assume a pool with 10 `x` tokens and 1000 `y` tokens, which implies:
+            L = sqrt(xy) = sqrt(10*1000) = 100
+            P = y/x = 1000/10 = 100
+            sqrt_price = sqrt(100) * 2^80 = 12089258196146291747061760
+
+        Adding 1000 `y` tokens to the pool should result in:
+            y = 2000
+            x = L^2 / y = 5
+            P = 2000 / 5 = 400
+            sqrt_price = sqrt(400) * 2^80 = 24178516392292583494123520
+
+        And indeed:
+            $ ligo compile-expression --init-file ligo/helpers.mligo cameligo \
+              "sqrt_price_move_y 100n {x80 = 12089258196146291747061760n} 1000n"
+            24178516392292583494123520
+   *)
+let sqrt_price_move_y (liquidity : nat) (sqrt_price_old : x80n) (dy : nat) : x80n =
+    (* ceildiv because we want to overstate how much this trade increases the price *)
+    { x80 =
+        ceildiv (Bitwise.shift_left dy 80n) liquidity + sqrt_price_old.x80
+    }
 
 (* Helper function to grab a tick we know exists in the tick indexed state. *)
 let get_tick (ticks : (tick_index, tick_state) big_map) (index: tick_index) (error_code: nat) : tick_state =

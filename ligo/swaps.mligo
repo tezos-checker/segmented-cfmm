@@ -16,7 +16,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
         (* The fee that would be extracted from selling dx. *)
         let fee  = ceildiv (p.dx * const_fee_bps) 10000n in
         (* What the new price will be, assuming it's within the current tick. *)
-        let sqrt_price_new = sqrt_price_move p.s.liquidity p.s.sqrt_price (assert_nat (p.dx - fee, internal_fee_more_than_100_percent_err)) in
+        let sqrt_price_new = sqrt_price_move_x p.s.liquidity p.s.sqrt_price (assert_nat (p.dx - fee, internal_fee_more_than_100_percent_err)) in
         (* What the new value of ic will be. *)
         let i_c_new = {i = p.s.cur_tick_index.i + floor_log_half_bps_x80(sqrt_price_new, p.s.sqrt_price)} in
         if i_c_new.i >= p.s.cur_tick_witness.i then
@@ -72,13 +72,13 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
 
 
 let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
- if p.s.liquidity = 0n then
+    if p.s.liquidity = 0n then
         p
     else
         (* The fee that would be extracted from selling dy. *)
         let fee  = ceildiv (p.dy * const_fee_bps) 10000n in
         (* What the new price will be, assuming it's within the current tick. *)
-        let sqrt_price_new = sqrt_price_move p.s.liquidity p.s.sqrt_price (assert_nat (p.dy - fee, internal_fee_more_than_100_percent_err)) in
+        let sqrt_price_new = sqrt_price_move_y p.s.liquidity p.s.sqrt_price (assert_nat (p.dy - fee, internal_fee_more_than_100_percent_err)) in
         (* What the new value of ic will be. *)
         let i_c_new = {i = p.s.cur_tick_index.i + floor_log_half_bps_x80(sqrt_price_new, p.s.sqrt_price)} in
         let tick = get_tick p.s.ticks p.s.cur_tick_witness internal_tick_not_exist_err in
