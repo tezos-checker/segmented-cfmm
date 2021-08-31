@@ -14,7 +14,8 @@ license:        MIT
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
-    test/segmented_cfmm.tz
+    test/segmented_cfmm_default.tz
+    test/storage_default.tz
 extra-doc-files:
     README.md
 
@@ -77,6 +78,7 @@ test-suite segmented-cfmm-test
   other-modules:
       Test.SegCFMM
       Test.SegCFMM.Contract
+      Test.SegCFMM.Storage
       Test.SegCFMM.Types
       Paths_segmented_cfmm
   hs-source-dirs:

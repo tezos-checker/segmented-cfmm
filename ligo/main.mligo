@@ -8,6 +8,8 @@
 #include "math.mligo"
 #include "swaps.mligo"
 #include "token/fa2.mligo"
+#include "defaults.mligo"
+
 
 #if !DUMMY_PRAGMA1
 This is an example of conditionally present code, remove it once normal pragmas are set.

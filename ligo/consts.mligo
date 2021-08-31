@@ -5,7 +5,13 @@
 #else
 #define CONSTS_MLIGO
 
+(* Note: `half_bps_pow` only supports sqrt_price up to this tick index: `2^20 - 1`. *)
 [@inline] let const_max_tick : nat = 1048575n
+
+(* Invalid tick index. Shouldn't be reached. Cannot be defined as failwith
+    due to `compile-storage` returning the error.
+*)
+[@inline] let impossible_tick : nat = const_max_tick + 1n
 
 (* Some contract specific constants, to be edited per deployment
  todo implement burn [@inline] let const_ctez_burn_fee_bps : nat = 5n *)

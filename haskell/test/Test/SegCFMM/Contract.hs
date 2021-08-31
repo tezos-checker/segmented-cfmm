@@ -1,9 +1,10 @@
 -- SPDX-FileCopyrightText: 2021 Arthur Breitman
 -- SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
 
--- | LIGO version of the contract.
+-- | Module that contains the import of segmented-cfmm contract to be used
+-- in Haskell tests.
 module Test.SegCFMM.Contract
-  ( segCFMMContractLigo
+  ( segCFMMContract
   ) where
 
 import Michelson.Typed
@@ -11,6 +12,6 @@ import Michelson.Typed
 import SegCFMM.Types
 import Util (fetchContract)
 
-segCFMMContractLigo :: Contract (ToT Parameter) (ToT Storage)
-segCFMMContractLigo =
+segCFMMContract :: Contract (ToT Parameter) (ToT Storage)
+segCFMMContract =
  $(fetchContract @(ToT Parameter) @(ToT Storage) "SEGMENTED_CFMM_PATH")
