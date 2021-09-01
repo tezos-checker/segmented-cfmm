@@ -113,6 +113,9 @@
 (* Generic impossible error. *)
 [@inline] let internal_impossible_err = 320n
 
+(* Thrown when `seconds_outside` is negative. *)
+[@inline] let internal_negative_seconds_outside_err = 321n
+
 
 
 #endif

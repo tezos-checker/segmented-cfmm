@@ -16,7 +16,7 @@ TS_OUT ?= typescript
 # Utility function to escape double quotes
 escape_double_quote = $(subst $\",$\\",$(1))
 
-.PHONY: all lib metadata test typescript clean
+.PHONY: all lib metadata error-codes test typescript clean
 
 # Builds LIGO contract. Arguments:
 #   1: The source file
@@ -63,6 +63,9 @@ metadata: lib all
 		--y-token-symbol $(y_token_symbol) --y-token-name $(call escape_double_quote,$(y_token_name)) \
 		--y-token-decimals $(y_token_decimals) \
 		" EXEC_OUTPUT=$(output)
+
+error-codes:
+	stack scripts/generate_error_code.hs
 
 test: all
 	$(MAKE) -C haskell test PACKAGE=segmented-cfmm \

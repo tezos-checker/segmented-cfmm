@@ -50,10 +50,12 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
                 x = {x128 = assert_nat (fee_growth_x_new.x128 - tick.fee_growth_outside.x.x128, flip_fee_growth_outside_err)}} in
             let fee_growth_new = {p.s.fee_growth with x=fee_growth_x_new} in
             (* Flip time growth. *)
-            let seconds_outside_new = assert_nat ((Tezos.now - epoch_time) - tick.seconds_outside, internal_epoch_bigger_than_now_err) in
+            let seconds_outside_new = assert_nat ((Tezos.now - epoch_time) - tick.seconds_outside, internal_negative_seconds_outside_err) in
+            (* Update tick state. *)
             let tick_new = {tick with
-                fee_growth_outside = fee_growth_outside_new ;
-                seconds_outside = seconds_outside_new } in
+                    fee_growth_outside = fee_growth_outside_new ;
+                    seconds_outside = seconds_outside_new ;
+                } in
             let ticks_new = Big_map.update p.s.cur_tick_witness (Some tick_new) p.s.ticks  in
             (* Update global state. *)
             let s_new = {p.s with
@@ -113,7 +115,13 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             let fee_growth_outside_new = {tick.fee_growth_outside with
                 y = {x128 = assert_nat (fee_growth_y_new.x128 - tick.fee_growth_outside.y.x128, flip_fee_growth_outside_err)}} in
             let fee_growth_new = {p.s.fee_growth with y=fee_growth_y_new} in
-            let tick_new = {tick with fee_growth_outside = fee_growth_outside_new} in
+            (* Flip time growth. *)
+            let seconds_outside_new = assert_nat ((Tezos.now - epoch_time) - tick.seconds_outside, internal_negative_seconds_outside_err) in
+            (* Update tick state. *)
+            let tick_new = { tick with
+                    fee_growth_outside = fee_growth_outside_new ;
+                    seconds_outside = seconds_outside_new ;
+                } in
             let ticks_new = Big_map.update p.s.cur_tick_witness (Some tick_new) p.s.ticks  in
             (* Update global state. *)
             let s_new = {p.s with

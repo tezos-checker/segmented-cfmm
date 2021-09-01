@@ -61,5 +61,6 @@ Here is a summary of all the error codes thrown by the contract.
 | 318 | `internal_sqrt_price_grow_err_1` | Thrown when `s.i_c < i_l.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). |
 | 319 | `internal_sqrt_price_grow_err_2` | Thrown when `i_l.i <= s.i_c && s.i_c < i_u.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). |
 | 320 | `internal_impossible_err` | Generic impossible error. |
+| 321 | `internal_negative_seconds_outside_err` | Thrown when `seconds_outside` is negative. |
 
 
