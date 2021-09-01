@@ -36,6 +36,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             (* The cached price corresponding to cur_tick_witness. *)
             let sqrt_price_new = tick.sqrt_price in
             (* How much dY will we receive for going all the way to cur_tick_witness. *)
+            (* From 6.14 formula. *)
             let dy = Bitwise.shift_right (p.s.liquidity * (assert_nat (p.s.sqrt_price.x80 - sqrt_price_new.x80, internal_303))) 80n in
             (* How much dX does that correspond to. *)
             let dx_for_dy = ceildiv (Bitwise.shift_left dy 160n) (p.s.sqrt_price.x80 * sqrt_price_new.x80) in
@@ -93,10 +94,11 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             (* The cached price corresponding to hi. *)
             let next_tick = get_tick p.s.ticks i_u internal_tick_not_exist_err in
             let sqrt_price_new = next_tick.sqrt_price in
-            (* How much dx will we receive for going all the wax to cur_tick_witness. *)
 
-            (* FIXME this is wrong, invert prices etc *)
-            let dx = Bitwise.shift_right (p.s.liquidity * (assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_304))) 80n in
+            (* How much dx will we receive for going all the way to cur_tick_witness. *)
+            (* From 6.16 formula: dx = L * (1 / old sqrt_price - 1 / new sqrt_price), where dx is how X decreases *)
+            let dx = ceildiv (p.s.liquidity * Bitwise.shift_left (assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_304)) 80n)
+                             (sqrt_price_new.x80 * p.s.sqrt_price.x80) in
             (* How much dy does that correspond to. *)
             let dy_for_dx = ceildiv (Bitwise.shift_left dx 160n) (p.s.sqrt_price.x80 * sqrt_price_new.x80) in
             (* plouf *)
