@@ -48,6 +48,8 @@ extra-deps:
     commit: cf434b81bd54939855541abc320552adcefd1715 # master
     subdirs:
       - code/morley-metadata
+  - tasty-1.4
+  - tasty-ant-xml-1.1.8
   # Needed by `summoner-2.0.1.1`, not sure why it is not required in `indigo` or `baseDAO`.
   - generic-data-0.8.3.0@sha256:fef21320697370fa1fadc14f72ac3ad8092b021f5371b315be3c9f3bde44c274,3710
   - neat-interpolation-0.3.2.6@sha256:05a7516f4ffc86ba1ca4e9c1cddda5a062131ae518e1d423d6f162c214be4cc1,3066

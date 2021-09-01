@@ -7,11 +7,11 @@ module Test.SegCFMM.Contract
   ( segCFMMContract
   ) where
 
-import Michelson.Typed
+import Lorentz (Contract)
+import Lorentz.Test.Import (embedContract)
 
 import SegCFMM.Types
-import Util (fetchContract)
 
-segCFMMContract :: Contract (ToT Parameter) (ToT Storage)
+segCFMMContract :: Contract (Parameter) (Storage)
 segCFMMContract =
- $(fetchContract @Parameter @Storage "SEGMENTED_CFMM_PATH")
+  $$(embedContract @Parameter @Storage "test/segmented_cfmm_default.tz")

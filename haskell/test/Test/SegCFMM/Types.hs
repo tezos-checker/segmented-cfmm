@@ -10,7 +10,7 @@ import Universum
 
 import Test.HUnit (Assertion)
 
-import Michelson.Typed (Contract)
+import Lorentz (Contract)
 
 import SegCFMM.Types (Storage)
 import Test.SegCFMM.Contract

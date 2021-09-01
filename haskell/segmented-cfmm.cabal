@@ -44,6 +44,7 @@ library
     , fmt
     , lorentz
     , morley
+    , morley-client
     , morley-ledgers
     , morley-metadata
     , morley-prelude
@@ -80,6 +81,7 @@ test-suite segmented-cfmm-test
       Test.SegCFMM.Contract
       Test.SegCFMM.Storage
       Test.SegCFMM.Types
+      Tree
       Paths_segmented_cfmm
   hs-source-dirs:
       test
@@ -90,14 +92,11 @@ test-suite segmented-cfmm-test
   build-depends:
       HUnit
     , base-noprelude >=4.7 && <5
-    , bytestring
     , cleveland
     , fmt
     , lorentz
     , morley
-    , morley-ledgers
     , morley-prelude
-    , named
     , segmented-cfmm
     , tasty
     , tasty-hunit-compat

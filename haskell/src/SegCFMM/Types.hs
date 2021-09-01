@@ -10,6 +10,12 @@ module SegCFMM.Types
 
   , Storage (..)
   , Parameter (..)
+  , PerToken (..)
+  , TickIndex (..)
+  , TickState (..)
+  , SetPositionParam (..)
+  , XToYParam (..)
+  , YToXParam (..)
   ) where
 
 import Universum
@@ -19,6 +25,7 @@ import Fmt (Buildable, build, genericF)
 import Lorentz hiding (now)
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import qualified Lorentz.Contracts.Spec.TZIP16Interface as TZIP16
+import Morley.Client (AsRPC, deriveRPCWithStrategy)
 
 -- | A value with @2^-n@ precision.
 newtype X (n :: Nat) a = X
@@ -30,11 +37,13 @@ newtype X (n :: Nat) a = X
 instance (Buildable a, KnownNat n) => Buildable (X n a) where
   build x = build (pickX x) <> " X 2^" <> build (powerOfX x)
 
+type instance AsRPC (X n a) = X n a
+
 powerOfX :: KnownNat n => X n a -> Natural
 powerOfX (X{} :: X n a) = natVal (Proxy @n)
 
 -- | Convert a fraction to 'X'.
-mkX :: forall n a. (KnownNat n, RealFrac a, Integral a) => a -> X n a
+mkX :: forall n a b. (KnownNat n, RealFrac a, Integral b) => a -> X n b
 mkX = X . round . (* 2 ^ natVal (Proxy @n))
 
 data Parameter
@@ -169,6 +178,8 @@ data PerToken a = PerToken
 instance Buildable a => Buildable (PerToken a) where
   build = genericF
 
+type instance AsRPC (PerToken a) = PerToken a
+
 -- | Tick types, representing pieces of the curve offered between different tick segments.
 newtype TickIndex = TickIndex Integer
   deriving stock (Generic, Show)
@@ -180,6 +191,9 @@ instance Buildable TickIndex where
 
 instance HasAnnotation TickIndex where
   annOptions = segCfmmAnnOptions
+
+type instance AsRPC TickIndex = TickIndex
+
 
 -- | Information stored for every initialized tick.
 data TickState = TickState
@@ -249,6 +263,8 @@ instance Buildable PositionId where
 
 instance HasAnnotation PositionId where
   annOptions = segCfmmAnnOptions
+
+type instance AsRPC PositionId = PositionId
 
 
 -- | Map containing Liquidity providers.
@@ -357,3 +373,7 @@ customGeneric "Storage" ligoLayout
 deriving anyclass instance IsoValue Storage
 instance HasAnnotation Storage where
   annOptions = segCfmmAnnOptions
+
+deriveRPCWithStrategy "Storage" ligoLayout
+instance Buildable StorageRPC where
+  build = genericF

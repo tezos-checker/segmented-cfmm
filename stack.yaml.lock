@@ -174,6 +174,20 @@ packages:
     git: https://gitlab.com/morley-framework/morley-metadata.git
     commit: cf434b81bd54939855541abc320552adcefd1715
 - completed:
+    hackage: tasty-1.4@sha256:6b28c0512f83255dc07cc2ef6a1fc7922076c1d9ba03a1083f3e66b672ce9388,2518
+    pantry-tree:
+      size: 1804
+      sha256: c19b7e4e10627e5102309ea3a65c9ba8ad9c1e3416f8dcc2ae6bbee9fddf1507
+  original:
+    hackage: tasty-1.4
+- completed:
+    hackage: tasty-ant-xml-1.1.8@sha256:562a52a7a61235f1a3e87ccf4476f6055d56a1dde3d044be21d661c74a79dea4,916
+    pantry-tree:
+      size: 278
+      sha256: b3d05f4eb2542fed1d66b36156f5ae8c1b5e64e42f879146ae7bc8e2daa28452
+  original:
+    hackage: tasty-ant-xml-1.1.8
+- completed:
     hackage: generic-data-0.8.3.0@sha256:fef21320697370fa1fadc14f72ac3ad8092b021f5371b315be3c9f3bde44c274,3710
     pantry-tree:
       size: 2061
