@@ -10,9 +10,9 @@
 -- | Script for adding new error to ligo and also update the docs.
 module GenerateErrorCode where
 
+import Data.String.Interpolate (i)
 import Prelude ()
 import Universum
-import Data.String.Interpolate (i)
 
 data ErrorItem = ErrorItem
   { eiLabel :: Text
@@ -174,6 +174,11 @@ internalErrors =
       { eiLabel = "internal_impossible_err"
       , eiCode = 320
       , eiDesc = "Generic impossible error."
+      }
+    , ErrorItem
+      { eiLabel = "internal_negative_seconds_outside_err"
+      , eiCode = 321
+      , eiDesc = "Thrown when `seconds_outside` is negative."
       }
 
   ]
