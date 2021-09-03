@@ -98,6 +98,8 @@ within a tick interval with higher liquidity.
 Users may call the [`x_to_y`](#x_to_y) or [`y_to_x`](#y_to_x) entrypoints
 to swap their `x` or `y` tokens, respectively.
 
+<a name="initialized-tick-definition"></a>
+
 A tick is said to be _initialized_ if it is currently being used as a bound of a position,
 or _uninitialized_ otherwise.
 
@@ -502,26 +504,29 @@ type get_position_info_param =
 Oracle `view` for a snapshot of the tick cumulative, seconds per liquidity and
 seconds inside the given range.
 
-- `i_l` determines the lowest tick index of the range.
-- `i_u` determines the highest tick index of the range.
+- `lower_tick_index` determines the lowest tick index of the range.
+- `upper_tick_index` determines the highest tick index of the range.
 - the `callback` contract will be called with the computed values.
 - `tick_cumulative_inside` is the computed snapshot of the tick cumulative for
   the given range.
 - `seconds_per_liquidity_inside` is the computed snapshot of the seconds per
   liquidity for the given range.
 - `seconds_inside` is the computed snapshot of the seconds for the given range.
+- This entrypoint accepts only indices of [initialized](#initialized-tick-definition)
+  ticks; in case invalid tick index is provided, the call will fail with
+  `tick_not_exist_err` error code.
 
 ```ocaml
-type sci_view_param = {
+type cumulatives_inside_snapshot = {
     tick_cumulative_inside : int ;
     seconds_per_liquidity_inside : nat ;
     seconds_inside : nat ;
 }
 
-type sci_param = {
-    i_l : tick_index ;
-    i_u : tick_index ;
-    callback : sci_view_param contract ;
+type cumulatives_inside_snapshot_param = {
+    lower_tick_index : tick_index ;
+    upper_tick_index : tick_index ;
+    callback : cumulatives_inside_snapshot contract ;
 }
 ```
 

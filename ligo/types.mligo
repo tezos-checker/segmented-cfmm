@@ -130,7 +130,8 @@ type tick_state = {
     *)
     seconds_outside : nat ;
 
-    (* Tick indices accumulator i_o, it accounts only for "outside" periods
+    (* Tick indices accumulator i_o, it keeps track of time-weighted sum of
+        tick indices, but accounts them only for "outside" periods.
         For the intuition for "outside" word, see `seconds_outside`.
     *)
     tick_cumulative_outside : int ;
@@ -151,6 +152,19 @@ type tick_state = {
 
     (* sqrt(P) = sqrt(X/Y) associated with this tick. *)
     sqrt_price : x80n
+}
+
+type cumulatives_inside_snapshot = {
+    tick_cumulative_inside : int ;
+    seconds_per_liquidity_inside : x128n ;
+    seconds_inside : nat ;
+}
+
+// Data for storing intermediate results of computations over cumulatives.
+type cumulatives_data = {
+    seconds_per_liquidity : x128n ;
+    seconds : nat ;
+    tick : int ;
 }
 
 type tick_map = (tick_index, tick_state) big_map
@@ -375,6 +389,12 @@ type y_to_x_param = {
 
 type y_to_x_rec_param = x_to_y_rec_param
 
+type snapshot_cumulatives_inside_param = {
+    lower_tick_index : tick_index ;
+    upper_tick_index : tick_index ;
+    callback : cumulatives_inside_snapshot contract ;
+}
+
 type oracle_view_param = cumulatives_value list
 
 type observe_param =
@@ -428,6 +448,7 @@ type parameter =
   | Set_position of set_position_param (* TODO add deadline, maximum tokens contributed, and maximum liquidity present *)
   | Get_position_info of get_position_info_param
   | Call_fa2 of fa2_parameter
+  | Snapshot_cumulatives_inside of snapshot_cumulatives_inside_param
   | Observe of observe_param
   | Increase_observation_count of increase_observation_count_param
 

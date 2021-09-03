@@ -143,6 +143,12 @@
 (* `positions` and `position_indexes` maps were not synchronized. *)
 [@inline] let internal_position_maps_unsynced_err = 324n
 
+(* Some problem in cumulative seconds computation. *)
+[@inline] let internal_seconds_cumulative_err = 325n
+
+(* Some problem in cumulative liquidity per seconds computation. *)
+[@inline] let internal_lps_cumulative_err = 326n
+
 
 
 #endif

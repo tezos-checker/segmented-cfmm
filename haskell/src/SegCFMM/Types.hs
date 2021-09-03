@@ -60,8 +60,10 @@ data Parameter
     -- ^ Get information about position
   | Call_fa2 FA2.Parameter
     -- ^ Call FA2 interface
+  | Snapshot_cumulatives_inside SnapshotCumulativesInsideParam
+    -- ^ Get oracle values at given range.
   | Observe ObserveParam
-    -- ^ Get geometric mean price
+    -- ^ Get oracle values at certain points of time.
   | Increase_observation_count Natural
     -- ^ Set the number of stored accumulators for geometric mean price oracle.
 
@@ -147,6 +149,24 @@ data PositionInfo = PositionInfo
   { piLiquidity :: Natural
   , piIndex :: PositionIndex
   }
+
+data CumulativesInsideSnapshot = CumulativesInsideSnapshot
+  { cisTickCumulativeInside :: Integer
+  , cisSecondsPerLiquidityInside :: X 128 Natural
+  , cisSecondsInside :: Natural
+  }
+
+instance Buildable CumulativesInsideSnapshot where
+  build = genericF
+
+data SnapshotCumulativesInsideParam = SnapshotCumulativesInsideParam
+  { sciLowerTickIndex :: TickIndex
+  , sciUpperTickIndex :: TickIndex
+  , sciCallback :: ContractRef CumulativesInsideSnapshot
+  }
+
+instance Buildable SnapshotCumulativesInsideParam where
+  build = genericF
 
 instance Buildable PositionInfo where
   build = genericF
@@ -429,6 +449,16 @@ instance HasAnnotation FA2.Parameter where
   annOptions = segCfmmAnnOptions
 instance ParameterHasEntrypoints FA2.Parameter where
   type ParameterEntrypointsDerivation FA2.Parameter = EpdPlain
+
+customGeneric "CumulativesInsideSnapshot" ligoLayout
+deriving anyclass instance IsoValue CumulativesInsideSnapshot
+instance HasAnnotation CumulativesInsideSnapshot where
+  annOptions = segCfmmAnnOptions
+
+customGeneric "SnapshotCumulativesInsideParam" ligoLayout
+deriving anyclass instance IsoValue SnapshotCumulativesInsideParam
+instance HasAnnotation SnapshotCumulativesInsideParam where
+  annOptions = segCfmmAnnOptions
 
 customGeneric "Parameter" ligoLayout
 deriving anyclass instance IsoValue Parameter

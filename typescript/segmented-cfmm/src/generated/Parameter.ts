@@ -4,6 +4,7 @@ import {Get_position_info} from  './Get_position_info';
 import {Increase_observation_count} from  './Increase_observation_count';
 import {Observe} from  './Observe';
 import {Set_position} from  './Set_position';
+import {Snapshot_cumulatives_inside} from  './Snapshot_cumulatives_inside';
 import {Transfer} from  './Transfer';
 import {Update_operators} from  './Update_operators';
 import {X_to_x_prime} from  './X_to_x_prime';
@@ -16,6 +17,7 @@ export type Parameter =
   | Increase_observation_count
   | Observe
   | Set_position
+  | Snapshot_cumulatives_inside
   | Transfer
   | Update_operators
   | X_to_x_prime
