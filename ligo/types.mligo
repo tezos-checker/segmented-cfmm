@@ -179,6 +179,8 @@ type set_position_param = {
     to_x : address ;
     (* Where to send the freed Y tokens, if any. *)
     to_y : address ;
+    (* The transaction won't be executed past this point. *)
+    deadline : timestamp ;
 }
 
 type x_to_y_param = {

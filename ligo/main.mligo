@@ -96,6 +96,7 @@ let collect_fees (s : storage) (key : position_index) (position : position_state
     ({s with positions = positions}, fees, position)
 
 let set_position (s : storage) (p : set_position_param) : result =
+    let _: unit = check_deadline p.deadline in
     (* Initialize ticks if need be. *)
     let ticks = s.ticks in
     let ticks = if s.cur_tick_index.i >= p.lower_tick_index.i then

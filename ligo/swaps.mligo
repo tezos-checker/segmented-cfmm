@@ -139,33 +139,29 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
 
 (* Trade up to a quantity dx of asset x, receives dy *)
 let x_to_y (s : storage) (p : x_to_y_param) : result =
-    if Tezos.now > p.deadline then
-        (failwith past_deadline_err : result)
+    let _: unit = check_deadline p.deadline in
+    let r = x_to_y_rec {s = s ; dx = p.dx ; dy = 0n} in
+    let dx_spent = assert_nat (p.dx - r.dx, internal_309) in
+    let dy_received = r.dy in
+    let s_new = {s with balance = {x = s.balance.x + dx_spent ;  y = assert_nat (s.balance.y - dy_received, internal_insufficient_balance_err)}} in
+    if dy_received < p.min_dy then
+        (failwith smaller_than_min_asset_err : result)
     else
-        let r = x_to_y_rec {s = s ; dx = p.dx ; dy = 0n} in
-        let dx_spent = assert_nat (p.dx - r.dx, internal_309) in
-        let dy_received = r.dy in
-        let s_new = {s with balance = {x = s.balance.x + dx_spent ;  y = assert_nat (s.balance.y - dy_received, internal_insufficient_balance_err)}} in
-        if dy_received < p.min_dy then
-            (failwith smaller_than_min_asset_err : result)
-        else
-            let op_receive_x = x_transfer Tezos.sender Tezos.self_address dx_spent in
-            let op_send_y = y_transfer Tezos.self_address p.to_dy dy_received in
-            ([op_receive_x ; op_send_y], s_new)
+        let op_receive_x = x_transfer Tezos.sender Tezos.self_address dx_spent in
+        let op_send_y = y_transfer Tezos.self_address p.to_dy dy_received in
+        ([op_receive_x ; op_send_y], s_new)
 
 
 (* Trade up to a quantity dy of asset y, receives dx *)
 let y_to_x (s : storage) (p : y_to_x_param) : result =
-    if Tezos.now > p.deadline then
-        (failwith past_deadline_err : result)
+    let _: unit = check_deadline p.deadline in
+    let r = y_to_x_rec {s = s ; dy = p.dy ; dx = 0n} in
+    let dy_spent = assert_nat (p.dy - r.dy, internal_309) in
+    let dx_received = r.dx in
+    let s_new = {s with balance = {y = s.balance.y + dy_spent ;  x = assert_nat (s.balance.x - dx_received, internal_insufficient_balance_err)}} in
+    if dx_received < p.min_dx then
+        (failwith smaller_than_min_asset_err : result)
     else
-        let r = y_to_x_rec {s = s ; dy = p.dy ; dx = 0n} in
-        let dy_spent = assert_nat (p.dy - r.dy, internal_309) in
-        let dx_received = r.dx in
-        let s_new = {s with balance = {y = s.balance.y + dy_spent ;  x = assert_nat (s.balance.x - dx_received, internal_insufficient_balance_err)}} in
-        if dx_received < p.min_dx then
-            (failwith smaller_than_min_asset_err : result)
-        else
-            let op_receive_y = y_transfer Tezos.sender Tezos.self_address dy_spent in
-            let op_send_x = x_transfer Tezos.self_address p.to_dx dx_received in
-            ([op_receive_y ; op_send_x], s_new)
+        let op_receive_y = y_transfer Tezos.sender Tezos.self_address dy_spent in
+        let op_send_x = x_transfer Tezos.self_address p.to_dx dx_received in
+        ([op_receive_y ; op_send_x], s_new)

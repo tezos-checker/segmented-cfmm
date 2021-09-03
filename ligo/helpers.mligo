@@ -78,4 +78,10 @@ let get_tick (ticks : (tick_index, tick_state) big_map) (index: tick_index) (err
     | None -> failwith error_code
     | Some state -> state
 
+(* Check if a request has expired. *)
+let check_deadline (deadline : timestamp) : unit =
+    if Tezos.now > deadline
+        then failwith past_deadline_err
+        else unit
+
 #endif

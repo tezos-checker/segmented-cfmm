@@ -103,6 +103,8 @@ data SetPositionParam = SetPositionParam
     -- ^ Where to send freed X tokens, if any.
   , sppToY :: Address
     -- ^ Where to send freed Y tokens, if any.
+  , sppDeadline :: Timestamp
+    -- ^ The deadline for the request to be executed.
   }
 
 instance Buildable SetPositionParam where

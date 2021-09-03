@@ -1,5 +1,6 @@
 import {Lambda} from '../common';
 export interface Set_position {
+  deadline: string;
   liquidity_delta: number;
   lower_tick_index: number;
   lower_tick_witness: number;
