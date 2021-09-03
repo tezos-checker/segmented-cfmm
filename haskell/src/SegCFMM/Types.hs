@@ -105,6 +105,9 @@ data SetPositionParam = SetPositionParam
     -- ^ Where to send freed Y tokens, if any.
   , sppDeadline :: Timestamp
     -- ^ The deadline for the request to be executed.
+  , sppMaximumTokensContributed :: PerToken Natural
+    -- ^ The maximum number of tokens to contribute.
+    -- If a higher amount is required, the entrypoint fails.
   }
 
 instance Buildable SetPositionParam where
