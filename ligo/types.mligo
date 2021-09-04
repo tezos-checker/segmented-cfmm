@@ -130,6 +130,11 @@ type tick_state = {
     *)
     seconds_outside : nat ;
 
+    (* Tick indices accumulator i_o, it accounts only for "outside" periods
+        For the intuition for "outside" word, see `seconds_outside`.
+    *)
+    tick_cumulative_outside : int ;
+
     (* Overall number of fees f_o that were accumulated during the period
         when the current tick index i_c was below (or above) this tick.
 

@@ -12,6 +12,7 @@ let default_storage : storage =
     ; liquidity_net = 0
     ; n_positions = 1n (* prevents garbage collection *)
     ; seconds_outside = 0n
+    ; tick_cumulative_outside = 0
     ; fee_growth_outside = {x = { x128 = 0n } ; y = { x128 = 0n }}
     ; seconds_per_liquidity_outside = {x128 = 0n}
     ; sqrt_price = { x80 = 21n }
@@ -24,6 +25,7 @@ let default_storage : storage =
     ; liquidity_net = 0
     ; n_positions = 1n (* prevents garbage collection *)
     ; seconds_outside = 0n
+    ; tick_cumulative_outside = 0
     ; fee_growth_outside = {x = { x128 = 0n } ; y = { x128 = 0n }}
     ; seconds_per_liquidity_outside = {x128 = 0n}
     ; sqrt_price = { x80 = 71107673757466966990985105047137336834554167630n }

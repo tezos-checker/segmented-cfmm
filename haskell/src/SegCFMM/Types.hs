@@ -238,6 +238,8 @@ data TickState = TickState
     -- ^ Overall number of seconds spent below or above this tick
     --   (below or above - depends on whether the current tick
     --    is below or above this tick).
+  , tsTickCumulativeOutside :: Integer
+    -- ^ Track tick index accumulated below or above this tick.
   , tsFeeGrowthOutside :: PerToken (X 128 Natural)
     -- ^ Track fees accumulated below or above this tick.
   , tsSecondsPerLiquidityOutside :: X 128 Natural
