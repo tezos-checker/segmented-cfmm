@@ -244,6 +244,8 @@ transfer its ownership to a different address.
 - This entrypoint adheres to the [FA2][fa2] requirements.
 - If there is no position associated to the given `token_id`, fails with
   `FA2_TOKEN_UNDEFINED`
+- If there used to be a position associated to the given `token_id` but it is closed, fails with
+  `FA2_TOKEN_UNDEFINED`
 - If an `amount` is `0` it does not fail, but effectively there will be no
   difference.
 - If any `amount` is higher than `1`, fails with `FA2_INSUFFICIENT_BALANCE`, as

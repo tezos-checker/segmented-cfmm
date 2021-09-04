@@ -13,6 +13,71 @@ type x128n = { x128 : nat }
 
 (* Tick types, representing pieces of the curve offered between different tick segments. *)
 type tick_index = {i : int}
+
+(* FA2 related types *)
+
+type position_id = nat
+
+type operator =
+  { owner : address
+  ; operator : address
+  }
+type operators = (operator, unit) big_map
+
+type transfer_destination =
+  [@layout:comb]
+  { to_ : address
+  ; token_id : position_id
+  ; amount : nat
+  }
+
+type transfer_item =
+  [@layout:comb]
+  { from_ : address
+  ; txs : transfer_destination list
+  }
+
+type transfer_params = transfer_item list
+
+type balance_request_item =
+  [@layout:comb]
+  { owner : address
+  ; token_id : position_id
+  }
+
+type balance_response_item =
+  [@layout:comb]
+  { request : balance_request_item
+  ; balance : nat
+  }
+
+type balance_request_params =
+  [@layout:comb]
+  { requests : balance_request_item list
+  ; callback : balance_response_item list contract
+  }
+
+type operator_param =
+  [@layout:comb]
+  { owner : address
+  ; operator : address
+  ; token_id : position_id
+  }
+
+type update_operator =
+  [@layout:comb]
+  | Add_operator of operator_param
+  | Remove_operator of operator_param
+
+type update_operators_param = update_operator list
+
+
+type fa2_parameter =
+  | Transfer of transfer_params
+  | Balance_of of balance_request_params
+  | Update_operators of update_operators_param
+
+
 type balance_nat = {x : nat ; y : nat}
 type balance_nat_x128 = {x : x128n ; y : x128n}
 
@@ -99,9 +164,19 @@ type position_state = {
         This helps to evaluate the next portion of fees to collect.
     *)
     fee_growth_inside_last : balance_nat_x128 ;
+    (* When deleting a position_state, we also need to delete `position_index` in `store.position_indexes`. Storing `position_id` here allows us to delete that. *)
+    position_id : position_id ;
 }
 
+
+
+(* Map containing Liquidity providers. Indexed by `position_index`. *)
 type position_map = (position_index, position_state) big_map
+
+(* One-to-one relation from `postion_id` to `position_index`.
+Used for querying `position_state` with just a `position_id`. *)
+type position_index_map = (position_id, position_index) big_map
+
 
 // TZIP-16 metadata map
 type metadata_map = (string, bytes) big_map
@@ -136,6 +211,9 @@ type storage = {
     (* States of positions (with non-zero liquidity). *)
     positions : position_map ;
 
+    (* One-to-one relation from `postion_id` to `position_index`. *)
+    position_indexes : position_index_map ;
+
     (* Cumulative time-weighted sum of the i_c.
         This is needed to evaluate time weighted geometric mean price
         over various time periods.
@@ -150,6 +228,13 @@ type storage = {
 
     (* TZIP-16 metadata. *)
     metadata : metadata_map ;
+
+    (* Incremental position id to be assigned to new position. *)
+    new_position_id : position_id ;
+
+    (* FA2-related *)
+    operators : operators ;
+
 }
 
 (* Entrypoints types *)
@@ -208,5 +293,19 @@ type y_to_x_param = {
 type y_to_x_rec_param = x_to_y_rec_param
 
 type result = (operation list) * storage
+
+
+(* Entrypoints *)
+
+type views =
+  | IC_sum of int
+
+type parameter =
+  | X_to_Y of x_to_y_param
+  | Y_to_X of y_to_x_param
+  | Set_position of set_position_param (* TODO add deadline, maximum tokens contributed, and maximum liquidity present *)
+  | X_to_X_prime of address (* equivalent to token_to_token *)
+  | Get_time_weighted_sum of views contract
+  | Call_FA2 of fa2_parameter
 
 #endif

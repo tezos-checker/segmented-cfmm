@@ -175,12 +175,11 @@ internalErrors =
       , eiCode = 320
       , eiDesc = "Generic impossible error."
       }
-    , ErrorItem
+  , ErrorItem
       { eiLabel = "internal_negative_seconds_outside_err"
       , eiCode = 321
       , eiDesc = "Thrown when `seconds_outside` is negative."
       }
-
   ]
 
 

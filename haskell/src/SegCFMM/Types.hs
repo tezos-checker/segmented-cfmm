@@ -17,6 +17,7 @@ import Universum
 import Fmt (Buildable, build, genericF)
 
 import Lorentz hiding (now)
+import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import qualified Lorentz.Contracts.Spec.TZIP16Interface as TZIP16
 
 -- | A value with @2^-n@ precision.
@@ -46,6 +47,7 @@ data Parameter
   | X_to_X_prime Address
     -- ^ Equivalent to token_to_token
   | Get_time_weighted_sum (ContractRef Views)
+  | Call_FA2 FA2.Parameter
 
 instance Buildable Parameter where
   build = genericF
@@ -132,6 +134,8 @@ data Storage = Storage
     -- ^ Ticks' states.
   , sPositions :: PositionMap
     -- ^ Positions' states.
+  , sPositionIndexes :: PositionIndexMap
+    -- ^ One-to-one relation from `postion_id` to `position_index`.
   , sTimeWeightIcSum :: Integer
     -- ^ Cumulative time-weighted sum of the 'sIC'.
   , sLastIcSumUpdate :: Timestamp
@@ -140,6 +144,10 @@ data Storage = Storage
 
   , sMetadata :: TZIP16.MetadataMap BigMap
     -- ^ TZIP-16 metadata.
+  , sNewPositionId :: PositionId
+    -- ^ Incremental position id to be assigned to new position.
+  , sOperators :: Operators
+    -- ^ FA2 operators
   }
 
 instance Buildable Storage where
@@ -222,13 +230,54 @@ data PositionState = PositionState
     -- been accumulated since the contract was last touched.
   , psFeeGrowthInsideLast :: PerToken (X 128 Natural)
     -- ^ Used to calculate uncollected fees.
+  , psPositionId :: PositionId
+    -- ^ When deleting a position_state, we also need to delete `position_index`
+    -- in `store.position_indexes`. Storing `position_id` here allows us to delete that.
   }
 
 instance Buildable PositionState where
   build = genericF
 
+
+newtype PositionId = PositionId Natural
+  deriving stock (Generic, Show)
+  deriving newtype (Enum, Ord, Eq, Num, Real, Integral)
+  deriving anyclass IsoValue
+
+instance Buildable PositionId where
+  build = genericF
+
+instance HasAnnotation PositionId where
+  annOptions = segCfmmAnnOptions
+
+
 -- | Map containing Liquidity providers.
 type PositionMap = BigMap PositionIndex PositionState
+
+-- | One-to-one relation from `postion_id` to `position_index`.
+-- Used for querying `position_state` with just a `position_id`.
+type PositionIndexMap = BigMap PositionId PositionIndex
+
+
+------------------------------------------------------------------------
+-- Operators
+------------------------------------------------------------------------
+
+data Operator = Operator
+  { oOwner :: Address
+  , oOperator :: Address
+  } deriving stock (Eq, Ord)
+
+instance Buildable Operator where
+  build = genericF
+
+instance (Buildable a, Buildable b) => Buildable (a, b) where
+  build = genericF
+
+type Operators = BigMap Operator ()
+
+instance Buildable () where
+  build _ = "()"
 
 -----------------------------------------------------------------
 -- Helper
@@ -261,6 +310,20 @@ customGeneric "SetPositionParam" ligoLayout
 deriving anyclass instance IsoValue SetPositionParam
 instance HasAnnotation SetPositionParam where
   annOptions = segCfmmAnnOptions
+
+
+customGeneric "Operator" ligoLayout
+deriving anyclass instance IsoValue Operator
+instance HasAnnotation Operator where
+  annOptions = segCfmmAnnOptions
+
+customGeneric "FA2.Parameter" ligoLayout
+deriving anyclass instance IsoValue FA2.Parameter
+instance HasAnnotation FA2.Parameter where
+  annOptions = segCfmmAnnOptions
+instance ParameterHasEntrypoints FA2.Parameter where
+  type ParameterEntrypointsDerivation FA2.Parameter = EpdPlain
+
 
 customGeneric "Parameter" ligoLayout
 deriving anyclass instance IsoValue Parameter

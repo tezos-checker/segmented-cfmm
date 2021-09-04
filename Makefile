@@ -41,7 +41,7 @@ all: \
 $(OUT)/segmented_cfmm_default.tz : LIGO_PRAGMAS = DUMMY_PRAGMA1 DUMMY_PRAGMA2
 
 # Generic rule for compiling CFMM contract variations.
-$(OUT)/segmented_cfmm_%.tz: ligo/**
+$(OUT)/segmented_cfmm_%.tz: $(shell find ligo -name '*.mligo')
 	$(call build_ligo,ligo/main.mligo,$(OUT)/segmented_cfmm_$*.tz,$(LIGO_PRAGMAS))
 
 lib: all
