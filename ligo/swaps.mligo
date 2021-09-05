@@ -67,7 +67,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
                 (* Update liquidity as we enter new tick region. *)
                 liquidity = assert_nat (p.s.liquidity - tick.liquidity_net, internal_liquidity_below_zero_err)
                 } in
-            let p_new = {p with s = s_new ; dx = assert_nat (p.dx - dx_consummed, internal_306) ; dy = p.dy + dy} in
+            let p_new = {p with s = s_new ; dx = assert_nat (p.dx - dx_consummed, internal_307) ; dy = p.dy + dy} in
             x_to_y_rec p_new
 
 
@@ -133,7 +133,7 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
                 (* Update liquidity as we enter new tick region. *)
                 liquidity = assert_nat (p.s.liquidity - tick.liquidity_net, internal_liquidity_below_zero_err)
                 } in
-            let p_new = {p with s = s_new ; dy = assert_nat (p.dy - dy_consummed, internal_306) ; dx = p.dx + dx} in
+            let p_new = {p with s = s_new ; dy = assert_nat (p.dy - dy_consummed, internal_307) ; dx = p.dx + dx} in
             y_to_x_rec p_new
 
 

@@ -53,65 +53,65 @@
 // -- Internal error codes
 // ---------------------------------------------------------------------------
 
+(* Generic impossible error. *)
+[@inline] let internal_impossible_err = 300n
+
 (* Tick is not initialized. *)
-[@inline] let internal_tick_not_exist_err = 300n
+[@inline] let internal_tick_not_exist_err = 301n
 
 (* Time now is smaller than epoch time. *)
-[@inline] let internal_epoch_bigger_than_now_err = 301n
+[@inline] let internal_epoch_bigger_than_now_err = 302n
 
 (* The `const_fee_bps` is initialized to be higher than 10000 (100%). *)
-[@inline] let internal_fee_more_than_100_percent_err = 302n
+[@inline] let internal_fee_more_than_100_percent_err = 303n
 
 (* Thrown when `(p.s.sqrt_price - sqrt_price_new)` is not nat. *)
-[@inline] let internal_303 = 303n
+[@inline] let internal_303 = 304n
 
 (* Thrown when `(sqrt_price_new - p.s.sqrt_price)` is not nat. *)
-[@inline] let internal_304 = 304n
+[@inline] let internal_304 = 305n
 
 (* Flip for `fee_growth_outside` failed. (This is an invariant of the contract). *)
-[@inline] let flip_fee_growth_outside_err = 305n
+[@inline] let flip_fee_growth_outside_err = 306n
 
 (* Thrown when `(p.dx - dx_consummed)` is not nat. *)
-[@inline] let internal_306 = 306n
+[@inline] let internal_306 = 307n
 
 (* Liquidity went below zero. *)
-[@inline] let internal_liquidity_below_zero_err = 307n
+[@inline] let internal_liquidity_below_zero_err = 308n
 
 (* Thrown when `(p.dx - r.dx)` is not nat. *)
-[@inline] let internal_309 = 308n
+[@inline] let internal_309 = 309n
 
 (* Contract does not have enough liquidity to execute the swap. *)
-[@inline] let internal_insufficient_balance_err = 309n
+[@inline] let internal_insufficient_balance_err = 310n
 
 (* Thrown when `s.i_c >= key.hi.i` and `(s.fee_growth.x - tick_hi.fee_growth_outside.x)` (or `y`) is not nat. *)
-[@inline] let internal_311 = 310n
+[@inline] let internal_311 = 311n
 
 (* Thrown when `s.i_c < key.hi.i` and `(s.fee_growth.x - tick_lo.fee_growth_outside.x)` (or `y`) is not nat. *)
-[@inline] let internal_312 = 311n
+[@inline] let internal_312 = 312n
 
 (* Number of positions underflow. *)
-[@inline] let internal_position_underflow_err = 312n
+[@inline] let internal_position_underflow_err = 313n
 
 (* Thrown when `(s.fee_growth.x - f_a.x - f_b.x)` is not nat. *)
-[@inline] let internal_314 = 313n
+[@inline] let internal_314 = 314n
 
 (* Thrown when `(s.fee_growth.y - f_a.y - f_b.y)` is not nat. *)
-[@inline] let internal_315 = 314n
+[@inline] let internal_315 = 315n
 
 (* Thrown when `(fee_growth_inside.x - position.fee_growth_inside_last.x)` is not nat. *)
-[@inline] let internal_316 = 315n
+[@inline] let internal_316 = 316n
 
 (* Thrown when `(fee_growth_inside.y - position.fee_growth_inside_last.y)` is not nat. *)
-[@inline] let internal_317 = 316n
+[@inline] let internal_317 = 317n
 
 (* Thrown when `s.i_c < i_l.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). *)
-[@inline] let internal_sqrt_price_grow_err_1 = 317n
+[@inline] let internal_sqrt_price_grow_err_1 = 318n
 
 (* Thrown when `i_l.i <= s.i_c && s.i_c < i_u.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). *)
-[@inline] let internal_sqrt_price_grow_err_2 = 318n
-
-(* Generic impossible error. *)
-[@inline] let internal_impossible_err = 319n
+[@inline] let internal_sqrt_price_grow_err_2 = 319n
 
 (* Thrown when `seconds_outside` is negative. *)
 [@inline] let internal_negative_seconds_outside_err = 320n

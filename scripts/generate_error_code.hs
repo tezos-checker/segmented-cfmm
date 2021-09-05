@@ -78,7 +78,10 @@ internalErrors = errorsEnumerate 300
   -- New errors must be added to the _end_ of this list.
   -- To remove an error, replace it with 'removedError'.
 
-  [ "internal_tick_not_exist_err"
+  [ "internal_impossible_err"
+      :? "Generic impossible error."
+
+  , "internal_tick_not_exist_err"
       :? "Tick is not initialized."
 
   , "internal_epoch_bigger_than_now_err"
@@ -96,8 +99,8 @@ internalErrors = errorsEnumerate 300
   , "flip_fee_growth_outside_err"
       :? "Flip for `fee_growth_outside` failed. (This is an invariant of the contract)."
 
-  , "internal_306"
-      :? "Thrown when `(p.dx - dx_consummed)` is not nat."
+  , "internal_307"
+      :? "Thrown when `(p.dx - dx_consummed)` or `(p.dy - dy_consummed)` is not nat."
 
   , "internal_liquidity_below_zero_err"
       :? "Liquidity went below zero."
@@ -134,9 +137,6 @@ internalErrors = errorsEnumerate 300
 
   , "internal_sqrt_price_grow_err_2"
       :? "Thrown when `i_l.i <= s.i_c && s.i_c < i_u.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract)."
-
-  , "internal_impossible_err"
-      :? "Generic impossible error."
 
   , "internal_negative_seconds_outside_err"
       :? "Thrown when `seconds_outside` is negative."
