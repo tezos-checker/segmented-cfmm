@@ -75,46 +75,46 @@
 [@inline] let internal_306 = 306n
 
 (* Liquidity went below zero. *)
-[@inline] let internal_liquidity_below_zero_err = 308n
+[@inline] let internal_liquidity_below_zero_err = 307n
 
 (* Thrown when `(p.dx - r.dx)` is not nat. *)
-[@inline] let internal_309 = 309n
+[@inline] let internal_309 = 308n
 
 (* Contract does not have enough liquidity to execute the swap. *)
-[@inline] let internal_insufficient_balance_err = 310n
+[@inline] let internal_insufficient_balance_err = 309n
 
 (* Thrown when `s.i_c >= key.hi.i` and `(s.fee_growth.x - tick_hi.fee_growth_outside.x)` (or `y`) is not nat. *)
-[@inline] let internal_311 = 311n
+[@inline] let internal_311 = 310n
 
 (* Thrown when `s.i_c < key.hi.i` and `(s.fee_growth.x - tick_lo.fee_growth_outside.x)` (or `y`) is not nat. *)
-[@inline] let internal_312 = 312n
+[@inline] let internal_312 = 311n
 
 (* Number of positions underflow. *)
-[@inline] let internal_position_underflow_err = 313n
+[@inline] let internal_position_underflow_err = 312n
 
 (* Thrown when `(s.fee_growth.x - f_a.x - f_b.x)` is not nat. *)
-[@inline] let internal_314 = 314n
+[@inline] let internal_314 = 313n
 
 (* Thrown when `(s.fee_growth.y - f_a.y - f_b.y)` is not nat. *)
-[@inline] let internal_315 = 315n
+[@inline] let internal_315 = 314n
 
 (* Thrown when `(fee_growth_inside.x - position.fee_growth_inside_last.x)` is not nat. *)
-[@inline] let internal_316 = 316n
+[@inline] let internal_316 = 315n
 
 (* Thrown when `(fee_growth_inside.y - position.fee_growth_inside_last.y)` is not nat. *)
-[@inline] let internal_317 = 317n
+[@inline] let internal_317 = 316n
 
 (* Thrown when `s.i_c < i_l.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). *)
-[@inline] let internal_sqrt_price_grow_err_1 = 318n
+[@inline] let internal_sqrt_price_grow_err_1 = 317n
 
 (* Thrown when `i_l.i <= s.i_c && s.i_c < i_u.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). *)
-[@inline] let internal_sqrt_price_grow_err_2 = 319n
+[@inline] let internal_sqrt_price_grow_err_2 = 318n
 
 (* Generic impossible error. *)
-[@inline] let internal_impossible_err = 320n
+[@inline] let internal_impossible_err = 319n
 
 (* Thrown when `seconds_outside` is negative. *)
-[@inline] let internal_negative_seconds_outside_err = 321n
+[@inline] let internal_negative_seconds_outside_err = 320n
 
 
 
