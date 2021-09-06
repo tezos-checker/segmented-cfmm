@@ -45,8 +45,8 @@ Here is a summary of all the error codes thrown by the contract.
 | 301 | `internal_tick_not_exist_err` | Tick is not initialized. |
 | 302 | `internal_epoch_bigger_than_now_err` | Time now is smaller than epoch time. |
 | 303 | `internal_fee_more_than_100_percent_err` | The `const_fee_bps` is initialized to be higher than 10000 (100%). |
-| 304 | `internal_303` | Thrown when `(p.s.sqrt_price - sqrt_price_new)` is not nat. |
-| 305 | `internal_304` | Thrown when `(sqrt_price_new - p.s.sqrt_price)` is not nat. |
+| 304 | `internal_bad_sqrt_price_move_x_direction` | Unexpected price direction movement after sqrt_price_move_x. |
+| 305 | `internal_bad_sqrt_price_move_y_direction` | Unexpected price direction movement after sqrt_price_move_y. |
 | 306 | `flip_fee_growth_outside_err` | Flip for `fee_growth_outside` failed. (This is an invariant of the contract). |
 | 307 | `internal_307` | Thrown when `(p.dx - dx_consummed)` or `(p.dy - dy_consummed)` is not nat. |
 | 308 | `internal_liquidity_below_zero_err` | Liquidity went below zero. |

@@ -65,17 +65,17 @@
 (* The `const_fee_bps` is initialized to be higher than 10000 (100%). *)
 [@inline] let internal_fee_more_than_100_percent_err = 303n
 
-(* Thrown when `(p.s.sqrt_price - sqrt_price_new)` is not nat. *)
-[@inline] let internal_303 = 304n
+(* Unexpected price direction movement after sqrt_price_move_x. *)
+[@inline] let internal_bad_sqrt_price_move_x_direction = 304n
 
-(* Thrown when `(sqrt_price_new - p.s.sqrt_price)` is not nat. *)
-[@inline] let internal_304 = 305n
+(* Unexpected price direction movement after sqrt_price_move_y. *)
+[@inline] let internal_bad_sqrt_price_move_y_direction = 305n
 
 (* Flip for `fee_growth_outside` failed. (This is an invariant of the contract). *)
 [@inline] let flip_fee_growth_outside_err = 306n
 
-(* Thrown when `(p.dx - dx_consummed)` is not nat. *)
-[@inline] let internal_306 = 307n
+(* Thrown when `(p.dx - dx_consummed)` or `(p.dy - dy_consummed)` is not nat. *)
+[@inline] let internal_307 = 307n
 
 (* Liquidity went below zero. *)
 [@inline] let internal_liquidity_below_zero_err = 308n
