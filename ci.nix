@@ -56,8 +56,8 @@ rec {
       {
         packages.segmented-cfmm = {
           preBuild = ''
-            mkdir -p ./haskell/test
-            cp -r ${build-ligo}/* ./haskell/test
+            mkdir -p ./test
+            cp -r ${build-ligo}/* ./test
           '';
         };
       }

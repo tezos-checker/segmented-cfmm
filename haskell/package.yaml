@@ -13,7 +13,8 @@ extra-doc-files:
 - README.md
 
 extra-source-files:
-- test/segmented_cfmm.tz
+- test/segmented_cfmm_default.tz
+- test/storage_default.tz
 
 description:         Tools and tests for the Segmented CFMM contract.
 
