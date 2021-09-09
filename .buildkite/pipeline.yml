@@ -39,6 +39,14 @@ steps:
     commands:
     - nix-build ci.nix -A all-components
 
+  - label: ligo-test
+    key: ligo-test
+    depends_on:
+      - build-haskell
+    commands:
+    - nix-build ci.nix -A packages.segmented-cfmm.tests.segmented-cfmm-test
+    - ./result/bin/segmented-cfmm-test --nettest-mode=disable-network
+
   - label: check typescript api
     depends_on:
       - build-ligo

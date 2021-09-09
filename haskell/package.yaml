@@ -102,6 +102,7 @@ library:
     - fmt
     - lorentz
     - morley
+    - morley-client
     - morley-ledgers
     - morley-metadata
     - morley-prelude
@@ -142,3 +143,5 @@ tests:
     - tasty
     - tasty-hunit-compat
     - universum
+    - cleveland
+    - lorentz
