@@ -437,8 +437,9 @@ Updates or creates a new [position](#positions) in the given range.
   * negative in `y`: this amount will be `transfer`red **to** `to_y`
 - If the position update is no longer acceptable because the `deadline` was not
   met, fails with `past_deadline_err` error code
-- If the amount of tokens that needs to be `transfer`red to the contract is
-  higher than `maximum_tokens_contributed`, fails with `high_tokens_err` error code.
+- If the amount of tokens that needs to be `transfer`red to the contract
+  (after taking accrued fees into account) is higher than `maximum_tokens_contributed`,
+  fails with `high_tokens_err` error code.
 - A user can set `delta_liquidity` to `0` on an existing position to simply retrieve
   any uncollected fees.
 
@@ -452,8 +453,10 @@ type set_position_param = {
     to_x : address ;
     to_y : address ;
     deadline : timestamp ;
-    maximum_tokens_contributed : nat ;
+    maximum_tokens_contributed : balance_nat ;
 }
+
+type balance_nat = {x : nat ; y : nat}
 ```
 
 ### **snapshot_cumulatives_inside**

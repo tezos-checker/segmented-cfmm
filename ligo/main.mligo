@@ -96,20 +96,21 @@ let collect_fees (s : storage) (key : position_index) (position : position_state
     let positions = Big_map.update key (Some position) s.positions in
     ({s with positions = positions}, fees, position)
 
-let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : tick_index) (i_u_l : tick_index) (liquidity_delta : int) (to_x : address) (to_y : address) : result =
+let set_position (s : storage) (p : set_position_param) : result =
+    let _: unit = check_deadline p.deadline in
     (* Initialize ticks if need be. *)
     let ticks = s.ticks in
-    let ticks = if s.cur_tick_index.i >= i_l.i then
-        initialize_tick (ticks, i_l, i_l_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), s.seconds_per_liquidity_cumulative)
+    let ticks = if s.cur_tick_index.i >= p.lower_tick_index.i then
+        initialize_tick (ticks, p.lower_tick_index, p.lower_tick_witness, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), s.seconds_per_liquidity_cumulative)
     else
-        initialize_tick (ticks, i_l, i_l_l, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
-    let ticks = if s.cur_tick_index.i >= i_u.i then
-        initialize_tick (ticks, i_u, i_u_l, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), s.seconds_per_liquidity_cumulative)
+        initialize_tick (ticks, p.lower_tick_index, p.lower_tick_witness, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
+    let ticks = if s.cur_tick_index.i >= p.upper_tick_index.i then
+        initialize_tick (ticks, p.upper_tick_index, p.upper_tick_witness, s.fee_growth, assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err), s.seconds_per_liquidity_cumulative)
     else
-        initialize_tick (ticks, i_u, i_u_l, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
+        initialize_tick (ticks, p.upper_tick_index, p.upper_tick_witness, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
 
     (* Form position key. *)
-    let position_key = {owner=Tezos.sender ; lower_tick_index=i_l; upper_tick_index=i_u} in
+    let position_key = {owner=Tezos.sender ; lower_tick_index=p.lower_tick_index; upper_tick_index=p.upper_tick_index} in
     (* Grab existing position or create an empty one *)
     let (position, is_new) = match (Big_map.find_opt position_key s.positions) with
     | Some position -> (position, false)
@@ -128,20 +129,20 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
             collect_fees s position_key position
         in
     (* Update liquidity of position. *)
-    let liquidity_new = assert_nat (position.liquidity + liquidity_delta, internal_liquidity_below_zero_err) in
+    let liquidity_new = assert_nat (position.liquidity + p.liquidity_delta, internal_liquidity_below_zero_err) in
     let position = {position with liquidity = liquidity_new} in
     (* Reference counting the positions associated with a tick *)
     let ticks = (if liquidity_new = 0n then
         if is_new then
             ticks
         else
-            let ticks = incr_n_positions ticks i_l (-1) in
-            let ticks = incr_n_positions ticks i_u (-1) in
+            let ticks = incr_n_positions ticks p.lower_tick_index (-1) in
+            let ticks = incr_n_positions ticks p.upper_tick_index (-1) in
             ticks
     else
         if is_new then
-            let ticks = incr_n_positions ticks i_l (1) in
-            let ticks = incr_n_positions ticks i_u (1) in
+            let ticks = incr_n_positions ticks p.lower_tick_index (1) in
+            let ticks = incr_n_positions ticks p.upper_tick_index (1) in
             ticks
         else
             ticks) in
@@ -164,41 +165,51 @@ let set_position (s : storage) (i_l : tick_index) (i_u : tick_index) (i_l_l : ti
     (* Compute how much should be deposited / withdrawn to change liquidity by liquidity_net *)
 
     (* Grab cached prices for the interval *)
-    let tick_u = get_tick ticks i_u internal_tick_not_exist_err in
-    let tick_l = get_tick ticks i_l internal_tick_not_exist_err in
+    let tick_u = get_tick ticks p.upper_tick_index internal_tick_not_exist_err in
+    let tick_l = get_tick ticks p.lower_tick_index internal_tick_not_exist_err in
     let srp_u = tick_u.sqrt_price in
     let srp_l = tick_l.sqrt_price in
 
     (* Add or remove liquidity above the current tick *)
     let (s, delta) =
-    if s.cur_tick_index.i < i_l.i then
+    if s.cur_tick_index.i < p.lower_tick_index.i then
         (s, {
             (* If I'm adding liquidity, x will be positive, I want to overestimate it, if x I'm taking away
                 liquidity, I want to to underestimate what I'm receiving. *)
-            x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - srp_l.x80, internal_sqrt_price_grow_err_1)) 80n))) (int (srp_l.x80 * srp_u.x80)) ;
+            x = ceildiv_int (p.liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - srp_l.x80, internal_sqrt_price_grow_err_1)) 80n))) (int (srp_l.x80 * srp_u.x80)) ;
             y = 0})
-    else if i_l.i <= s.cur_tick_index.i && s.cur_tick_index.i < i_u.i then
+    else if p.lower_tick_index.i <= s.cur_tick_index.i && s.cur_tick_index.i < p.upper_tick_index.i then
         (* update interval we are in, if need be ... *)
-        let s = {s with cur_tick_witness = if i_l.i > s.cur_tick_witness.i then i_l else s.cur_tick_witness ; liquidity = assert_nat (s.liquidity + liquidity_delta, internal_liquidity_below_zero_err)} in
+        let s = { s with
+                    cur_tick_witness =
+                        if p.lower_tick_index.i > s.cur_tick_witness.i
+                            then p.lower_tick_index
+                            else s.cur_tick_witness ;
+                    liquidity = assert_nat (s.liquidity + p.liquidity_delta, internal_liquidity_below_zero_err)
+                } in
         (s, {
-            x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - s.sqrt_price.x80, internal_sqrt_price_grow_err_1)) 80n))) (int (s.sqrt_price.x80 * srp_u.x80)) ;
-            y = shift_int (liquidity_delta * (s.sqrt_price.x80 - srp_l.x80)) (-80)
+            x = ceildiv_int (p.liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - s.sqrt_price.x80, internal_sqrt_price_grow_err_1)) 80n))) (int (s.sqrt_price.x80 * srp_u.x80)) ;
+            y = shift_int (p.liquidity_delta * (s.sqrt_price.x80 - srp_l.x80)) (-80)
             })
-    else (* cur_tick_index >= i_u *)
-        (s, {x = 0 ; y = shift_int (liquidity_delta * (srp_u.x80 - srp_l.x80)) (-80) }) in
+    else (* cur_tick_index >= p.upper_tick_index *)
+        (s, {x = 0 ; y = shift_int (p.liquidity_delta * (srp_u.x80 - srp_l.x80)) (-80) }) in
 
     (* Collect fees to increase withdrawal or reduce required deposit. *)
     let delta = {x = delta.x - fees.x ; y = delta.y - fees.y} in
 
+    (* Check delta doesn't exceed maximum_tokens_contributed. *)
+    let _: unit = if delta.x > int(p.maximum_tokens_contributed.x) then unit else failwith high_tokens_err in
+    let _: unit = if delta.y > int(p.maximum_tokens_contributed.y) then unit else failwith high_tokens_err in
+
     let op_x = if delta.x > 0 then
         x_transfer Tezos.sender Tezos.self_address (abs delta.x)
     else
-        x_transfer Tezos.self_address to_x (abs delta.x) in
+        x_transfer Tezos.self_address p.to_x (abs delta.x) in
 
     let op_y = if delta.y > 0 then
         y_transfer Tezos.sender Tezos.self_address (abs delta.y)
     else
-        y_transfer Tezos.self_address to_y (abs delta.y) in
+        y_transfer Tezos.self_address p.to_y (abs delta.y) in
 
     ( [op_x ; op_y]
     , { s with
@@ -223,7 +234,7 @@ let s = update_time_weighted_sum s in
  match p with
 | X_to_Y p -> x_to_y s p
 | Y_to_X p -> y_to_x s p
-| Set_position p -> set_position s p.lower_tick_index p.upper_tick_index p.lower_tick_witness p.upper_tick_witness p.liquidity_delta p.to_x p.to_y
+| Set_position p -> set_position s p
 | Get_time_weighted_sum contract -> get_time_weighted_sum s contract
 | X_to_X_prime _ -> (failwith "not implemented" : result) (*TODO implement iff Y is FA12 *)
 | Call_FA2 p -> call_fa2 s p

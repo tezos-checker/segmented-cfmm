@@ -264,6 +264,12 @@ type set_position_param = {
     to_x : address ;
     (* Where to send the freed Y tokens, if any. *)
     to_y : address ;
+    (* The transaction won't be executed past this point. *)
+    deadline : timestamp ;
+    (* The maximum number of tokens to contribute.
+        If a higher amount is required, the entrypoint fails.
+    *)
+    maximum_tokens_contributed : balance_nat;
 }
 
 type x_to_y_param = {
