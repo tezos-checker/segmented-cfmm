@@ -52,7 +52,7 @@ data Parameter
   | Y_to_X YToXParam
     -- ^ Trade up to a quantity dy of asset y, receives dx
   | Set_position SetPositionParam
-    -- ^ TODO: Add deadline, maximum tokens contributed, and maximum liquidity present
+    -- ^ Updates or creates a new position in the given range.
   | X_to_X_prime Address
     -- ^ Equivalent to token_to_token
   | Get_time_weighted_sum (ContractRef Views)
