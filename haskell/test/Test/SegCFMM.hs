@@ -16,6 +16,7 @@ import Morley.Nettest
 import Morley.Nettest.Tasty
 import Test.Tasty (TestTree, testGroup)
 import Tezos.Address (unsafeParseAddress)
+import Tezos.Core (timestampPlusSeconds)
 
 import SegCFMM.Types
 import Test.SegCFMM.Contract (segCFMMContract)
@@ -38,6 +39,7 @@ setPositionTest
 setPositionTest = do
   owner1 <- newAddress auto
   cfmm <- originateSegCFMM defaultStorage
+  currentTime <- getNow
   let
     -- TODO: originate proper contract
     addr = unsafeParseAddress "KT1MPGAKt68xEgLe1c2n7AG89Hph8Q7o44UX"
@@ -51,6 +53,8 @@ setPositionTest = do
           , sppLiquidityDelta = 0
           , sppToX = addr
           , sppToY = addr
+          , sppDeadline = timestampPlusSeconds currentTime 60
+          , sppMaximumTokensContributed = PerToken 10000 10000
           }
 
   -- TODO: Commented out until the test is fixed. Current call result in 300 error (tick not initialized).
