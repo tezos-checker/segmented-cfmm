@@ -6,7 +6,7 @@ import { InMemorySigner, importKey } from '@taquito/signer';
 
 export {Get_time_weighted_sum} from  './generated/Get_time_weighted_sum';
 export {Set_position} from  './generated/Set_position';
-export {X_to_X_prime} from  './generated/X_to_X_prime';
-export {X_to_Y} from  './generated/X_to_Y';
-export {Y_to_X} from  './generated/Y_to_X';
+export {X_to_x_prime} from  './generated/X_to_x_prime';
+export {X_to_y} from  './generated/X_to_y';
+export {Y_to_x} from  './generated/Y_to_x';
 export { SegCFMMContract } from "./api";

@@ -232,9 +232,9 @@ let main ((p, s) : parameter * storage) : result =
 let s = update_time_weighted_sum s in
 (* dispatch call to the proper entrypoint *)
  match p with
-| X_to_Y p -> x_to_y s p
-| Y_to_X p -> y_to_x s p
+| X_to_y p -> x_to_y s p
+| Y_to_x p -> y_to_x s p
 | Set_position p -> set_position s p
 | Get_time_weighted_sum contract -> get_time_weighted_sum s contract
-| X_to_X_prime _ -> (failwith "not implemented" : result) (*TODO implement iff Y is FA12 *)
-| Call_FA2 p -> call_fa2 s p
+| X_to_x_prime p -> x_to_x_prime s p
+| Call_fa2 p -> call_fa2 s p

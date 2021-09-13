@@ -16,6 +16,7 @@ module SegCFMM.Types
   , SetPositionParam (..)
   , XToYParam (..)
   , YToXParam (..)
+  , XToXPrimeParam (..)
   ) where
 
 import Universum
@@ -47,16 +48,16 @@ mkX :: forall n a b. (KnownNat n, RealFrac a, Integral b) => a -> X n b
 mkX = X . round . (* 2 ^ natVal (Proxy @n))
 
 data Parameter
-  = X_to_Y XToYParam
+  = X_to_y XToYParam
     -- ^ Trade up to a quantity dx of asset x, receives dy
-  | Y_to_X YToXParam
+  | Y_to_x YToXParam
     -- ^ Trade up to a quantity dy of asset y, receives dx
+  | X_to_x_prime XToXPrimeParam
+    -- ^ Equivalent to token_to_token
   | Set_position SetPositionParam
     -- ^ Updates or creates a new position in the given range.
-  | X_to_X_prime Address
-    -- ^ Equivalent to token_to_token
   | Get_time_weighted_sum (ContractRef Views)
-  | Call_FA2 FA2.Parameter
+  | Call_fa2 FA2.Parameter
 
 instance Buildable Parameter where
   build = genericF
@@ -96,6 +97,23 @@ data YToXParam = YToXParam
   }
 
 instance Buildable YToXParam where
+  build = genericF
+
+-- | Parameter of @X_to_X_prime@ entrypoints
+data XToXPrimeParam = XToXPrimeParam
+  { xppDx :: Natural
+    -- ^ Sold tokens amount.
+  , xppXPrimeContract :: Address
+    -- ^ Address of another segmented-cfmm contract.
+  , xppDeadline :: Timestamp
+    -- ^ Deadline for the exchange.
+  , xppMinDxPrime :: Natural
+    -- ^ Minimal expected number of tokens bought.
+  , xppToDxPrime :: Address
+    -- ^ Recipient of X tokens.
+  }
+
+instance Buildable XToXPrimeParam where
   build = genericF
 
 
@@ -325,6 +343,11 @@ instance HasAnnotation XToYParam where
 customGeneric "YToXParam" ligoLayout
 deriving anyclass instance IsoValue YToXParam
 instance HasAnnotation YToXParam where
+  annOptions = segCfmmAnnOptions
+
+customGeneric "XToXPrimeParam" ligoLayout
+deriving anyclass instance IsoValue XToXPrimeParam
+instance HasAnnotation XToXPrimeParam where
   annOptions = segCfmmAnnOptions
 
 customGeneric "SetPositionParam" ligoLayout

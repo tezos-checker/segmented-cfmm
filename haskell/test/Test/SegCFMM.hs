@@ -31,6 +31,8 @@ test_SegCFMM = testGroup "Segmented CFMM Tests"
       setPositionTest
   , nettestScenarioCaps "Swap X for Y"
       swapXYTest
+  , nettestScenarioCaps "Swap X for X'"
+      swapXToXPrimeTest
   ]
 
 setPositionTest
@@ -82,7 +84,30 @@ swapXYTest = do
 
   -- TODO: Commented out until the test is fixed. Current call result in 104 error (smaller than min asset).
   -- withSender owner1 $
-  --   call cfmm (Call @"X_to_Y") param
+  --   call cfmm (Call @"X_to_y") param
+
+  _ <- getStorage @Storage cfmm
+  pure ()
+
+swapXToXPrimeTest
+  :: MonadNettest caps base m
+  => m ()
+swapXToXPrimeTest = do
+  owner1 <- newAddress auto
+  cfmm <- originateSegCFMM defaultStorage
+
+  let
+    param = XToXPrimeParam
+          { xppDx = pickX (mkX 100 :: X 80 Natural)
+          , xppDeadline = [timestampQuote| 2022-01-01T00:00:00Z |]
+          , xppXPrimeContract = toAddress cfmm
+          , xppMinDxPrime = pickX (mkX 1 :: X 80 Natural)
+          , xppToDxPrime = owner1
+          }
+
+  -- TODO: Result from x_to_y swap always results in 0 which should not happen.
+  -- withSender owner1 $
+  --   call cfmm (Call @"X_to_x_prime") param
 
   _ <- getStorage @Storage cfmm
   pure ()
