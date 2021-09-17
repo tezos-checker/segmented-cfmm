@@ -73,8 +73,9 @@ type update_operators_param = update_operator list
 
 
 type fa2_parameter =
-  | Transfer of transfer_params
+  [@layout:comb]
   | Balance_of of balance_request_params
+  | Transfer of transfer_params
   | Update_operators of update_operators_param
 
 

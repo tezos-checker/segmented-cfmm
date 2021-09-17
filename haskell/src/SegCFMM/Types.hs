@@ -25,6 +25,7 @@ import Fmt (Buildable, build, genericF)
 
 import Lorentz hiding (now)
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
+import qualified Lorentz.Contracts.Spec.FA2Interface.ParameterInstances ()
 import qualified Lorentz.Contracts.Spec.TZIP16Interface as TZIP16
 import Morley.Client (AsRPC, deriveRPCWithStrategy)
 
@@ -455,13 +456,6 @@ customGeneric "Operator" ligoLayout
 deriving anyclass instance IsoValue Operator
 instance HasAnnotation Operator where
   annOptions = segCfmmAnnOptions
-
-customGeneric "FA2.Parameter" ligoLayout
-deriving anyclass instance IsoValue FA2.Parameter
-instance HasAnnotation FA2.Parameter where
-  annOptions = segCfmmAnnOptions
-instance ParameterHasEntrypoints FA2.Parameter where
-  type ParameterEntrypointsDerivation FA2.Parameter = EpdPlain
 
 customGeneric "CumulativesInsideSnapshot" ligoLayout
 deriving anyclass instance IsoValue CumulativesInsideSnapshot
