@@ -143,6 +143,7 @@ let set_position (s : storage) (p : set_position_param) : result =
             )
     else
         initialize_tick (ticks, p.upper_tick_index, p.upper_tick_witness, 0, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
+    let s = {s with ticks = ticks} in
 
     (* Form position key. *)
     let position_key = {owner=Tezos.sender ; lower_tick_index=p.lower_tick_index; upper_tick_index=p.upper_tick_index} in
