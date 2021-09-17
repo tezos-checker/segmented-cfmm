@@ -22,6 +22,9 @@ extra-deps:
   - named-0.3.0.1
   - show-type-0.1.1
   - summoner-2.0.1.1
+  - fmt-0.6.3.0
+  - formatting-7.1.3
+
   - git: https://github.com/serokell/base-noprelude.git
     commit: 87df0899801dcdffd08ef7c3efd3c63e67e623c2
   - git: https://github.com/serokell/galois-field.git
