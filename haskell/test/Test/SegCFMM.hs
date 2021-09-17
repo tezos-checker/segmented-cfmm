@@ -6,7 +6,9 @@
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Test.SegCFMM
-  ( test_SegCFMM
+  ( test_setPosition
+  , test_swapXY
+  , test_swapXXPrime
   ) where
 
 import Universum
@@ -14,7 +16,7 @@ import Universum
 import Lorentz hiding (assert, now, (>>))
 import Morley.Nettest
 import Morley.Nettest.Tasty
-import Test.Tasty (TestTree, testGroup)
+import Test.Tasty (TestTree)
 import Tezos.Address (unsafeParseAddress)
 import Tezos.Core (timestampPlusSeconds)
 
@@ -24,93 +26,79 @@ import Test.SegCFMM.Storage (defaultStorage)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
+test_setPosition :: TestTree
+test_setPosition =
+  nettestScenarioCaps "Set a position" do
+    owner1 <- newAddress auto
+    cfmm <- originateSegCFMM FA2 CTEZ defaultStorage
+    currentTime <- getNow
+    let
+      -- TODO: originate proper contract
+      addr = unsafeParseAddress "KT1MPGAKt68xEgLe1c2n7AG89Hph8Q7o44UX"
 
-test_SegCFMM :: TestTree
-test_SegCFMM = testGroup "Segmented CFMM Tests"
-  [ nettestScenarioCaps "Set a position"
-      setPositionTest
-  , nettestScenarioCaps "Swap X for Y"
-      swapXYTest
-  , nettestScenarioCaps "Swap X for X'"
-      swapXToXPrimeTest
-  ]
+      param = SetPositionParam
+            { sppLowerTickIndex = TickIndex 2
+            , sppUpperTickIndex = TickIndex 10
+            , sppLowerTickWitness = TickIndex $ negate maxTick
+            , sppUpperTickWitness = TickIndex $ negate maxTick
+              -- Have to used `negate maxTick` on both witnesses otherwise fail with 100 (invalid witness) error code
+            , sppLiquidityDelta = 0
+            , sppToX = addr
+            , sppToY = addr
+            , sppDeadline = timestampPlusSeconds currentTime 60
+            , sppMaximumTokensContributed = PerToken 10000 10000
+            }
 
-setPositionTest
-  :: MonadNettest caps base m
-  => m ()
-setPositionTest = do
-  owner1 <- newAddress auto
-  cfmm <- originateSegCFMM FA2 CTEZ defaultStorage
-  currentTime <- getNow
-  let
-    -- TODO: originate proper contract
-    addr = unsafeParseAddress "KT1MPGAKt68xEgLe1c2n7AG89Hph8Q7o44UX"
+    -- TODO: Commented out until the test is fixed. Current call result in 300 error (tick not initialized).
+    -- withSender owner1 $
+    --   call cfmm (Call @"Set_position") param
 
-    param = SetPositionParam
-          { sppLowerTickIndex = TickIndex 2
-          , sppUpperTickIndex = TickIndex 10
-          , sppLowerTickWitness = TickIndex $ negate maxTick
-          , sppUpperTickWitness = TickIndex $ negate maxTick
-            -- Have to used `negate maxTick` on both witnesses otherwise fail with 100 (invalid witness) error code
-          , sppLiquidityDelta = 0
-          , sppToX = addr
-          , sppToY = addr
-          , sppDeadline = timestampPlusSeconds currentTime 60
-          , sppMaximumTokensContributed = PerToken 10000 10000
-          }
+    _ <- getStorage @Storage cfmm
+    pure ()
 
-  -- TODO: Commented out until the test is fixed. Current call result in 300 error (tick not initialized).
-  -- withSender owner1 $
-  --   call cfmm (Call @"Set_position") param
+test_swapXY :: TestTree
+test_swapXY =
+  nettestScenarioCaps "Swap X for Y" do
+    owner1 <- newAddress auto
+    receiver <- newAddress auto
+    cfmm <- originateSegCFMM FA2 CTEZ defaultStorage
 
-  _ <- getStorage @Storage cfmm
-  pure ()
+    let
+      param = XToYParam
+            { xpDx = pickX (mkX 10 :: X 80 Natural)
+            , xpDeadline = [timestampQuote| 2022-01-01T00:00:00Z |]
+            , xpMinDy = pickX (mkX 1 :: X 80 Natural)
+            , xpToDy = receiver
+            }
 
-swapXYTest
-  :: MonadNettest caps base m
-  => m ()
-swapXYTest = do
-  owner1 <- newAddress auto
-  receiver <- newAddress auto
-  cfmm <- originateSegCFMM FA2 CTEZ defaultStorage
+    -- TODO: Commented out until the test is fixed. Current call result in 104 error (smaller than min asset).
+    -- withSender owner1 $
+    --   call cfmm (Call @"X_to_y") param
 
-  let
-    param = XToYParam
-          { xpDx = pickX (mkX 10 :: X 80 Natural)
-          , xpDeadline = [timestampQuote| 2022-01-01T00:00:00Z |]
-          , xpMinDy = pickX (mkX 1 :: X 80 Natural)
-          , xpToDy = receiver
-          }
+    _ <- getStorage @Storage cfmm
+    pure ()
 
-  -- TODO: Commented out until the test is fixed. Current call result in 104 error (smaller than min asset).
-  -- withSender owner1 $
-  --   call cfmm (Call @"X_to_y") param
+test_swapXXPrime :: TestTree
+test_swapXXPrime =
+  nettestScenarioCaps "Swap X for X" do
+    owner1 <- newAddress auto
+    cfmm <- originateSegCFMM FA2 CTEZ defaultStorage
 
-  _ <- getStorage @Storage cfmm
-  pure ()
+    let
+      param = XToXPrimeParam
+            { xppDx = pickX (mkX 100 :: X 80 Natural)
+            , xppDeadline = [timestampQuote| 2022-01-01T00:00:00Z |]
+            , xppXPrimeContract = toAddress cfmm
+            , xppMinDxPrime = pickX (mkX 1 :: X 80 Natural)
+            , xppToDxPrime = owner1
+            }
 
-swapXToXPrimeTest
-  :: MonadNettest caps base m
-  => m ()
-swapXToXPrimeTest = do
-  owner1 <- newAddress auto
-  cfmm <- originateSegCFMM FA2 CTEZ defaultStorage
+    -- TODO: Result from x_to_y swap always results in 0 which should not happen.
+    -- withSender owner1 $
+    --   call cfmm (Call @"X_to_x_prime") param
 
-  let
-    param = XToXPrimeParam
-          { xppDx = pickX (mkX 100 :: X 80 Natural)
-          , xppDeadline = [timestampQuote| 2022-01-01T00:00:00Z |]
-          , xppXPrimeContract = toAddress cfmm
-          , xppMinDxPrime = pickX (mkX 1 :: X 80 Natural)
-          , xppToDxPrime = owner1
-          }
-
-  -- TODO: Result from x_to_y swap always results in 0 which should not happen.
-  -- withSender owner1 $
-  --   call cfmm (Call @"X_to_x_prime") param
-
-  _ <- getStorage @Storage cfmm
-  pure ()
+    _ <- getStorage @Storage cfmm
+    pure ()
 
 
 -------------------------------------------------------------------
