@@ -10,6 +10,9 @@ BUILD = $(LIGO) compile-contract --syntax cameligo
 # Compile storage
 BUILD_STORAGE = $(LIGO) compile-storage --syntax cameligo
 
+# Gather code statistics
+MEASURE = $(LIGO) measure --syntax cameligo
+
 # Where to put build files
 OUT ?= out
 
@@ -35,6 +38,7 @@ define build_ligo
 
 	# ============== Compiling Ligo Contract `$(1)` with options `$(3)` ============== #
 	@$(BUILD) $(TOTAL_FILE) main --output-file $(2) || ( rm $(TOTAL_FILE) && exit 1 )
+	@$(MEASURE) $(TOTAL_FILE) main
 	@rm $(TOTAL_FILE)
 endef
 
