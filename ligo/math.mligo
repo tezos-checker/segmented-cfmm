@@ -39,6 +39,26 @@ let assert_nat (x, error_code : int * nat) : nat =
     | None -> (failwith error_code : nat)
     | Some n -> n
 
+(* `Bitwise.shift_right x y` is only defined for `y <= 256n`.
+    This function handles larger values of `y`.
+ *)
+let rec stepped_shift_right (x, y : nat * nat) : nat =
+    if y <= 256n then
+        Bitwise.shift_right x y
+    else
+        let new_x = Bitwise.shift_right x 256n in
+        stepped_shift_right (new_x, abs (y - 256))
+
+(* `Bitwise.shift_left x y` is only defined for `y <= 256n`.
+    This function handles larger values of `y`.
+ *)
+let rec stepped_shift_left (x, y : nat * nat) : nat =
+    if y <= 256n then
+        Bitwise.shift_left x y
+    else
+        let new_x = Bitwise.shift_left x 256n in
+        stepped_shift_left (new_x, abs (y - 256))
+
 (* TODO move ladders to a bigmap and load lazily *)
 let positive_ladder = [
     {v=38687560557337355742483221n; offset=-85}; (* 2^0 *)
@@ -95,15 +115,20 @@ let rec half_bps_pow_rec ((tick, acc, ladder) : nat * fixed_point * (fixed_point
         | [] -> (failwith price_out_of_bounds_err : fixed_point)
         | h :: t -> half_bps_pow_rec (half, (if rem = 0n then acc else fixed_point_mul h acc), t)
 
+(*
+  For a tick index `i`, calculate the corresponding `sqrt_price`:
+    sqrt(e^bps)^i * 2^80
+  using the exponentiation by squaring method, where:
+    bps = 0.0001
+ *)
 let half_bps_pow (tick : int) : x80n =
-    let product = half_bps_pow_rec (abs tick, {v=0n;offset=0}, (if tick > 0  then positive_ladder  else negative_ladder)) in
+    let product = half_bps_pow_rec (abs tick, {v=1n;offset=0}, (if tick > 0  then positive_ladder  else negative_ladder)) in
     let doffset = -80 - product.offset in
     if doffset > 0 then
-        {x80 = Bitwise.shift_right product.v (abs doffset)}
+        {x80 = stepped_shift_right (product.v, abs doffset)}
     else
         (* This branch should almost never happen, in general the price we get is not a round number. *)
-        {x80 = Bitwise.shift_left product.v (abs doffset)}
-
+        {x80 = stepped_shift_left (product.v, abs doffset)}
 
 (* ladder explanation
 
