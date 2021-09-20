@@ -228,8 +228,8 @@ let set_position (s : storage) (p : set_position_param) : result =
     let delta = {x = delta.x - fees.x ; y = delta.y - fees.y} in
 
     (* Check delta doesn't exceed maximum_tokens_contributed. *)
-    let _: unit = if delta.x > int(p.maximum_tokens_contributed.x) then unit else failwith high_tokens_err in
-    let _: unit = if delta.y > int(p.maximum_tokens_contributed.y) then unit else failwith high_tokens_err in
+    let _: unit = if delta.x > int(p.maximum_tokens_contributed.x) then failwith high_tokens_err else unit in
+    let _: unit = if delta.y > int(p.maximum_tokens_contributed.y) then failwith high_tokens_err else unit in
 
     let op_x = if delta.x > 0 then
         x_transfer Tezos.sender Tezos.self_address (abs delta.x) s.constants
