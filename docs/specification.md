@@ -351,8 +351,11 @@ Note: in order to be able to perform a swap, this contract must be made an
   with `past_deadline_err` error code.
 - If less than `min_dy` amount of token `y` would be obtained from the swap, fails
   with `smaller_than_min_asset_err` error code.
+- If the amount of `x` tokens would get extremely close to zero, fails with
+  `price_out_of_bounds_err` error code. This case is barely possible in normal
+  conditions.
 - If the swap is successful, the computed converted `y` tokens will be `transfer`red
-  to the `to_dy` account
+  to the `to_dy` account.
 
 ```ocaml
 type x_to_y_param = {
@@ -442,6 +445,7 @@ Updates or creates a new [position](#positions) in the given range.
   fails with `high_tokens_err` error code.
 - A user can set `delta_liquidity` to `0` on an existing position to simply retrieve
   any uncollected fees.
+- This fails when a tick index out of the `[-1048575; 1048575]` range is provided.
 
 ```ocaml
 type set_position_param = {
