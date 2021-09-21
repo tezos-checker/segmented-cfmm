@@ -25,33 +25,33 @@ let get_registered_cumulatives_unsafe (buffer : timed_cumulatives_buffer) (i : n
 let get_last_cumulatives (buffer : timed_cumulatives_buffer) : timed_cumulatives =
     get_registered_cumulatives_unsafe buffer buffer.last
 
-let rec initialize_tick ((ticks, i, i_l,
+let rec initialize_tick ((ticks, tick_index, tick_witness,
     initial_fee_growth_outside,
     initial_seconds_outside,
     initial_seconds_per_liquidity_outside) : tick_map * tick_index * tick_index * balance_nat_x128 * nat * x128n) : tick_map =
-    if Big_map.mem i ticks then
+    if Big_map.mem tick_index ticks then
         ticks
-    else if i_l.i > i.i then
+    else if tick_witness.i > tick_index.i then
         (failwith invalid_witness_err : tick_map)
     else
-        let tick = get_tick ticks i_l tick_not_exist_err in
-        let i_next = tick.next in
-        if i_next.i > i.i then
-            let tick_next = get_tick ticks i_next internal_tick_not_exist_err in
-            let ticks = Big_map.update i_l (Some {tick with next = i}) ticks in
-            let ticks = Big_map.update i_next (Some {tick_next with prev = i}) ticks in
-            let ticks = Big_map.update i (Some {
-                prev = i_l ;
-                next = i_next ;
+        let tick = get_tick ticks tick_witness tick_not_exist_err in
+        let next_tick_index = tick.next in
+        if next_tick_index.i > tick_index.i then
+            let tick_next = get_tick ticks next_tick_index internal_tick_not_exist_err in
+            let ticks = Big_map.add tick_witness {tick with next = tick_index} ticks in
+            let ticks = Big_map.add next_tick_index {tick_next with prev = tick_index} ticks in
+            let ticks = Big_map.add tick_index {
+                prev = tick_witness ;
+                next = next_tick_index ;
                 liquidity_net = 0 ;
                 n_positions = 0n ;
                 fee_growth_outside = initial_fee_growth_outside;
                 seconds_outside = initial_seconds_outside;
                 seconds_per_liquidity_outside = initial_seconds_per_liquidity_outside;
-                sqrt_price = half_bps_pow i.i}) ticks in
+                sqrt_price = half_bps_pow tick_index.i} ticks in
             ticks
         else
-            initialize_tick (ticks, i, i_next, initial_fee_growth_outside, initial_seconds_outside, initial_seconds_per_liquidity_outside)
+            initialize_tick (ticks, tick_index, next_tick_index, initial_fee_growth_outside, initial_seconds_outside, initial_seconds_per_liquidity_outside)
 
 (* Account for the fact that this tick is a boundary for one more (or one less) position. *)
 let cover_tick_with_position (ticks : tick_map) (tick_index : tick_index) (pos_delta : int) (liquidity_delta : int) =
