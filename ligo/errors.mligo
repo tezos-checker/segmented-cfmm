@@ -17,11 +17,11 @@
 (* Invalid witness. The witness must refer to an initialized tick that is below or equal to the supplied tick. *)
 [@inline] let invalid_witness_err = 100n
 
-(* Log out of bounds. *)
-[@inline] let log_out_of_bounds_err = 101n
+(* The action would apply too big of a change to the price, which is not allowed. We assume that the amount of X or Y tokens in the contract should not change by more than 30% at once (in some circumstances, a larger change may be allowed). *)
+[@inline] let too_big_price_change_err = 101n
 
-(* Should not reach end of ladder. *)
-[@inline] let end_ladder_reached_err = 102n
+(* The action would put the price out of bounds. Used tick indices should remain within `[-1048575; 1048575]` range, and, respectively, amount of one token type in the pair should not exceed `exp(0.0001)^1048575 ≈ 3.46 * 10^45` times the amount in the other token. *)
+[@inline] let price_out_of_bounds_err = 102n
 
 (* Swap has expired: now > deadline. *)
 [@inline] let past_deadline_err = 103n
