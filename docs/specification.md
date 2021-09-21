@@ -423,12 +423,12 @@ type x_to_x_prime_param = {
 
 Updates or creates a new [position](#positions) in the given range.
 
-- `i_l` determines the lowest tick index in which this position will be active.
-- `i_u` determines the highest tick index in which this position will be active.
-- `i_l_l` is a witness (already initialized tick) index lower than `i_l`.
-  It should be as close as possible to `i_l`, for efficiency.
-- `i_u_l` is a witness (already initialized tick) index lower than `i_u`.
-  It should be as close as possible to `i_u`, for efficiency.
+- `lower_tick_index` determines the lowest tick index in which this position will be active.
+- `upper_tick_index` determines the highest tick index in which this position will be active.
+- `lower_tick_witness` is a witness (already initialized tick) index lower than `lower_tick_index`.
+  It should be as close as possible to `lower_tick_index`, for efficiency.
+- `upper_tick_witness` is a witness (already initialized tick) index lower than `upper_tick_index`.
+  It should be as close as possible to `upper_tick_index`, for efficiency.
 - The liquidity of the `SENDER` will be updated by `delta_liquidity`, increased
   or decreased depending on the sign, for both tokens of the pair.
 - In case, after adding eventual accrued fees, the `delta_liquidity` is:
@@ -445,10 +445,10 @@ Updates or creates a new [position](#positions) in the given range.
 
 ```ocaml
 type set_position_param = {
-    i_l : tick_index ;
-    i_u : tick_index ;
-    i_l_l : tick_index ;
-    i_u_l : tick_index ;
+    lower_tick_index : tick_index ;
+    upper_tick_index : tick_index ;
+    lower_tick_witness : tick_index ;
+    upper_tick_witness : tick_index ;
     delta_liquidity : int ;
     to_x : address ;
     to_y : address ;
