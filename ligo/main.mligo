@@ -213,7 +213,7 @@ let set_position (s : storage) (p : set_position_param) : result =
                     liquidity = assert_nat (s.liquidity + p.liquidity_delta, internal_liquidity_below_zero_err)
                 } in
         (s, {
-            x = ceildiv_int (p.liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - s.sqrt_price.x80, internal_sqrt_price_grow_err_1)) 80n))) (int (s.sqrt_price.x80 * srp_u.x80)) ;
+            x = ceildiv_int (p.liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - s.sqrt_price.x80, internal_sqrt_price_grow_err_2)) 80n))) (int (s.sqrt_price.x80 * srp_u.x80)) ;
             y = shift_int (p.liquidity_delta * (s.sqrt_price.x80 - srp_l.x80)) (-80)
             })
     else (* cur_tick_index >= p.upper_tick_index *)

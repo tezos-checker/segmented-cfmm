@@ -101,10 +101,10 @@
 (* Contract does not have enough liquidity to execute the swap. *)
 [@inline] let internal_insufficient_balance_err = 310n
 
-(* Thrown when `s.i_c >= key.hi.i` and `(s.fee_growth.x - tick_hi.fee_growth_outside.x)` (or `y`) is not nat. *)
+(* Thrown when `s.cur_tick_index.i >= upper_tick_index.i` and `(s.fee_growth.x - upper_tick.fee_growth_outside.x)` (or `y`) is not nat. *)
 [@inline] let internal_311 = 311n
 
-(* Thrown when `s.i_c < key.hi.i` and `(s.fee_growth.x - tick_lo.fee_growth_outside.x)` (or `y`) is not nat. *)
+(* Thrown when `s.cur_tick_index.i < lower_tick_index.i` and `(s.fee_growth.x - lower_tick.fee_growth_outside.x)` (or `y`) is not nat. *)
 [@inline] let internal_312 = 312n
 
 (* Number of positions underflow. *)
@@ -122,10 +122,10 @@
 (* Thrown when `(fee_growth_inside.y - position.fee_growth_inside_last.y)` is not nat. *)
 [@inline] let internal_317 = 317n
 
-(* Thrown when `s.i_c < i_l.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). *)
+(* Thrown when `s.cur_tick_index.i < p.lower_tick_index.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). *)
 [@inline] let internal_sqrt_price_grow_err_1 = 318n
 
-(* Thrown when `i_l.i <= s.i_c && s.i_c < i_u.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). *)
+(* Thrown when `p.lower_tick_index.i <= s.cur_tick_index.i && s.cur_tick_index.i < p.upper_tick_index.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). *)
 [@inline] let internal_sqrt_price_grow_err_2 = 319n
 
 (* Thrown when `seconds_outside` is negative. *)
@@ -136,6 +136,9 @@
 
 (* Some issue with binary search in `observe` entrypoint. *)
 [@inline] let internal_observe_bin_search_failed = 322n
+
+(* Attempt to garbade collect a tick with non-zero liquidity net. *)
+[@inline] let internal_non_empty_position_gc_err = 323n
 
 
 

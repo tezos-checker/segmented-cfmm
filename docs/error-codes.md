@@ -57,17 +57,18 @@ Here is a summary of all the error codes thrown by the contract.
 | 308 | `internal_liquidity_below_zero_err` | Liquidity went below zero. |
 | 309 | `internal_309` | Thrown when `(p.dx - r.dx)` is not nat. |
 | 310 | `internal_insufficient_balance_err` | Contract does not have enough liquidity to execute the swap. |
-| 311 | `internal_311` | Thrown when `s.i_c >= key.hi.i` and `(s.fee_growth.x - tick_hi.fee_growth_outside.x)` (or `y`) is not nat. |
-| 312 | `internal_312` | Thrown when `s.i_c < key.hi.i` and `(s.fee_growth.x - tick_lo.fee_growth_outside.x)` (or `y`) is not nat. |
+| 311 | `internal_311` | Thrown when `s.cur_tick_index.i >= upper_tick_index.i` and `(s.fee_growth.x - upper_tick.fee_growth_outside.x)` (or `y`) is not nat. |
+| 312 | `internal_312` | Thrown when `s.cur_tick_index.i < lower_tick_index.i` and `(s.fee_growth.x - lower_tick.fee_growth_outside.x)` (or `y`) is not nat. |
 | 313 | `internal_position_underflow_err` | Number of positions underflow. |
 | 314 | `internal_314` | Thrown when `(s.fee_growth.x - f_a.x - f_b.x)` is not nat. |
 | 315 | `internal_315` | Thrown when `(s.fee_growth.y - f_a.y - f_b.y)` is not nat. |
 | 316 | `internal_316` | Thrown when `(fee_growth_inside.x - position.fee_growth_inside_last.x)` is not nat. |
 | 317 | `internal_317` | Thrown when `(fee_growth_inside.y - position.fee_growth_inside_last.y)` is not nat. |
-| 318 | `internal_sqrt_price_grow_err_1` | Thrown when `s.i_c < i_l.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). |
-| 319 | `internal_sqrt_price_grow_err_2` | Thrown when `i_l.i <= s.i_c && s.i_c < i_u.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). |
+| 318 | `internal_sqrt_price_grow_err_1` | Thrown when `s.cur_tick_index.i < p.lower_tick_index.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). |
+| 319 | `internal_sqrt_price_grow_err_2` | Thrown when `p.lower_tick_index.i <= s.cur_tick_index.i && s.cur_tick_index.i < p.upper_tick_index.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). |
 | 320 | `internal_negative_seconds_outside_err` | Thrown when `seconds_outside` is negative. |
 | 321 | `internal_bad_access_to_observation_buffer` | Failed to access a value in time-weighted i_c cumulative sums buffer. |
 | 322 | `internal_observe_bin_search_failed` | Some issue with binary search in `observe` entrypoint. |
+| 323 | `internal_non_empty_position_gc_err` | Attempt to garbade collect a tick with non-zero liquidity net. |
 
 

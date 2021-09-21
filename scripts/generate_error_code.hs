@@ -124,10 +124,10 @@ internalErrors = errorsEnumerate 300
       :? "Contract does not have enough liquidity to execute the swap."
 
   , "internal_311"
-      :? "Thrown when `s.i_c >= key.hi.i` and `(s.fee_growth.x - tick_hi.fee_growth_outside.x)` (or `y`) is not nat."
+      :? "Thrown when `s.cur_tick_index.i >= upper_tick_index.i` and `(s.fee_growth.x - upper_tick.fee_growth_outside.x)` (or `y`) is not nat."
 
   , "internal_312"
-      :? "Thrown when `s.i_c < key.hi.i` and `(s.fee_growth.x - tick_lo.fee_growth_outside.x)` (or `y`) is not nat."
+      :? "Thrown when `s.cur_tick_index.i < lower_tick_index.i` and `(s.fee_growth.x - lower_tick.fee_growth_outside.x)` (or `y`) is not nat."
 
   , "internal_position_underflow_err"
       :? "Number of positions underflow."
@@ -145,10 +145,10 @@ internalErrors = errorsEnumerate 300
       :? "Thrown when `(fee_growth_inside.y - position.fee_growth_inside_last.y)` is not nat."
 
   , "internal_sqrt_price_grow_err_1"
-      :? "Thrown when `s.i_c < i_l.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract)."
+      :? "Thrown when `s.cur_tick_index.i < p.lower_tick_index.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract)."
 
   , "internal_sqrt_price_grow_err_2"
-      :? "Thrown when `i_l.i <= s.i_c && s.i_c < i_u.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract)."
+      :? "Thrown when `p.lower_tick_index.i <= s.cur_tick_index.i && s.cur_tick_index.i < p.upper_tick_index.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract)."
 
   , "internal_negative_seconds_outside_err"
       :? "Thrown when `seconds_outside` is negative."
