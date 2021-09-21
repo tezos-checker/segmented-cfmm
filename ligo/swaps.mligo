@@ -136,14 +136,19 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             let p_new = {p with s = s_new ; dy = assert_nat (p.dy - dy_consummed, internal_307) ; dx = p.dx + dx} in
             y_to_x_rec p_new
 
+(* Get amount of X spent, Y received, and updated storage. *)
+let update_storage_x_to_y (s : storage) (dx : nat) : (nat * nat * storage) =
+    let r = x_to_y_rec {s = s ; dx = dx ; dy = 0n} in
+    let dx_spent = assert_nat (dx - r.dx, internal_309) in
+    let dy_received = r.dy in
+    let s_new = {s with balance = {x = s.balance.x + dx_spent ;  y = assert_nat (s.balance.y - dy_received, internal_insufficient_balance_err)}} in
+    (dx_spent, dy_received, s_new)
+
 
 (* Trade up to a quantity dx of asset x, receives dy *)
 let x_to_y (s : storage) (p : x_to_y_param) : result =
     let _: unit = check_deadline p.deadline in
-    let r = x_to_y_rec {s = s ; dx = p.dx ; dy = 0n} in
-    let dx_spent = assert_nat (p.dx - r.dx, internal_309) in
-    let dy_received = r.dy in
-    let s_new = {s with balance = {x = s.balance.x + dx_spent ;  y = assert_nat (s.balance.y - dy_received, internal_insufficient_balance_err)}} in
+    let (dx_spent, dy_received, s_new) = update_storage_x_to_y s p.dx in
     if dy_received < p.min_dy then
         (failwith smaller_than_min_asset_err : result)
     else
@@ -165,3 +170,44 @@ let y_to_x (s : storage) (p : y_to_x_param) : result =
         let op_receive_y = y_transfer Tezos.sender Tezos.self_address dy_spent in
         let op_send_x = x_transfer Tezos.self_address p.to_dx dx_received in
         ([op_receive_y ; op_send_x], s_new)
+
+
+(* Trade X with X' in a different contract. *)
+let x_to_x_prime (s : storage) (p : x_to_x_prime_param) : result =
+
+    (* Ensure provided contract is a CFMM contract. *)
+    let cfmm2_contract =
+        match (Tezos.get_entrypoint_opt "%y_to_x" p.x_prime_contract
+            : y_to_x_param contract option) with
+        | Some contract -> contract
+        | None -> (failwith invalid_x_prime_contract_err : y_to_x_param contract) in
+
+    (* Swap X to Y *)
+    let (dx_spent, dy_received, s_new) = update_storage_x_to_y s p.dx in
+
+    (* Y to X' parameter *)
+    let y_to_x_prime_param =
+            { dy = dy_received
+            ; deadline = p.deadline
+            ; min_dx = p.min_dx_prime
+            ; to_dx = p.to_dx_prime
+            } in
+
+    (* Transfer X token to the current CFMM contract. *)
+    let op_transfer_x_to_cfmm1 = x_transfer Tezos.sender Tezos.self_address dx_spent in
+
+    (* Make X' CFMM contract as an operator of current CFMM contract for Y. *)
+    let op_make_cfmm2_operator = make_operator_in_y p.x_prime_contract dy_received in
+
+    (* Make a call to X' CFMM contract to swap Y for X'. *)
+    let op_call_y_to_x_prime = Tezos.transaction y_to_x_prime_param 0mutez cfmm2_contract in
+
+    (* Remove X' CFMM contract as an operator of current CFMM contract. *)
+    let op_remove_cfmm2_operator = remove_operator_in_y p.x_prime_contract in
+
+    ( [ op_transfer_x_to_cfmm1
+      ; op_make_cfmm2_operator
+      ; op_call_y_to_x_prime
+      ; op_remove_cfmm2_operator
+      ]
+    , s_new)

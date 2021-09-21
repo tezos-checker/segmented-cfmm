@@ -11,9 +11,9 @@ import { InMemorySigner, importKey } from '@taquito/signer';
 import { Parameter } from './generated/Parameter';
 import { Get_time_weighted_sum } from './generated/Get_time_weighted_sum';
 import { Set_position } from "./generated/Set_position";
-import { X_to_X_prime } from './generated/X_to_X_prime';
-import { X_to_Y } from './generated/X_to_Y';
-import { Y_to_X } from './generated/Y_to_X';
+import { X_to_x_prime } from './generated/X_to_x_prime';
+import { X_to_y } from './generated/X_to_y';
+import { Y_to_x } from './generated/Y_to_x';
 
 function println(s: string) {
   console.log(s);
@@ -141,17 +141,17 @@ export class SegCFMMContract {
       contract => contract.methods.set_position(arg));
   }
 
-  x_to_x_prime(arg: X_to_X_prime): Promise<string|void> {
+  x_to_x_prime(arg: X_to_x_prime): Promise<string|void> {
     return this.withContract(
       contract => contract.methods.x_to_x_prime(arg));
   }
 
-  x_to_y(arg: X_to_Y): Promise<string|void> {
+  x_to_y(arg: X_to_y): Promise<string|void> {
     return this.withContract(
       contract => contract.methods.x_to_y(arg));
   }
 
-  y_to_x(arg: Y_to_X): Promise<string|void> {
+  y_to_x(arg: Y_to_x): Promise<string|void> {
     return this.withContract(
       contract => contract.methods.y_to_x(arg));
   }

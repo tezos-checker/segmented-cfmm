@@ -300,6 +300,18 @@ type y_to_x_rec_param = x_to_y_rec_param
 
 type result = (operation list) * storage
 
+type x_to_x_prime_param = {
+    (* Amount of X tokens to sell. *)
+    dx : nat ;
+    (* Address of another segmented-cfmm contract. *)
+    x_prime_contract : address ;
+    (* The transaction won't be executed past this point. *)
+    deadline : timestamp ;
+    (* The transaction won't be executed if buying less than the given amount of X' tokens. *)
+    min_dx_prime : nat ;
+    (* Recipient of dx'. *)
+    to_dx_prime : address ;
+}
 
 (* Entrypoints *)
 
@@ -307,11 +319,11 @@ type views =
   | IC_sum of int
 
 type parameter =
-  | X_to_Y of x_to_y_param
-  | Y_to_X of y_to_x_param
+  | X_to_y of x_to_y_param
+  | Y_to_x of y_to_x_param
+  | X_to_x_prime of x_to_x_prime_param (* equivalent to token_to_token *)
   | Set_position of set_position_param (* TODO add deadline, maximum tokens contributed, and maximum liquidity present *)
-  | X_to_X_prime of address (* equivalent to token_to_token *)
   | Get_time_weighted_sum of views contract
-  | Call_FA2 of fa2_parameter
+  | Call_fa2 of fa2_parameter
 
 #endif
