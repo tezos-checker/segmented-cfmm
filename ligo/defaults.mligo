@@ -3,6 +3,8 @@
 
 #include "types.mligo"
 #include "consts.mligo"
+#include "errors.mligo"
+#include "math.mligo"
 
 let default_storage (constants : constants) : storage =
 
@@ -38,7 +40,7 @@ let default_storage (constants : constants) : storage =
   ] in
 
   { liquidity = 0n
-  ; sqrt_price = { x80 = 0n }
+  ; sqrt_price = half_bps_pow 0
   ; cur_tick_index = { i = 0 }
   ; cur_tick_witness  = { i = -const_max_tick }
   ; fee_growth = { x = { x128 = 0n }; y = { x128 = 0n } }
