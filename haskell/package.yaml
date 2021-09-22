@@ -113,6 +113,7 @@ library:
     - morley-prelude
     - template-haskell
     - universum
+    - with-utf8
 
 executables:
   segmented-cfmm:

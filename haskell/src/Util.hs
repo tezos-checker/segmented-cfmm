@@ -7,8 +7,9 @@ module Util
   , resolveSourcePath
   ) where
 
-import Universum
+import Prelude
 
+import qualified Data.Text.IO.Utf8 as Utf8
 import Fmt (pretty)
 import qualified Language.Haskell.TH as TH
 import Language.Haskell.TH.Syntax (qAddDependentFile)
@@ -26,7 +27,7 @@ readDependentSource path = do
   -- We cannot use 'embedFile' directly because it returns Exp,
   -- doing the following should be equivalent
   qAddDependentFile path
-  readFile path
+  Utf8.readFile path
 
 resolveSourcePath
   :: forall m. (MonadIO m, TH.Quasi m)
