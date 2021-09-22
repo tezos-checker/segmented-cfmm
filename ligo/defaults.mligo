@@ -17,8 +17,7 @@ let default_storage (constants : constants) : storage =
     ; tick_cumulative_outside = 0
     ; fee_growth_outside = {x = { x128 = 0n } ; y = { x128 = 0n }}
     ; seconds_per_liquidity_outside = {x128 = 0n}
-    ; sqrt_price = { x80 = 21n }
-    (* ^ round(sqrt(exp(0.0001)^-1048575) * 2^80) *)
+    ; sqrt_price = half_bps_pow (-const_max_tick)
     } in
 
   let max_tick_state =
@@ -30,8 +29,7 @@ let default_storage (constants : constants) : storage =
     ; tick_cumulative_outside = 0
     ; fee_growth_outside = {x = { x128 = 0n } ; y = { x128 = 0n }}
     ; seconds_per_liquidity_outside = {x128 = 0n}
-    ; sqrt_price = { x80 = 71107673757466966990985105047137336834554167630n }
-    (* ^ round(sqrt(exp(0.0001)^1048575) * 2^80) *)
+    ; sqrt_price = half_bps_pow (int const_max_tick)
     } in
 
   let ticks = Big_map.literal [
