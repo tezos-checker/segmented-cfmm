@@ -57,7 +57,7 @@ rec {
         packages.segmented-cfmm = {
           preBuild = ''
             mkdir -p ./test
-            cp -r ${build-ligo}/* ./test
+            cp -r ${build-ligo}/*.tz ./test
           '';
         };
       }
@@ -93,7 +93,7 @@ rec {
     name = "segmented_cfmm";
     src = ./.;
     nativeBuildInputs = [ ligo ];
-    buildPhase = "make all";
+    buildPhase = "make every";
     installPhase = "mkdir -p $out; cp -r out/* $out";
   };
 

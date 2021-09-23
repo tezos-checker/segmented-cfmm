@@ -26,10 +26,35 @@ escape_double_quote = $(subst $\",$\\",$(1))
 validate_token_type = $(if $(filter $(1),$(2)),,$(error $(1) is not a valid choice, please select one of:$(2)))
 
 
-.PHONY: all prepare_lib lib metadata error-codes test typescript clean
+.PHONY: all every prepare_lib lib metadata error-codes test typescript clean
 
 all: \
-	$(OUT)/segmented_cfmm_default.tz $(OUT)/storage_default.tz
+	$(OUT)/segmented_cfmm_default.tz \
+	$(OUT)/storage_default.tz
+
+# Compiles the storage and every combination of token type pairs
+every: \
+	$(OUT)/segmented_cfmm_FA12_CTEZ.tz \
+	$(OUT)/segmented_cfmm_FA2_CTEZ.tz \
+	$(OUT)/segmented_cfmm_FA12_FA2.tz \
+	$(OUT)/segmented_cfmm_FA2.tz \
+	$(OUT)/segmented_cfmm_FA12.tz \
+	$(OUT)/segmented_cfmm_FA2_FA12.tz \
+	$(OUT)/storage_default.tz
+
+# Targets whose filenames matches the chosen token types pair
+$(OUT)/segmented_cfmm_FA12_CTEZ.tz : x_token_type = FA12
+$(OUT)/segmented_cfmm_FA12_CTEZ.tz : y_token_type = CTEZ
+$(OUT)/segmented_cfmm_FA2_CTEZ.tz : x_token_type = FA2
+$(OUT)/segmented_cfmm_FA2_CTEZ.tz : y_token_type = CTEZ
+$(OUT)/segmented_cfmm_FA12_FA2.tz : x_token_type = FA12
+$(OUT)/segmented_cfmm_FA12_FA2.tz : y_token_type = FA2
+$(OUT)/segmented_cfmm_FA2.tz : x_token_type = FA2
+$(OUT)/segmented_cfmm_FA2.tz : y_token_type = FA2
+$(OUT)/segmented_cfmm_FA12.tz : x_token_type = FA12
+$(OUT)/segmented_cfmm_FA12.tz : y_token_type = FA12
+$(OUT)/segmented_cfmm_FA2_FA12.tz : x_token_type = FA2
+$(OUT)/segmented_cfmm_FA2_FA12.tz : y_token_type = FA12
 
 # Generic rule for compiling CFMM contract variations.
 $(OUT)/segmented_cfmm_%.tz : x_token_type = FA2
@@ -71,7 +96,7 @@ $(OUT)/storage_default.tz: $(shell find ligo -name '*.mligo')
 	# ============== Compiling default LIGO storage ============== #
 	$(BUILD_STORAGE) ligo/defaults.mligo entrypoint default_storage --output-file $(OUT)/storage_default.tz
 
-prepare_lib: all
+prepare_lib: every
 	# ============== Copying ligo sources to haskell lib paths ============== #
 	cp -r $(OUT)/*.tz haskell/test/
 

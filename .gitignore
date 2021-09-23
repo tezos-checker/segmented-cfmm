@@ -57,5 +57,4 @@ out/
 
 # Haskell
 .stack-work/
-haskell/test/segmented_cfmm_default.tz
-haskell/test/storage_default.tz
+haskell/test/*.tz
