@@ -9,10 +9,6 @@
 #include "swaps.mligo"
 #include "token/fa2.mligo"
 
-#if !DUMMY_PRAGMA1
-This is an example of conditionally present code, remove it once normal pragmas are set.
-#endif
-
 [@inline]
 let get_registered_cumulatives_unsafe (buffer : timed_cumulatives_buffer) (i : nat) : timed_cumulatives =
     match Big_map.find_opt i buffer.map with

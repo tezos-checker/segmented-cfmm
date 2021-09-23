@@ -22,35 +22,33 @@ TS_OUT ?= typescript
 # Utility function to escape double quotes
 escape_double_quote = $(subst $\",$\\",$(1))
 
+# Utility function to validate a selection from a list of valid options
+validate_token_type = $(if $(filter $(1),$(2)),,$(error $(1) is not a valid choice, please select one of:$(2)))
+
+
 .PHONY: all prepare_lib lib metadata error-codes test typescript clean
-
-# Builds LIGO contract. Arguments:
-#   1: The source file
-#   2: The target file
-#   3: Ligo pragmas
-define build_ligo
-	@mkdir -p $(dir $(2))
-
-	@ #Create a file and put necessary #define pragmas to it first
-	$(eval TOTAL_FILE := $(shell mktemp $(1).total-XXX))
-	$(foreach CVAR,$(3),$(file >>$(TOTAL_FILE),#define $(CVAR)))
-	@echo "#include \"$(notdir $(1))\"" >> $(TOTAL_FILE)
-
-	# ============== Compiling Ligo Contract `$(1)` with options `$(3)` ============== #
-	@$(BUILD) $(TOTAL_FILE) main --output-file $(2) || ( rm $(TOTAL_FILE) && exit 1 )
-	@$(MEASURE) $(TOTAL_FILE) main
-	@rm $(TOTAL_FILE)
-endef
 
 all: \
 	$(OUT)/segmented_cfmm_default.tz $(OUT)/storage_default.tz
 
-$(OUT)/segmented_cfmm_default.tz : LIGO_PRAGMAS = DUMMY_PRAGMA1 DUMMY_PRAGMA2
-
 # Generic rule for compiling CFMM contract variations.
+$(OUT)/segmented_cfmm_%.tz : x_token_type = FA2
+$(OUT)/segmented_cfmm_%.tz : y_token_type = CTEZ
 $(OUT)/segmented_cfmm_%.tz: $(shell find ligo -name '*.mligo')
-	$(call build_ligo,ligo/main.mligo,$(OUT)/segmented_cfmm_$*.tz,$(LIGO_PRAGMAS))
-
+	mkdir -p $(OUT)
+	$(call validate_token_type, $(x_token_type), FA2 FA12)
+	$(call validate_token_type, $(y_token_type), CTEZ FA2 FA12)
+	# ============ Creating temporary file for compile-time options ============ #
+	$(eval TOTAL_FILE := $(shell mktemp ligo/total-XXX.mligo))
+	echo "#define X_IS_$(x_token_type)" >> $(TOTAL_FILE)
+	echo "#define Y_IS_$(y_token_type)" >> $(TOTAL_FILE)
+	# Make sure that if 'Y_IS_CTEZ' this implies 'Y_IS_FA12'
+	$(if $(findstring CTEZ,$(y_token_type)), echo "#define Y_IS_FA12" >> $(TOTAL_FILE))
+	echo "#include \"main.mligo\"" >> $(TOTAL_FILE)
+	# ============ Compiling ligo contract $@ ============ #
+	$(BUILD) $(TOTAL_FILE) main --output-file $@ || ( rm $(TOTAL_FILE) && exit 1 )
+	$(MEASURE) $(TOTAL_FILE) main
+	rm $(TOTAL_FILE)
 
 $(OUT)/storage_default.tz: $(shell find ligo -name '*.mligo')
 	# ============== Compiling default LIGO storage ============== #
