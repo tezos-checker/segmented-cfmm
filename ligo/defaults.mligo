@@ -51,3 +51,11 @@ let default_storage : storage =
   ; new_position_id = 0n
   ; operators = (Big_map.empty : operators)
   }
+
+(* Identity contract using 'parameter' and 'storage'.
+ *
+ * This is only used for the purpose of providing an `ENTRY_POINT` to the
+ * `compile-storage` command of LIGO.
+*)
+let entrypoint (_param, store : parameter * storage) : result =
+  (([] : operation list), store)

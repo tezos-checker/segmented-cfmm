@@ -42,19 +42,6 @@ define build_ligo
 	@rm $(TOTAL_FILE)
 endef
 
-define build_ligo_storage
-	@mkdir -p $(dir $(2))
-
-	@ #Create a file and put necessary #define pragmas to it first
-	$(eval TOTAL_FILE := $(shell mktemp $(1).total-XXX))
-	$(foreach CVAR,$(3),$(file >>$(TOTAL_FILE),#define $(CVAR)))
-	@echo "#include \"$(notdir $(1))\"" >> $(TOTAL_FILE)
-
-	# ============== Compiling Ligo Storage `$(1)` with options `$(3)` ============== #
-	@$(BUILD_STORAGE) $(TOTAL_FILE) main default_storage --output-file $(2) || ( rm $(TOTAL_FILE) && exit 1 )
-	@rm $(TOTAL_FILE)
-endef
-
 all: \
 	$(OUT)/segmented_cfmm_default.tz $(OUT)/storage_default.tz
 
@@ -65,16 +52,13 @@ $(OUT)/segmented_cfmm_%.tz: $(shell find ligo -name '*.mligo')
 	$(call build_ligo,ligo/main.mligo,$(OUT)/segmented_cfmm_$*.tz,$(LIGO_PRAGMAS))
 
 
-$(OUT)/storage_default.tz : LIGO_PRAGMAS = DUMMY_PRAGMA1 DUMMY_PRAGMA2
-
-$(OUT)/storage_%.tz: $(shell find ligo -name '*.mligo')
-	$(call build_ligo_storage,ligo/main.mligo,$(OUT)/storage_$*.tz,$(LIGO_PRAGMAS))
+$(OUT)/storage_default.tz: $(shell find ligo -name '*.mligo')
+	# ============== Compiling default LIGO storage ============== #
+	$(BUILD_STORAGE) ligo/defaults.mligo entrypoint default_storage --output-file $(OUT)/storage_default.tz
 
 prepare_lib: all
 	# ============== Copying ligo sources to haskell lib paths ============== #
-	mkdir -p haskell/test
-	cp $(OUT)/segmented_cfmm_default.tz haskell/test/segmented_cfmm_default.tz
-	cp $(OUT)/storage_default.tz haskell/test/storage_default.tz
+	cp -r $(OUT)/*.tz haskell/test/
 
 lib: prepare_lib
 	$(MAKE) -C haskell build PACKAGE=segmented-cfmm \
@@ -90,9 +74,11 @@ metadata : output = metadata.json
 metadata: lib
 	$(MAKE) -C haskell exec PACKAGE=segmented-cfmm \
 		EXEC_ARGUMENTS="print-metadata \
-		--x-token-symbol $(x_token_symbol) --x-token-name $(call escape_double_quote,$(x_token_name)) \
+		--x-token-symbol $(x_token_symbol) \
+		--x-token-name $(call escape_double_quote,$(x_token_name)) \
 		--x-token-decimals $(x_token_decimals) \
-		--y-token-symbol $(y_token_symbol) --y-token-name $(call escape_double_quote,$(y_token_name)) \
+		--y-token-symbol $(y_token_symbol)
+		--y-token-name $(call escape_double_quote,$(y_token_name)) \
 		--y-token-decimals $(y_token_decimals) \
 		" EXEC_OUTPUT=$(output)
 
@@ -113,6 +99,5 @@ typescript: prepare_lib
 
 clean:
 	rm -rf $(OUT)
-	rm haskell/test/segmented_cfmm_default.tz
-	rm haskell/test/storage_default.tz
+	rm -f haskell/test/*.tz
 	$(MAKE) -C haskell clean
