@@ -41,6 +41,12 @@
 (* The X prime contract address provided is not a segmented-cfmm contract. *)
 [@inline] let invalid_x_prime_contract_err = 108n
 
+(* Some of the timestamps passed to the `observe` entrypoint are too far back in the past. *)
+[@inline] let observe_outdated_timestamp_err = 109n
+
+(* Some of the timestamps passed to the `observe` entrypoint are yet in the future. *)
+[@inline] let observe_future_timestamp_err = 110n
+
 
 
 // ---------------------------------------------------------------------------
@@ -124,6 +130,12 @@
 
 (* Thrown when `seconds_outside` is negative. *)
 [@inline] let internal_negative_seconds_outside_err = 320n
+
+(* Failed to access a value in time-weighted i_c cumulative sums buffer. *)
+[@inline] let internal_bad_access_to_observation_buffer = 321n
+
+(* Some issue with binary search in `observe` entrypoint. *)
+[@inline] let internal_observe_bin_search_failed = 322n
 
 
 

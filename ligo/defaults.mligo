@@ -44,10 +44,8 @@ let default_storage : storage =
   ; ticks = ticks
   ; positions = (Big_map.empty : position_map)
   ; position_indexes = (Big_map.empty : position_index_map)
-  ; time_weighted_ic_sum = 0
-  ; last_ic_sum_update = epoch_time
-  ; seconds_per_liquidity_cumulative = { x128 = 0n }
-  ; new_position_id = 0n
+  ; cumulatives_buffer = init_cumulatives_buffer 0n
   ; metadata = (Big_map.empty : metadata_map)
+  ; new_position_id = 0n
   ; operators = (Big_map.empty : operators)
   }

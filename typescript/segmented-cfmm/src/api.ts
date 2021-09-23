@@ -9,7 +9,8 @@ import { ContractMethod , Signer, TransactionWalletOperation,
 import { InMemorySigner, importKey } from '@taquito/signer';
 
 import { Parameter } from './generated/Parameter';
-import { Get_time_weighted_sum } from './generated/Get_time_weighted_sum';
+import { Observe } from './generated/Observe';
+import { Increase_observation_count } from './generated/Increase_observation_count';
 import { Set_position } from "./generated/Set_position";
 import { X_to_x_prime } from './generated/X_to_x_prime';
 import { X_to_y } from './generated/X_to_y';
@@ -131,9 +132,14 @@ export class SegCFMMContract {
 
   // entrypoint methods
 
-  get_time_weighted_sum(arg: Get_time_weighted_sum): Promise<string|void> {
+  observe(arg: Observe): Promise<string|void> {
     return this.withContract(
-      contract => contract.methods.get_time_weighted_sum(arg));
+      contract => contract.methods.observe(arg));
+  }
+
+  increase_observation_count(arg: Increase_observation_count): Promise<string|void> {
+      return this.withContract(
+          contract => contract.methods.Increase_observation_count(arg));
   }
 
   set_position(arg: Set_position): Promise<string|void> {

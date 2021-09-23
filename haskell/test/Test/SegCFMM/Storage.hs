@@ -13,4 +13,3 @@ import Util (fetchValue)
 defaultStorage :: Storage
 defaultStorage =
   fromVal ($(fetchValue @Storage "test/storage_default.tz"))
-

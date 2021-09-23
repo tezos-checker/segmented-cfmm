@@ -28,6 +28,8 @@ Here is a summary of all the error codes thrown by the contract.
 | 106 | `high_tokens_err` | The amount of tokens that needs to be transferred to the contract is higher than `maximum_tokens_contributed`. |
 | 107 | `invalid_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are too far back in the past. |
 | 108 | `invalid_x_prime_contract_err` | The X prime contract address provided is not a segmented-cfmm contract. |
+| 109 | `observe_outdated_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are too far back in the past. |
+| 110 | `observe_future_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are yet in the future. |
 
 
 #### Contract Configuration Error Codes
@@ -65,5 +67,7 @@ Here is a summary of all the error codes thrown by the contract.
 | 318 | `internal_sqrt_price_grow_err_1` | Thrown when `s.i_c < i_l.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). |
 | 319 | `internal_sqrt_price_grow_err_2` | Thrown when `i_l.i <= s.i_c && s.i_c < i_u.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). |
 | 320 | `internal_negative_seconds_outside_err` | Thrown when `seconds_outside` is negative. |
+| 321 | `internal_bad_access_to_observation_buffer` | Failed to access a value in time-weighted i_c cumulative sums buffer. |
+| 322 | `internal_observe_bin_search_failed` | Some issue with binary search in `observe` entrypoint. |
 
 

@@ -70,7 +70,6 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             let p_new = {p with s = s_new ; dx = assert_nat (p.dx - dx_consummed, internal_307) ; dy = p.dy + dy} in
             x_to_y_rec p_new
 
-
 let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
     if p.s.liquidity = 0n then
         p

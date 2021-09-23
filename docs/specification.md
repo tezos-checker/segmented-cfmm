@@ -502,17 +502,18 @@ Oracle `view` for the cumulative tick and liquidity-in-range, calculated for eac
     liquidity-in-range at that `timestamp`.
 - The contract stores a fixed number of past observations, with recent observations overwriting the oldest.
   * As a result, if any of the timestamps given in the entrypoint's parameter
-  is too far back in the past, the entrypoint fails with `invaild_timestamp_err` error code.
+  is too far back in the past, the entrypoint fails with `observe_outdated_timestamp_err` error code.
   * Note that the amount of observations stored by the contract can be increased
   via the `increase_observation_count` entrypoint.
+- If any of the timestamps given in the entrypoint's parameter is yet in the future, the entrypoint fails with `observe_future_timestamp_err`.
 
 ```ocaml
-type cumulative_entry = {
+type cumulatives_value = {
     tick_cumulative : int ;
     seconds_per_liquidity_cumulative : nat ;
 }
 
-type oracle_view_param = cumulative_entry list
+type oracle_view_param = cumulatives_value list
 
 type observe_param = {
     times : timestamp list ;
@@ -523,17 +524,16 @@ type observe_param = {
 ### **increase_observation_count**
 
 Increase the number of observations of `tick_cumulative` and
-`seconds_per_liquidity_cumulative` taken and stored in the contract.
-The greater the number, the further back in time users will be able to
-retrieve data using [`observe`](#observe).
+`seconds_per_liquidity_cumulative` taken and stored in the contract
+by the given number.
+The greater the number of tracked observations, the further back in time
+users will be able to retrieve data using [`observe`](#observe).
 
 The caller of this entrypoint will pay for the additional storage costs.
 
-If the pool already stores more observations than the given number, then this is a no-op.
-
 ```ocaml
 type increase_observation_count_param = {
-    observation_count: nat;
+    added_observation_count: nat;
 }
 ```
 

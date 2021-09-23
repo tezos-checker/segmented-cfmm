@@ -53,6 +53,7 @@ you must be able to justify that.
 [//]: # (Add more docs here if you have them in the repository)
 - Documentation
   - [ ] I checked whether I should update the docs and did so if necessary:
+    - [Specification](../tree/master/docs/specification.md)
     - [README](../tree/master/README.md)
     - Haddock
 
