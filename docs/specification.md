@@ -218,14 +218,20 @@ that:
 
 ## Compilation options
 
-- `x` token contract type, can be either [`FA1.2`][fa1.2] or [`FA2`][fa2].
-- `y` token contract type, can be either [`FA1.2`][fa1.2], [`FA2`][fa2], or [`CTEZ`][ctez].
-- `swap_fee`, a fraction determining how much of the tokens sent in a swap will
+- `x_token_type`: contract type of the `x` token, can be either [`FA1.2`][fa1.2] or [`FA2`][fa2].
+- `y_token_type`: contract type of the `y` token, can be either [`FA1.2`][fa1.2], [`FA2`][fa2], or [`CTEZ`][ctez].
+- `const_fee_bps`, a fraction determining how much of the tokens sent in a swap will
   be subtracted beforehand, see [fees](#fees) for more info.
-- `protocol_fee`, a percentage to be subtracted from the `CTEZ` tokens being
+- `const_ctez_burn_fee_bps`, a percentage to be subtracted from the `CTEZ` tokens being
   deposited/withdrawn on every swap.
   See [fees](#fees) for more info.
-  This option is only valid when the `y` token is `CTEZ`.
+  This option is only valid when the `y_token_type` is `CTEZ`.
+- `x_token_address` the `address` of the contract holding the `x` token.
+- `y_token_address` the `address` of the contract holding the `y` token.
+- `x_token_id` the [`FA2`][fa2] `token_id` for the `x` token.
+  This option is only valid when the `x_token_type` is `CTEZ` or `FA2`.
+- `y_token_id` the [`FA2`][fa2] `token_id` for the `y` token.
+  This option is only valid when the `y_token_type` is `CTEZ` or `FA2`
 
 # Entrypoints
 
