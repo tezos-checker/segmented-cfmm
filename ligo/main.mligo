@@ -60,30 +60,52 @@ let cover_tick_with_position (ticks : tick_map) (tick_index : tick_index) (pos_d
     let tick = get_tick ticks tick_index internal_tick_not_exist_err in
     let n_pos = assert_nat (tick.n_positions + pos_delta, internal_position_underflow_err) in
     let new_liquidity = tick.liquidity_net + liquidity_delta in
-    if n_pos = 0n then
-        (*  Garbage collect the tick.
-            The largest and smallest tick are initialized with n_positions = 1 so they cannot
-            be accidentally garbage collected. *)
+    Big_map.add tick_index
+        { tick with
+            n_positions = n_pos;
+            liquidity_net = new_liquidity
+        } ticks
+
+(*  Garbage collect the tick.
+    The largest and smallest tick are initialized with n_positions = 1 so they cannot
+    be accidentally garbage collected. *)
+let garbage_collect_tick (s : storage) (tick_index : tick_index) : storage =
+    let tick = get_tick s.ticks tick_index internal_tick_not_exist_err in
+
+    if tick.n_positions = 0n then
 #if DEBUG
-        let _ : unit = if new_liquidity <> 0 then
+        let _ : unit = if tick.liquidity_net <> 0 then
             failwith internal_non_empty_position_gc_err
             else unit in
 #endif
+        let ticks = s.ticks in
         let prev = get_tick ticks tick.prev internal_tick_not_exist_err in
         let next = get_tick ticks tick.next internal_tick_not_exist_err in
         (* prev links to next and next to prev, skipping the deleted tick *)
         let prev = {prev with next = tick.next} in
         let next = {next with prev = tick.prev} in
-        let ticks = Big_map.update tick_index (None : tick_state option) ticks in
+        let ticks = Big_map.remove tick_index ticks in
         let ticks = Big_map.update tick.prev (Some prev) ticks in
         let ticks = Big_map.update tick.next (Some next) ticks in
-        ticks
+        {s with ticks = ticks }
     else
-        Big_map.add tick_index
-            { tick with
-                n_positions = n_pos;
-                liquidity_net = new_liquidity
-            } ticks
+        s
+
+(*  Garbage collects:
+      * the position if its liquidity becomes 0,
+      * and the ticks if they are no longer the boundaries of any existing position.
+*)
+let garbage_collection (s : storage) (position : position_state) (position_index : position_index) : storage =
+    let s = if position.liquidity = 0n
+                then
+                    { s with
+                        positions = Big_map.remove position_index s.positions;
+                        position_indexes = Big_map.remove position.position_id s.position_indexes;
+                    }
+                else s in
+    let s = garbage_collect_tick s position_index.lower_tick_index in
+    let s = garbage_collect_tick s position_index.upper_tick_index in
+    s
 
 let calc_fee_growth_inside (s : storage) (lower_tick_index : tick_index) (upper_tick_index : tick_index) : balance_nat_x128 =
     let lower_tick = get_tick s.ticks lower_tick_index internal_tick_not_exist_err in
@@ -176,14 +198,11 @@ let set_position (s : storage) (p : set_position_param) : result =
     (* Update related ticks. *)
     let ticks = cover_tick_with_position ticks p.lower_tick_index positions_num_delta p.liquidity_delta in
     let ticks = cover_tick_with_position ticks p.upper_tick_index positions_num_delta (-p.liquidity_delta) in
-    (* delete the position if liquidity has fallen to 0 *)
+    let s = { s with ticks = ticks } in
+
+
+    (* Create/update position *)
     let (positions, position_indexes, new_position_id) =
-        if liquidity_new = 0n then
-            ( Big_map.remove position_key s.positions
-            , Big_map.remove position.position_id s.position_indexes
-            , s.new_position_id
-            )
-        else
             ( Big_map.add position_key ({position with liquidity = liquidity_new}) s.positions
             , ( if is_new then
                   Big_map.add position.position_id position_key s.position_indexes
@@ -191,6 +210,12 @@ let set_position (s : storage) (p : set_position_param) : result =
               )
             , ( if is_new then s.new_position_id + 1n else s.new_position_id )
             ) in
+    let s =
+        { s with
+            positions = positions;
+            position_indexes = position_indexes;
+            new_position_id = new_position_id;
+        } in
 
     (* Compute how much should be deposited / withdrawn to change liquidity by liquidity_net *)
 
@@ -231,6 +256,9 @@ let set_position (s : storage) (p : set_position_param) : result =
     let _: unit = if delta.x > int(p.maximum_tokens_contributed.x) then failwith high_tokens_err else unit in
     let _: unit = if delta.y > int(p.maximum_tokens_contributed.y) then failwith high_tokens_err else unit in
 
+    (* Garbage collection *)
+    let s = garbage_collection s position position_key in
+
     let op_x = if delta.x > 0 then
         x_transfer Tezos.sender Tezos.self_address (abs delta.x) s.constants
     else
@@ -241,14 +269,7 @@ let set_position (s : storage) (p : set_position_param) : result =
     else
         y_transfer Tezos.self_address p.to_y (abs delta.y) s.constants in
 
-    ( [op_x ; op_y]
-    , { s with
-        positions = positions
-      ; position_indexes = position_indexes
-      ; new_position_id = new_position_id
-      ; ticks = ticks
-      }
-    )
+    ([op_x ; op_y], s )
 
 // Entrypoint that returns cumulative values at given range at the current moment
 // of time.
