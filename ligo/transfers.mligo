@@ -4,14 +4,12 @@
 type token_id = nat
 
 #if X_IS_FA2
-[@inline] let const_x_token_id = 0n (* CHANGEME *)
 type x_contract_transfer = (address * (address * (token_id * nat)) list) list
 #else
 type x_contract_transfer = address * (address * nat)
 #endif
 
 #if Y_IS_FA2
-[@inline] let const_y_token_id = 0n (* CHANGEME *)
 type y_contract_transfer = (address * (address * (token_id * nat)) list) list
 type y_contract_operator_param = update_operators_param
 #else
@@ -25,10 +23,11 @@ type y_contract_operator_param = (address * nat) (* `approve` entrypoint. *)
 (* Helper functions to create/remove an operator in x and y contracts. *)
 let make_operator_in_y (operator : address) (limit : nat) : operation =
 #if Y_IS_FA2
+    let _limit = limit in // otherwise LIGO complains about 'limit' being unused
     let param = [ Add_operator
             { owner = Tezos.self_address
             ; operator = operator
-            ; token_id = const_y_token_id
+            ; token_id = y_token_id
             } ] in
     let y_contract = match
         ( Tezos.get_entrypoint_opt "%update_operators" const_y_token_entrypoint
@@ -52,7 +51,7 @@ let remove_operator_in_y (operator : address) : operation =
     let param = [ Remove_operator
             { owner = Tezos.self_address
             ; operator = operator
-            ; token_id = const_y_token_id
+            ; token_id = y_token_id
             } ] in
     let y_contract = match
         ( Tezos.get_entrypoint_opt "%update_operators" const_y_token_entrypoint
@@ -79,7 +78,7 @@ let x_transfer (from : address) (to_ : address) (amnt : nat) : operation =
     | None -> (failwith asset_transfer_invalid_entrypoints_err : x_contract_transfer contract)
     | Some contract -> contract in
 #if X_IS_FA2
-    Tezos.transaction [(from, [(to_, (const_x_token_id, amnt))])] 0mutez x_contract
+    Tezos.transaction [(from, [(to_, (x_token_id, amnt))])] 0mutez x_contract
 #else
     Tezos.transaction (from, (to_, amnt)) 0mutez x_contract
 #endif
@@ -90,7 +89,7 @@ let y_transfer (from : address) (to_ : address) (amnt : nat) : operation =
     | None -> (failwith asset_transfer_invalid_entrypoints_err : y_contract_transfer contract)
     | Some contract -> contract in
 #if Y_IS_FA2
-    Tezos.transaction [(from, [(to_, (const_y_token_id, amnt))])] 0mutez y_contract
+    Tezos.transaction [(from, [(to_, (y_token_id, amnt))])] 0mutez y_contract
 #else
     Tezos.transaction (from, (to_, amnt)) 0mutez y_contract
 #endif

@@ -34,16 +34,33 @@ all: \
 # Generic rule for compiling CFMM contract variations.
 $(OUT)/segmented_cfmm_%.tz : x_token_type = FA2
 $(OUT)/segmented_cfmm_%.tz : y_token_type = CTEZ
+$(OUT)/segmented_cfmm_%.tz : const_fee_bps = 10
+$(OUT)/segmented_cfmm_%.tz : const_ctez_burn_fee_bps = 5
+$(OUT)/segmented_cfmm_%.tz : x_token_id = 0
+$(OUT)/segmented_cfmm_%.tz : y_token_id = 0
+$(OUT)/segmented_cfmm_%.tz : x_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
+$(OUT)/segmented_cfmm_%.tz : y_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
 $(OUT)/segmented_cfmm_%.tz: $(shell find ligo -name '*.mligo')
 	mkdir -p $(OUT)
 	$(call validate_token_type, $(x_token_type), FA2 FA12)
 	$(call validate_token_type, $(y_token_type), CTEZ FA2 FA12)
 	# ============ Creating temporary file for compile-time options ============ #
 	$(eval TOTAL_FILE := $(shell mktemp ligo/total-XXX.mligo))
+	echo "(* Compilation Pragmas *)" >> $(TOTAL_FILE)
 	echo "#define X_IS_$(x_token_type)" >> $(TOTAL_FILE)
 	echo "#define Y_IS_$(y_token_type)" >> $(TOTAL_FILE)
 	# Make sure that if 'Y_IS_CTEZ' this implies 'Y_IS_FA12'
 	$(if $(findstring CTEZ,$(y_token_type)), echo "#define Y_IS_FA12" >> $(TOTAL_FILE))
+	echo "(* Hard-coded constants *)" >> $(TOTAL_FILE)
+	echo "(* Invariant : const_fee_bps + const_one_minus_fee_bps = 10000n *)"
+	echo "[@inline] let const_fee_bps : nat = $(const_fee_bps)n" >> $(TOTAL_FILE)
+	echo "[@inline] let const_one_minus_fee_bps : nat = $(shell expr 10000 - $(const_fee_bps) )n" >> $(TOTAL_FILE)
+	echo "[@inline] let const_ctez_burn_fee_bps : nat = $(const_ctez_burn_fee_bps)n" >> $(TOTAL_FILE)
+	echo "[@inline] let x_token_id : nat = $(x_token_id)n" >> $(TOTAL_FILE)
+	echo "[@inline] let y_token_id : nat = $(y_token_id)n" >> $(TOTAL_FILE)
+	echo "[@inline] let x_token_address = (\"$(x_token_address)\" : address)" >> $(TOTAL_FILE)
+	echo "[@inline] let y_token_address = (\"$(y_token_address)\" : address)" >> $(TOTAL_FILE)
+	echo "(* Import of the main module *)" >> $(TOTAL_FILE)
 	echo "#include \"main.mligo\"" >> $(TOTAL_FILE)
 	# ============ Compiling ligo contract $@ ============ #
 	$(BUILD) $(TOTAL_FILE) main --output-file $@ || ( rm $(TOTAL_FILE) && exit 1 )
