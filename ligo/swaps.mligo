@@ -81,8 +81,8 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
         (* What the new value of cur_tick_index will be. *)
         let cur_tick_index_new = {i = p.s.cur_tick_index.i + floor_log_half_bps_x80(sqrt_price_new, p.s.sqrt_price, too_big_price_change_err)} in
         let tick = get_tick p.s.ticks p.s.cur_tick_witness internal_tick_not_exist_err in
-        let i_u = tick.next in
-        if cur_tick_index_new.i < i_u.i then
+        let next_tick_index = tick.next in
+        if cur_tick_index_new.i < next_tick_index.i then
             (* The trade did not push us past the current tick. *)
             let dx = Bitwise.shift_right ((assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_bad_sqrt_price_move_y_direction)) * p.s.liquidity) 80n in
             let s_new = {p.s with
@@ -92,8 +92,8 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             {p with s = s_new ; dy = 0n ; dx = p.dx + dx}
         else
             (*We did cross the tick. *)
-            (* The cached price corresponding to hi. *)
-            let next_tick = get_tick p.s.ticks i_u internal_tick_not_exist_err in
+            (* The cached price corresponding to the next tick. *)
+            let next_tick = get_tick p.s.ticks next_tick_index internal_tick_not_exist_err in
             let sqrt_price_new = next_tick.sqrt_price in
 
             (* How much dx will we receive for going all the way to cur_tick_witness. *)
@@ -125,8 +125,8 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             (* Update global state. *)
             let s_new = {p.s with
                 sqrt_price = sqrt_price_new ;
-                cur_tick_witness = i_u ;
-                cur_tick_index = i_u ;
+                cur_tick_witness = next_tick_index ;
+                cur_tick_index = next_tick_index ;
                 ticks = ticks_new ;
                 fee_growth = fee_growth_new ;
                 (* Update liquidity as we enter new tick region. *)
