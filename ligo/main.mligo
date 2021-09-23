@@ -53,24 +53,35 @@ let rec initialize_tick ((ticks, i, i_l,
         else
             initialize_tick (ticks, i, i_next, initial_fee_growth_outside, initial_seconds_outside, initial_seconds_per_liquidity_outside)
 
-let incr_n_positions (ticks : tick_map) (i : tick_index) (incr : int) =
-    let tick = get_tick ticks i internal_tick_not_exist_err in
-    let n_pos = assert_nat (tick.n_positions + incr, internal_position_underflow_err) in
+(* Account for the fact that this tick is a boundary for one more (or one less) position. *)
+let cover_tick_with_position (ticks : tick_map) (tick_index : tick_index) (pos_delta : int) (liquidity_delta : int) =
+    let tick = get_tick ticks tick_index internal_tick_not_exist_err in
+    let n_pos = assert_nat (tick.n_positions + pos_delta, internal_position_underflow_err) in
+    let new_liquidity = tick.liquidity_net + liquidity_delta in
     if n_pos = 0n then
         (*  Garbage collect the tick.
             The largest and smallest tick are initialized with n_positions = 1 so they cannot
             be accidentally garbage collected. *)
+#if DEBUG
+        let _ : unit = if new_liquidity <> 0 then
+            failwith internal_non_empty_position_gc_err
+            else unit in
+#endif
         let prev = get_tick ticks tick.prev internal_tick_not_exist_err in
         let next = get_tick ticks tick.next internal_tick_not_exist_err in
         (* prev links to next and next to prev, skipping the deleted tick *)
         let prev = {prev with next = tick.next} in
         let next = {next with prev = tick.prev} in
-        let ticks = Big_map.update i (None : tick_state option) ticks in
+        let ticks = Big_map.update tick_index (None : tick_state option) ticks in
         let ticks = Big_map.update tick.prev (Some prev) ticks in
         let ticks = Big_map.update tick.next (Some next) ticks in
         ticks
     else
-        Big_map.update i (Some {tick with n_positions = n_pos}) ticks
+        Big_map.add tick_index
+            { tick with
+                n_positions = n_pos;
+                liquidity_net = new_liquidity
+            } ticks
 
 let calc_fee_growth_inside (s : storage) (lower_tick_index : tick_index) (upper_tick_index : tick_index) : balance_nat_x128 =
     let lower_tick = get_tick s.ticks lower_tick_index internal_tick_not_exist_err in
@@ -151,21 +162,15 @@ let set_position (s : storage) (p : set_position_param) : result =
     (* Update liquidity of position. *)
     let liquidity_new = assert_nat (position.liquidity + p.liquidity_delta, internal_liquidity_below_zero_err) in
     let position = {position with liquidity = liquidity_new} in
-    (* Reference counting the positions associated with a tick *)
-    let ticks = (if liquidity_new = 0n then
-        if is_new then
-            ticks
-        else
-            let ticks = incr_n_positions ticks p.lower_tick_index (-1) in
-            let ticks = incr_n_positions ticks p.upper_tick_index (-1) in
-            ticks
-    else
-        if is_new then
-            let ticks = incr_n_positions ticks p.lower_tick_index (1) in
-            let ticks = incr_n_positions ticks p.upper_tick_index (1) in
-            ticks
-        else
-            ticks) in
+    (* How number of positions at related ticks changes. *)
+    let positions_num_delta =
+            if is_new && liquidity_new > 0n then 1
+            else if not is_new && liquidity_new = 0n then -1
+            else 0
+        in
+    (* Update related ticks. *)
+    let ticks = cover_tick_with_position ticks p.lower_tick_index positions_num_delta p.liquidity_delta in
+    let ticks = cover_tick_with_position ticks p.upper_tick_index positions_num_delta (-p.liquidity_delta) in
     (* delete the position if liquidity has fallen to 0 *)
     let (positions, position_indexes, new_position_id) =
         if liquidity_new = 0n then
