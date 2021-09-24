@@ -195,7 +195,7 @@ type position_state = {
 (* Map containing Liquidity providers. Indexed by `position_index`. *)
 type position_map = (position_index, position_state) big_map
 
-(* One-to-one relation from `postion_id` to `position_index`.
+(* One-to-one relation from `position_id` to `position_index`.
 Used for querying `position_state` with just a `position_id`. *)
 type position_index_map = (position_id, position_index) big_map
 

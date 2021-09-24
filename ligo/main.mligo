@@ -87,7 +87,13 @@ let garbage_collect_tick (s : storage) (tick_index : tick_index) : storage =
         let ticks = Big_map.remove tick_index ticks in
         let ticks = Big_map.update tick.prev (Some prev) ticks in
         let ticks = Big_map.update tick.next (Some next) ticks in
-        {s with ticks = ticks }
+
+        (* If this tick is the `cur_tick_witness`, then deleting the tick would invalidate `cur_tick_witness`,
+           so we need to move it to the previous initialized tick.
+        *)
+        let cur_tick_witness = if s.cur_tick_witness = tick_index then tick.prev else s.cur_tick_witness in
+
+        {s with ticks = ticks; cur_tick_witness = cur_tick_witness }
     else
         s
 
