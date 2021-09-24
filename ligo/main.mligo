@@ -147,6 +147,15 @@ let collect_fees (s : storage) (key : position_index) (position : position_state
     let positions = Big_map.update key (Some position) s.positions in
     ({s with positions = positions}, fees, position)
 
+(*  Checks if a new tick sits between `cur_tick_witness` and `cur_tick_index`.
+    If it does, we need to move `cur_tick_witness` forward to maintain its invariant:
+        `cur_tick_witness` is the highest initialized tick lower than or equal to `cur_tick_index`.
+*)
+let update_cur_tick_witness (s : storage) (tick_index : tick_index) : storage =
+    if tick_index > s.cur_tick_witness && tick_index <= s.cur_tick_index
+        then { s with cur_tick_witness = tick_index }
+        else s
+
 let set_position (s : storage) (p : set_position_param) : result =
     let _: unit = check_deadline p.deadline in
     (* Initialize ticks if need be. *)
@@ -172,6 +181,9 @@ let set_position (s : storage) (p : set_position_param) : result =
     else
         initialize_tick (ticks, p.upper_tick_index, p.upper_tick_witness, 0, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
     let s = {s with ticks = ticks} in
+
+    let s = update_cur_tick_witness s p.lower_tick_index in
+    let s = update_cur_tick_witness s p.upper_tick_index in
 
     (* Form position key. *)
     let position_key = {owner=Tezos.sender ; lower_tick_index=p.lower_tick_index; upper_tick_index=p.upper_tick_index} in
@@ -242,10 +254,6 @@ let set_position (s : storage) (p : set_position_param) : result =
     else if p.lower_tick_index.i <= s.cur_tick_index.i && s.cur_tick_index.i < p.upper_tick_index.i then
         (* update interval we are in, if need be ... *)
         let s = { s with
-                    cur_tick_witness =
-                        if p.lower_tick_index.i > s.cur_tick_witness.i
-                            then p.lower_tick_index
-                            else s.cur_tick_witness ;
                     liquidity = assert_nat (s.liquidity + p.liquidity_delta, internal_liquidity_below_zero_err)
                 } in
         (s, {
