@@ -455,7 +455,11 @@ let update_timed_cumulatives (s : storage) : storage =
                 }
             ; lps =
                 { block_start_liquidity_value = s.liquidity
-                ; sum = {x128 = last_value.lps.sum.x128 + Bitwise.shift_left time_passed 128n / s.liquidity};
+                ; sum =
+                    let lps_since_last_block =
+                        if s.liquidity = 0n then 0n
+                        else Bitwise.shift_left time_passed 128n / s.liquidity in
+                    {x128 = last_value.lps.sum.x128 + lps_since_last_block};
                 }
             ; time = Tezos.now
             } in
