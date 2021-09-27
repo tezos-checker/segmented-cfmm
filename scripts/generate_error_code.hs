@@ -176,8 +176,8 @@ internalErrors = errorsEnumerate 300
   , "internal_seconds_cumulative_err"
       :? "Some problem in cumulative seconds computation."
 
-  , "internal_lps_cumulative_err"
-      :? "Some problem in cumulative liquidity per seconds computation."
+  , "internal_spl_cumulative_err"
+      :? "Some problem in cumulative seconds per liquidity computation."
 
   ]
 

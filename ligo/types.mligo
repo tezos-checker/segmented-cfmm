@@ -213,8 +213,8 @@ type tick_cumulative = {
     block_start_value : tick_index
 }
 
-// Liquidity per seconds cumulative
-type lps_cumulative = {
+// Seconds per liquidity cumulative
+type spl_cumulative = {
     (* The time-weighted cumulative value. *)
     sum : x128n ;
     (* Liquidity value at the beginning of the block. *)
@@ -224,13 +224,13 @@ type lps_cumulative = {
 type timed_cumulatives =
     { time : timestamp
     ; tick : tick_cumulative
-    ; lps : lps_cumulative
+    ; spl : spl_cumulative
     }
 
 let init_timed_cumulatives : timed_cumulatives =
     { time = (100 : timestamp)  // Should not really matter
     ; tick = { sum = 0; block_start_value = {i = 0} }
-    ; lps = { sum = {x128 = 0n}; block_start_liquidity_value = 0n }
+    ; spl = { sum = {x128 = 0n}; block_start_liquidity_value = 0n }
     }
 
 // Extendable ring buffer with time-weighted 1/L cumulative values.

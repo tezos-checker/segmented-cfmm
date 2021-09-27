@@ -221,7 +221,7 @@ data TickState = TickState
   , tsLiquidityNet :: Integer
     -- ^ Track total amount of liquidity that is added/removed when
     -- this tick is crossed.
-  , tsNPosition :: Natural
+  , tsNPositions :: Natural
     -- ^ Number of positions that cover this tick.
   , tsSecondsOutside :: Natural
     -- ^ Overall number of seconds spent below or above this tick
@@ -291,22 +291,22 @@ data TickCumulative = TickCumulative
   , tcBlockStartValue :: TickIndex
   }
 
-data LpsCumulative = LpsCumulative
-  { lcSum :: X 128 Natural
-  , lcBlockStartLiquidityValue :: Natural
+data SplCumulative = SplCumulative
+  { scSum :: X 128 Natural
+  , scBlockStartLiquidityValue :: Natural
   }
 
 data TimedCumulatives = TimedCumulatives
   { tcTime :: Timestamp
   , tcTick :: TickCumulative
-  , tcLps :: LpsCumulative
+  , tcSpl :: SplCumulative
   }
 
 initTimedCumulatives :: TimedCumulatives
 initTimedCumulatives = TimedCumulatives
   { tcTime = timestampFromSeconds 100
   , tcTick = TickCumulative 0 (TickIndex 0)
-  , tcLps = LpsCumulative (mkX @Double 0) 1
+  , tcSpl = SplCumulative (mkX @Double 0) 1
   }
 
 data CumulativesBuffer = CumulativesBuffer
@@ -454,10 +454,10 @@ deriving anyclass instance IsoValue TickCumulative
 instance HasAnnotation TickCumulative where
   annOptions = segCfmmAnnOptions
 
-customGeneric "LpsCumulative" ligoLayout
-deriving via (GenericBuildable LpsCumulative) instance Buildable LpsCumulative
-deriving anyclass instance IsoValue LpsCumulative
-instance HasAnnotation LpsCumulative where
+customGeneric "SplCumulative" ligoLayout
+deriving via (GenericBuildable SplCumulative) instance Buildable SplCumulative
+deriving anyclass instance IsoValue SplCumulative
+instance HasAnnotation SplCumulative where
   annOptions = segCfmmAnnOptions
 
 customGeneric "TimedCumulatives" ligoLayout

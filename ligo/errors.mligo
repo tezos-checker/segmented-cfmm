@@ -143,8 +143,8 @@
 (* Some problem in cumulative seconds computation. *)
 [@inline] let internal_seconds_cumulative_err = 325n
 
-(* Some problem in cumulative liquidity per seconds computation. *)
-[@inline] let internal_lps_cumulative_err = 326n
+(* Some problem in cumulative seconds per liquidity computation. *)
+[@inline] let internal_spl_cumulative_err = 326n
 
 
 

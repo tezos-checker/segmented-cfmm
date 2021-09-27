@@ -166,7 +166,7 @@ let set_position (s : storage) (p : set_position_param) : result =
             ( ticks, p.lower_tick_index, p.lower_tick_witness
             , sums.tick.sum, s.fee_growth
             , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
-            , sums.lps.sum
+            , sums.spl.sum
             )
     else
         initialize_tick (ticks, p.lower_tick_index, p.lower_tick_witness, 0, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
@@ -176,7 +176,7 @@ let set_position (s : storage) (p : set_position_param) : result =
             ( ticks, p.upper_tick_index, p.upper_tick_witness
             , sums.tick.sum, s.fee_growth
             , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
-            , sums.lps.sum
+            , sums.spl.sum
             )
     else
         initialize_tick (ticks, p.upper_tick_index, p.upper_tick_witness, 0, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
@@ -292,7 +292,7 @@ let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_pa
     let cums_total =
             { tick = sums.tick.sum
             ; seconds = Tezos.now - epoch_time
-            ; seconds_per_liquidity = sums.lps.sum
+            ; seconds_per_liquidity = sums.spl.sum
             } in
 
     [@inline]
@@ -305,7 +305,7 @@ let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_pa
             ; seconds =
                 assert_nat(cums_total.seconds - cums_outside.seconds, internal_seconds_cumulative_err)
             ; seconds_per_liquidity = {x128 =
-                assert_nat(cums_total.seconds_per_liquidity.x128 - cums_outside.seconds_per_liquidity.x128, internal_lps_cumulative_err)
+                assert_nat(cums_total.seconds_per_liquidity.x128 - cums_outside.seconds_per_liquidity.x128, internal_spl_cumulative_err)
                 }
             }
         else
@@ -347,7 +347,7 @@ let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_pa
                 ( cums_total.seconds_per_liquidity.x128
                     - cums_below_lower.seconds_per_liquidity.x128
                     - cums_above_upper.seconds_per_liquidity.x128
-                , internal_lps_cumulative_err
+                , internal_spl_cumulative_err
                 )}
             ; tick_cumulative_inside = 0
             }
@@ -409,7 +409,7 @@ let get_cumulatives (buffer : timed_cumulatives_buffer) (t : timestamp) : cumula
         // When no updates to contract are performed, time-weighted accumulators grow
         // linearly. Extrapolating to get the value at timestamp in-between.
         //
-        // tick_cumulative(t) and liqudity_per_second_cumulative(t) functions produced
+        // tick_cumulative(t) and seconds_per_liquidity_cumulative(t) functions produced
         // by this extrapolation are continuous.
         // 1. At [left, right) range found by the binary search above, cumulatives are
         //    continuous by construction - our extrapolation is linear.
@@ -420,15 +420,15 @@ let get_cumulatives (buffer : timed_cumulatives_buffer) (t : timestamp) : cumula
                 let at_left_block_end_tick_value = sums_at_right.tick.block_start_value
                 in sums_at_left.tick.sum + time_delta * at_left_block_end_tick_value.i
             ; seconds_per_liquidity_cumulative =
-                let at_left_block_end_lps_value = sums_at_right.lps.block_start_liquidity_value
-                in {x128 = sums_at_left.lps.sum.x128 +
-                    Bitwise.shift_left time_delta 128n / at_left_block_end_lps_value }
+                let at_left_block_end_spl_value = sums_at_right.spl.block_start_liquidity_value
+                in {x128 = sums_at_left.spl.sum.x128 +
+                    Bitwise.shift_left time_delta 128n / at_left_block_end_spl_value }
             }
     else // t = r_v.time
         // This means that t = timestamp of the last recorded entry,
         // and we cannot use extrapolation as above
         { tick_cumulative = r_v.tick.sum
-        ; seconds_per_liquidity_cumulative = r_v.lps.sum
+        ; seconds_per_liquidity_cumulative = r_v.spl.sum
         }
 
 let observe (s : storage) (p : observe_param) : result =
@@ -453,13 +453,13 @@ let update_timed_cumulatives (s : storage) : storage =
                 { block_start_value = s.cur_tick_index
                 ; sum = last_value.tick.sum + time_passed * s.cur_tick_index.i
                 }
-            ; lps =
+            ; spl =
                 { block_start_liquidity_value = s.liquidity
                 ; sum =
-                    let lps_since_last_block =
+                    let spl_since_last_block =
                         if s.liquidity = 0n then 0n
                         else Bitwise.shift_left time_passed 128n / s.liquidity in
-                    {x128 = last_value.lps.sum.x128 + lps_since_last_block};
+                    {x128 = last_value.spl.sum.x128 + spl_since_last_block};
                 }
             ; time = Tezos.now
             } in
