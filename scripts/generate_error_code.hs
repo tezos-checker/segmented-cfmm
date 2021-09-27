@@ -78,6 +78,9 @@ invalidInputErrors = errorsEnumerate 100
   , "observe_future_timestamp_err"
       :? "Some of the timestamps passed to the `observe` entrypoint are yet in the future."
 
+  , "tick_order_err"
+      :? "When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`."
+
   ]
 
 invalidConfigErrors :: [ErrorItem]

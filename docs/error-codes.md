@@ -30,6 +30,7 @@ Here is a summary of all the error codes thrown by the contract.
 | 108 | `invalid_x_prime_contract_err` | The X prime contract address provided is not a segmented-cfmm contract. |
 | 109 | `observe_outdated_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are too far back in the past. |
 | 110 | `observe_future_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are yet in the future. |
+| 111 | `tick_order_err` | When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. |
 
 
 #### Contract Configuration Error Codes
