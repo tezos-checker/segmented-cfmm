@@ -30,6 +30,7 @@ source-repository head
 
 library
   exposed-modules:
+      SegCFMM.Errors
       SegCFMM.Types
       SegCFMM.TZIP16Metadata
       Typescript

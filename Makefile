@@ -122,7 +122,7 @@ metadata: lib
 		--y-token-decimals $(y_token_decimals) \
 		" EXEC_OUTPUT=$(output)
 
-docs/error_codes.md ligo/errors.mligo: scripts/generate_error_code.hs
+docs/error_codes.md ligo/errors.mligo haskell/src/SegCFMM/Errors.hs: scripts/generate_error_code.hs
 	stack scripts/generate_error_code.hs
 
 error-codes: docs/error_codes.md
