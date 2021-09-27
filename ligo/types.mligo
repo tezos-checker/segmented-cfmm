@@ -372,13 +372,28 @@ type y_to_x_rec_param = x_to_y_rec_param
 
 type oracle_view_param = cumulatives_value list
 
-type observe_param = {
+type observe_param =
+[@layout:comb]
+{
     times : timestamp list;
     callback : oracle_view_param contract
 }
 
 type increase_observation_count_param = {
     added_observation_count: nat;
+}
+
+type position_info = {
+    liquidity : nat;
+    index : position_index;
+}
+
+
+type get_position_info_param =
+[@layout:comb]
+{
+    position_id : position_id;
+    callback : position_info contract;
 }
 
 type result = (operation list) * storage
@@ -406,6 +421,7 @@ type parameter =
   | Y_to_x of y_to_x_param
   | X_to_x_prime of x_to_x_prime_param (* equivalent to token_to_token *)
   | Set_position of set_position_param (* TODO add deadline, maximum tokens contributed, and maximum liquidity present *)
+  | Get_position_info of get_position_info_param
   | Call_fa2 of fa2_parameter
   | Observe of observe_param
   | Increase_observation_count of increase_observation_count_param

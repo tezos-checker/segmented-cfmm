@@ -61,6 +61,8 @@ invalidInputErrors = errorsEnumerate 100
   , "tick_not_exist_err"
       :? "User provided tick is not initialized."
 
+    -- Note: instead of "position_id_not_exists" we use FA2-specific error
+
   , "high_tokens_err"
       :? "The amount of tokens that needs to be transferred to the contract is higher than `maximum_tokens_contributed`."
 
@@ -75,6 +77,7 @@ invalidInputErrors = errorsEnumerate 100
 
   , "observe_future_timestamp_err"
       :? "Some of the timestamps passed to the `observe` entrypoint are yet in the future."
+
   ]
 
 invalidConfigErrors :: [ErrorItem]
@@ -167,6 +170,9 @@ internalErrors = errorsEnumerate 300
 
   , "internal_non_empty_position_gc_err"
       :? "Attempt to garbade collect a tick with non-zero liquidity net."
+
+  , "internal_position_maps_unsynced_err"
+      :? "`positions` and `position_indexes` maps were not synchronized."
 
   ]
 

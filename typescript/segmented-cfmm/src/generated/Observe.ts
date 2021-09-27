@@ -1,6 +1,6 @@
 import {Lambda} from '../common';
 export interface Observe {
-  callback: string;
-  times: ObserveTimes;
+  viewParam: ObserveViewParam;
+  viewCallbackTo: string;
 };
-export type ObserveTimes = Array<string>;
+export type ObserveViewParam = Array<string>;

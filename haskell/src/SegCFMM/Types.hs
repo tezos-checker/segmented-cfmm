@@ -56,6 +56,8 @@ data Parameter
     -- ^ Equivalent to token_to_token
   | Set_position SetPositionParam
     -- ^ Updates or creates a new position in the given range.
+  | Get_position_info GetPositionInfoParam
+    -- ^ Get information about position
   | Call_fa2 FA2.Parameter
     -- ^ Call FA2 interface
   | Observe ObserveParam
@@ -139,13 +141,17 @@ data SetPositionParam = SetPositionParam
 instance Buildable SetPositionParam where
   build = genericF
 
-data ObserveParam = ObserveParam
-  { opTimes :: [Timestamp]
-  , opCallback :: ContractRef [CumulativesValue]
+type ObserveParam = View [Timestamp] [CumulativesValue]
+
+data PositionInfo = PositionInfo
+  { piLiquidity :: Natural
+  , piIndex :: PositionIndex
   }
 
-instance Buildable ObserveParam where
+instance Buildable PositionInfo where
   build = genericF
+
+type GetPositionInfoParam = View PositionId PositionInfo
 
 -----------------------------------------------------------------
 -- Storage
@@ -405,6 +411,10 @@ deriving anyclass instance IsoValue SetPositionParam
 instance HasAnnotation SetPositionParam where
   annOptions = segCfmmAnnOptions
 
+customGeneric "PositionInfo" ligoLayout
+deriving anyclass instance IsoValue PositionInfo
+instance HasAnnotation PositionInfo where
+  annOptions = segCfmmAnnOptions
 
 customGeneric "Operator" ligoLayout
 deriving anyclass instance IsoValue Operator
@@ -417,11 +427,6 @@ instance HasAnnotation FA2.Parameter where
   annOptions = segCfmmAnnOptions
 instance ParameterHasEntrypoints FA2.Parameter where
   type ParameterEntrypointsDerivation FA2.Parameter = EpdPlain
-
-customGeneric "ObserveParam" ligoLayout
-deriving anyclass instance IsoValue ObserveParam
-instance HasAnnotation ObserveParam where
-  annOptions = segCfmmAnnOptions
 
 customGeneric "Parameter" ligoLayout
 deriving anyclass instance IsoValue Parameter

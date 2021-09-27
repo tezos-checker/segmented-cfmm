@@ -191,8 +191,9 @@ PY(t1, t2) = 1 / PX (t1, t1)
 A contract in the periphery may want to reward liquidity miners for staking their positions by distributing
 some token `R` at a constant `rate` per second while the position is active.
 
-In order to do this, when the user stakes their position, the contract may use the [`snapshot_cumulatives_inside`](#snapshot_cumulatives_inside) view entrypoint
-to obtain `seconds_per_liquidity_cumulative_t0` and keep a record of it.
+In order to do this, when the user stakes their position, the contract may use the [`get_position_info`](#get_position_info)
+view entrypoint to get the current liquidity, and [`snapshot_cumulatives_inside`](#snapshot_cumulatives_inside) view entrypoint
+to obtain `seconds_per_liquidity_cumulative_t0` and keep a record of them.
 
 Later, when the user unstakes their position, the contract calls the same view entrypoint once more to obtain
 `seconds_per_liquidity_cumulative_t1`.
@@ -385,6 +386,7 @@ type y_to_x_param = {
 }
 ```
 
+
 ### **x_to_x_prime**
 
 Perform a token [swap](#swaps) across two Segmented-CFMM, from this contract's
@@ -463,6 +465,38 @@ type set_position_param = {
 type balance_nat = {x : nat ; y : nat}
 ```
 
+
+### **get_position_info**
+
+Obtains information about the position with the given identifier.
+The used identifier is `token_id` that is used to select the position in `transfer` / `get_balance` FA2 entrypoints.
+
+- `liquidity` is the current amount of liquidity added by this position.
+- `lower_tick_index` and `upper_tick_index` are the boundary ticks in which the position is active. These values are constant for the given position.
+- `owner` is the current position's owner in accordance to the position's semantics of FA2 asset.
+- If the specified position identifier does not exist, fails with `position_not_exist_err` error code.
+
+```ocaml
+type position_info = {
+    liquidity : nat;
+    index : position_index;
+}
+
+type position_index = {
+    owner : address ;
+    lower_tick_index : tick_index ;
+    upper_tick_index : tick_index
+}
+
+type get_position_info_param =
+[@layout:comb]
+{
+    position_id : position_id;
+    callback : position_info contract;
+}
+```
+
+
 ### **snapshot_cumulatives_inside**
 
 Oracle `view` for a snapshot of the tick cumulative, seconds per liquidity and
@@ -519,7 +553,9 @@ type cumulatives_value = {
 
 type oracle_view_param = cumulatives_value list
 
-type observe_param = {
+type observe_param =
+[@layout:comb]
+{
     times : timestamp list ;
     callback : oracle_view_param contract ;
 }

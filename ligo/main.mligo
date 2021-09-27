@@ -365,6 +365,16 @@ let update_timed_cumulatives (s : storage) : storage =
         }
         in {s with cumulatives_buffer = new_buffer}
 
+let get_position_info (s : storage) (p : get_position_info_param) : result =
+    let position_index = get_position_index(p.position_id, s) in
+    let result = match Big_map.find_opt position_index s.positions with
+        | None -> (failwith internal_position_maps_unsynced_err : position_info)
+        | Some position ->
+            { liquidity = position.liquidity
+            ; index = position_index;
+            }
+    in ([Tezos.transaction result 0mutez p.callback], s)
+
 let main ((p, s) : parameter * storage) : result =
 (* start by updating the oracles *)
 let s = update_timed_cumulatives s in
@@ -373,6 +383,7 @@ let s = update_timed_cumulatives s in
 | X_to_y p -> x_to_y s p
 | Y_to_x p -> y_to_x s p
 | Set_position p -> set_position s p
+| Get_position_info p -> get_position_info s p
 | X_to_x_prime p -> x_to_x_prime s p
 | Call_fa2 p -> call_fa2 s p
 | Observe p -> observe s p
