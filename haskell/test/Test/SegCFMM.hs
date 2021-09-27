@@ -6,55 +6,22 @@
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Test.SegCFMM
-  ( test_setPosition
-  , test_swapXY
+  ( test_swapXY
   , test_swapXXPrime
   ) where
 
-import Universum
+
+import Prelude
 
 import Lorentz hiding (assert, now, (>>))
 import Morley.Nettest
 import Morley.Nettest.Tasty
 import Test.Tasty (TestTree)
-import Tezos.Address (unsafeParseAddress)
-import Tezos.Core (timestampPlusSeconds)
 
 import SegCFMM.Types
-import Test.SegCFMM.Contract (TokenType(..), segCFMMContract)
+import Test.SegCFMM.Contract (TokenType(..))
 import Test.SegCFMM.Storage (defaultStorage)
-
-{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
-
-test_setPosition :: TestTree
-test_setPosition =
-  nettestScenarioCaps "Set a position" do
-    owner1 <- newAddress auto
-    cfmm <- originateSegCFMM FA2 CTEZ defaultStorage
-    currentTime <- getNow
-    let
-      -- TODO: originate proper contract
-      addr = unsafeParseAddress "KT1MPGAKt68xEgLe1c2n7AG89Hph8Q7o44UX"
-
-      param = SetPositionParam
-            { sppLowerTickIndex = TickIndex 2
-            , sppUpperTickIndex = TickIndex 10
-            , sppLowerTickWitness = TickIndex $ negate maxTick
-            , sppUpperTickWitness = TickIndex $ negate maxTick
-              -- Have to used `negate maxTick` on both witnesses otherwise fail with 100 (invalid witness) error code
-            , sppLiquidityDelta = 0
-            , sppToX = addr
-            , sppToY = addr
-            , sppDeadline = timestampPlusSeconds currentTime 60
-            , sppMaximumTokensContributed = PerToken 10000 10000
-            }
-
-    -- TODO: Commented out until the test is fixed. Current call result in 300 error (tick not initialized).
-    -- withSender owner1 $
-    --   call cfmm (Call @"Set_position") param
-
-    _ <- getStorage @Storage cfmm
-    pure ()
+import Test.Util (originateSegCFMM)
 
 test_swapXY :: TestTree
 test_swapXY =
@@ -99,20 +66,3 @@ test_swapXXPrime =
 
     _ <- getStorage @Storage cfmm
     pure ()
-
-
--------------------------------------------------------------------
--- Helper
--------------------------------------------------------------------
-
-originateSegCFMM
-  :: MonadNettest caps base m
-  => TokenType -> TokenType -> Storage
-  -> m (ContractHandler Parameter Storage)
-originateSegCFMM xTokenType yTokenType storage = do
-  originateSimple "Segmented CFMM" storage $ segCFMMContract xTokenType yTokenType
-
-
--- | Note: `half_bps_pow` only supports sqrt_price up to this tick index: `2^20 - 1`.
-maxTick :: Integer
-maxTick = 1048575

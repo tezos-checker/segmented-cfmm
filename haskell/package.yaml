@@ -95,7 +95,6 @@ dependencies:
 
 library:
   source-dirs: src
-  default-extensions: [ RebindableSyntax ]
   ghc-options: [ -Wno-unused-do-bind ]
 
   generated-other-modules:
@@ -141,13 +140,18 @@ tests:
     - '"-with-rtsopts=-N -A64m -AL256m "'
 
     dependencies:
+    - o-clock
+    - hedgehog
+    - containers
     - segmented-cfmm
     - fmt
     - HUnit
     - morley
+    - morley-ledgers
     - morley-prelude
     - tasty
     - tasty-hunit-compat
+    - tasty-hedgehog
     - universum
     - cleveland
     - lorentz

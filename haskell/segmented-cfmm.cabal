@@ -88,7 +88,6 @@ library
       UndecidableInstances
       UndecidableSuperClasses
       ViewPatterns
-      RebindableSyntax
   ghc-options: -Weverything -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missed-specialisations -Wno-all-missed-specialisations -Wno-unsafe -Wno-safe -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-implicit-prelude -Wno-unused-packages -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -Wno-unused-do-bind
   build-depends:
       base-noprelude >=4.7 && <5
@@ -177,10 +176,14 @@ test-suite segmented-cfmm-test
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
+      Test.Invariants
+      Test.Math
       Test.SegCFMM
       Test.SegCFMM.Contract
       Test.SegCFMM.Storage
       Test.SegCFMM.Types
+      Test.SetPosition
+      Test.Util
       Tree
       Paths_segmented_cfmm
   hs-source-dirs:
@@ -239,12 +242,17 @@ test-suite segmented-cfmm-test
       HUnit
     , base-noprelude >=4.7 && <5
     , cleveland
+    , containers
     , fmt
+    , hedgehog
     , lorentz
     , morley
+    , morley-ledgers
     , morley-prelude
+    , o-clock
     , segmented-cfmm
     , tasty
+    , tasty-hedgehog
     , tasty-hunit-compat
     , universum
   default-language: Haskell2010

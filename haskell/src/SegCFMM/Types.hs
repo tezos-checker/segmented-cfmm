@@ -5,25 +5,56 @@
 
 -- | Types mirrored from LIGO implementation.
 module SegCFMM.Types
-  ( X (..)
+  ( -- * Parameter
+    X(..)
+  , powerOfX
   , mkX
+  , adjustScale
+  , Parameter(..)
+  , XToYParam(..)
+  , YToXParam(..)
+  , XToXPrimeParam(..)
+  , SetPositionParam(..)
+  , ObserveParam
+  , PositionInfo(..)
+  , CumulativesInsideSnapshot(..)
+  , SnapshotCumulativesInsideParam(..)
+  , GetPositionInfoParam
+  -- * Storage
+  , Storage(..)
+  , PerToken(..)
+  , TickIndex(..)
+  , minTickIndex
+  , maxTickIndex
+  , TickState(..)
+  , TickMap
+  , PositionIndex(..)
+  , PositionState(..)
+  , PositionId(..)
+  , PositionMap
+  , PositionIndexMap
+  , CumulativesValue(..)
+  , CumulativesValueRPC(..)
+  , TickCumulative(..)
+  , SplCumulative(..)
+  , TimedCumulatives(..)
+  , initTimedCumulatives
+  , CumulativesBuffer(..)
+  , initCumulativesBuffer
+  , Constants(..)
 
-  , Storage (..)
-  , Parameter (..)
-  , PerToken (..)
-  , TickIndex (..)
-  , TickState (..)
-  , SetPositionParam (..)
-  , XToYParam (..)
-  , YToXParam (..)
-  , XToXPrimeParam (..)
+  -- * Operators
+  , Operator(..)
+  -- * helpers
+  , Operators
+  , segCfmmAnnOptions
   ) where
 
 import Universum
 
 import Fmt (Buildable, GenericBuildable(..), build)
 
-import Lorentz hiding (now)
+import Lorentz hiding (abs, now)
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import qualified Lorentz.Contracts.Spec.FA2Interface.ParameterInstances ()
 import qualified Lorentz.Contracts.Spec.TZIP16Interface as TZIP16
@@ -34,7 +65,7 @@ newtype X (n :: Nat) a = X
   { pickX :: a
     -- ^ Get the value multiplied by @2^n@.
   } deriving stock (Show, Eq, Generic)
-    deriving newtype (IsoValue, HasAnnotation)
+    deriving newtype (IsoValue, HasAnnotation, Num, Integral, Enum, Ord, Real)
 
 instance (Buildable a, KnownNat n) => Buildable (X n a) where
   build x = build (pickX x) <> " X 2^" <> build (powerOfX x)
@@ -47,6 +78,13 @@ powerOfX (X{} :: X n a) = natVal (Proxy @n)
 -- | Convert a fraction to 'X'.
 mkX :: forall a n b. (KnownNat n, RealFrac a, Integral b) => a -> X n b
 mkX = X . round . (* 2 ^ natVal (Proxy @n))
+
+adjustScale :: forall n2 n1 i. (Integral i, KnownNat n1, KnownNat n2) => X n1 i -> X n2 i
+adjustScale (X i) =
+  let scaleAdjustment = toInteger (natVal (Proxy @n2)) - toInteger (natVal (Proxy @n1))
+  in  if scaleAdjustment >= 0
+        then X (i * 2^scaleAdjustment)
+        else X (i `div` 2^(-scaleAdjustment))
 
 data Parameter
   = X_to_y XToYParam
@@ -195,16 +233,31 @@ data PerToken a = PerToken
   { ptX :: a
   , ptY :: a
   }
+  deriving stock (Eq, Functor)
+
+instance Num a => Num (PerToken a) where
+  PerToken x1 y1 + PerToken x2 y2 = PerToken (x1 + x2) (y1 + y2)
+  PerToken x1 y1 * PerToken x2 y2 = PerToken (x1 * x2) (y1 * y2)
+  PerToken x1 y1 - PerToken x2 y2 = PerToken (x1 - x2) (y1 - y2)
+  abs (PerToken x y) = PerToken (abs x) (abs y)
+  signum (PerToken x y) = PerToken (signum x) (signum y)
+  fromInteger = error "fromInteger is not defined for 'PerToken'"
 
 type instance AsRPC (PerToken a) = PerToken a
 
 -- | Tick types, representing pieces of the curve offered between different tick segments.
 newtype TickIndex = TickIndex Integer
   deriving stock (Generic, Show)
-  deriving newtype (Enum, Ord, Eq, Num, Real, Integral)
+  deriving newtype (Enum, Ord, Eq, Num, Real, Integral, Buildable)
   deriving anyclass IsoValue
-  deriving Buildable via GenericBuildable TickIndex
 
+instance Bounded TickIndex where
+  minBound = -1048575
+  maxBound = 1048575
+
+minTickIndex, maxTickIndex :: TickIndex
+minTickIndex = minBound
+maxTickIndex = maxBound
 
 instance HasAnnotation TickIndex where
   annOptions = segCfmmAnnOptions
@@ -236,6 +289,7 @@ data TickState = TickState
   , tsSqrtPrice :: X 80 Natural
     -- ^ Square root of the price associated with this tick.
   }
+  deriving stock Eq
 
 type TickMap = BigMap TickIndex TickState
 
@@ -259,6 +313,7 @@ data PositionState = PositionState
     -- ^ When deleting a position_state, we also need to delete `position_index`
     -- in `store.position_indexes`. Storing `position_id` here allows us to delete that.
   }
+  deriving stock Eq
 
 newtype PositionId = PositionId Natural
   deriving stock (Generic, Show)
@@ -290,17 +345,20 @@ data TickCumulative = TickCumulative
   { tcSum :: Integer
   , tcBlockStartValue :: TickIndex
   }
+  deriving stock Eq
 
 data SplCumulative = SplCumulative
   { scSum :: X 128 Natural
   , scBlockStartLiquidityValue :: Natural
   }
+  deriving stock Eq
 
 data TimedCumulatives = TimedCumulatives
   { tcTime :: Timestamp
   , tcTick :: TickCumulative
   , tcSpl :: SplCumulative
   }
+  deriving stock Eq
 
 initTimedCumulatives :: TimedCumulatives
 initTimedCumulatives = TimedCumulatives
@@ -333,6 +391,7 @@ data Constants = Constants
   , cXTokenAddress :: Address
   , cYTokenAddress :: Address
   }
+  deriving stock Eq
 
 ------------------------------------------------------------------------
 -- Operators
@@ -342,8 +401,6 @@ data Operator = Operator
   { oOwner :: Address
   , oOperator :: Address
   } deriving stock (Eq, Ord)
-
-deriving via (GenericBuildable (a, b)) instance (Buildable a, Buildable b) => Buildable (a, b)
 
 type Operators = BigMap Operator ()
 
@@ -447,6 +504,7 @@ customGeneric "CumulativesValue" ligoLayout
 deriving anyclass instance IsoValue CumulativesValue
 instance HasAnnotation CumulativesValue where
   annOptions = segCfmmAnnOptions
+deriveRPCWithStrategy "CumulativesValue" ligoLayout
 
 customGeneric "TickCumulative" ligoLayout
 deriving via (GenericBuildable TickCumulative) instance Buildable TickCumulative
