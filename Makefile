@@ -96,8 +96,10 @@ metadata: lib
 		--y-token-decimals $(y_token_decimals) \
 		" EXEC_OUTPUT=$(output)
 
-error-codes:
+docs/error_codes.md ligo/errors.mligo: scripts/generate_error_code.hs
 	stack scripts/generate_error_code.hs
+
+error-codes: docs/error_codes.md
 
 test: prepare_lib
 	$(MAKE) -C haskell test PACKAGE=segmented-cfmm
