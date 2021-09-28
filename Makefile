@@ -65,6 +65,7 @@ $(OUT)/segmented_cfmm_%.tz : x_token_id = 0
 $(OUT)/segmented_cfmm_%.tz : y_token_id = 0
 $(OUT)/segmented_cfmm_%.tz : x_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
 $(OUT)/segmented_cfmm_%.tz : y_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
+$(OUT)/segmented_cfmm_%.tz : debug =
 $(OUT)/segmented_cfmm_%.tz: $(shell find ligo -name '*.mligo')
 	mkdir -p $(OUT)
 	$(call validate_token_type, $(x_token_type), FA2 FA12)
@@ -76,6 +77,7 @@ $(OUT)/segmented_cfmm_%.tz: $(shell find ligo -name '*.mligo')
 	echo "#define Y_IS_$(y_token_type)" >> $(TOTAL_FILE)
 	# Make sure that if 'Y_IS_CTEZ' this implies 'Y_IS_FA12'
 	$(if $(findstring CTEZ,$(y_token_type)), echo "#define Y_IS_FA12" >> $(TOTAL_FILE))
+	$(if $(debug), echo "#define DEBUG" >> $(TOTAL_FILE))
 	echo "(* Hard-coded constants *)" >> $(TOTAL_FILE)
 	echo "(* Invariant : const_fee_bps + const_one_minus_fee_bps = 10000n *)"
 	echo "[@inline] let const_fee_bps : nat = $(const_fee_bps)n" >> $(TOTAL_FILE)
@@ -90,7 +92,7 @@ $(OUT)/segmented_cfmm_%.tz: $(shell find ligo -name '*.mligo')
 	# ============ Compiling ligo contract $@ ============ #
 	$(BUILD) $(TOTAL_FILE) main --output-file $@ || ( rm $(TOTAL_FILE) && exit 1 )
 	$(MEASURE) $(TOTAL_FILE) main
-	rm $(TOTAL_FILE)
+	$(if $(debug),, rm $(TOTAL_FILE))
 
 $(OUT)/storage_default.tz: $(shell find ligo -name '*.mligo')
 	# ============== Compiling default LIGO storage ============== #
