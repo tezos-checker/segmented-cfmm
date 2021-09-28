@@ -140,6 +140,9 @@
 (* Attempt to garbade collect a tick with non-zero liquidity net. *)
 [@inline] let internal_non_empty_position_gc_err = 323n
 
+(* `positions` and `position_indexes` maps were not synchronized. *)
+[@inline] let internal_position_maps_unsynced_err = 324n
+
 
 
 #endif

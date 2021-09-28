@@ -70,5 +70,6 @@ Here is a summary of all the error codes thrown by the contract.
 | 321 | `internal_bad_access_to_observation_buffer` | Failed to access a value in time-weighted i_c cumulative sums buffer. |
 | 322 | `internal_observe_bin_search_failed` | Some issue with binary search in `observe` entrypoint. |
 | 323 | `internal_non_empty_position_gc_err` | Attempt to garbade collect a tick with non-zero liquidity net. |
+| 324 | `internal_position_maps_unsynced_err` | `positions` and `position_indexes` maps were not synchronized. |
 
 
