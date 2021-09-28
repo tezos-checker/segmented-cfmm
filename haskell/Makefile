@@ -4,12 +4,14 @@
 
 # Build target from the common utility Makefile
 MAKEU = $(MAKE) -C make/
+# Returns '--file-watch' when FILE_WATCH flag is set
+FILE_WATCH_OPTION = $(if $(FILE_WATCH), --file-watch, )
 # Options for development
-STACK_DEV_OPTIONS = --fast --ghc-options -Wwarn --file-watch
+STACK_DEV_OPTIONS = --fast --ghc-options -Wwarn $(FILE_WATCH_OPTION)
 # Options to build more stuff (tests and benchmarks)
 STACK_BUILD_MORE_OPTIONS = --test --bench --no-run-tests --no-run-benchmarks
 # Options for tests
-STACK_DEV_TEST_OPTIONS = --fast --file-watch --ghc-options -Wwarn
+STACK_DEV_TEST_OPTIONS = --fast $(FILE_WATCH_OPTION) --ghc-options -Wwarn
 # Options for CI
 STACK_CI_TEST_OPTIONS = --fast --ghc-options -Werror
 # Addtional (specified by user) options passed to test executable

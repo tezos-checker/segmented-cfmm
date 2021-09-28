@@ -7,6 +7,7 @@
 
 #include "errors.mligo"
 #include "math.mligo"
+#include "types.mligo"
 
 (*  Calculate the new `sqrt_price` after a deposit of `dx` `x` tokens.
     Derived from equation 6.15:
@@ -83,5 +84,16 @@ let check_deadline (deadline : timestamp) : unit =
     if Tezos.now > deadline
         then failwith past_deadline_err
         else unit
+
+[@inline]
+let get_registered_cumulatives_unsafe (buffer : timed_cumulatives_buffer) (i : nat) : timed_cumulatives =
+    match Big_map.find_opt i buffer.map with
+        | None -> failwith internal_bad_access_to_observation_buffer
+        | Some v -> v
+
+[@inline]
+let get_last_cumulatives (buffer : timed_cumulatives_buffer) : timed_cumulatives =
+    get_registered_cumulatives_unsafe buffer buffer.last
+
 
 #endif

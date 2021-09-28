@@ -174,6 +174,12 @@ internalErrors = errorsEnumerate 300
   , "internal_position_maps_unsynced_err"
       :? "`positions` and `position_indexes` maps were not synchronized."
 
+  , "internal_seconds_cumulative_err"
+      :? "Some problem in cumulative seconds computation."
+
+  , "internal_lps_cumulative_err"
+      :? "Some problem in cumulative liquidity per seconds computation."
+
   ]
 
 

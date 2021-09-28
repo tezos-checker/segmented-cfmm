@@ -26,9 +26,10 @@ let get_last_cumulatives (buffer : timed_cumulatives_buffer) : timed_cumulatives
     get_registered_cumulatives_unsafe buffer buffer.last
 
 let rec initialize_tick ((ticks, tick_index, tick_witness,
+    initial_tick_cumulative_outside,
     initial_fee_growth_outside,
     initial_seconds_outside,
-    initial_seconds_per_liquidity_outside) : tick_map * tick_index * tick_index * balance_nat_x128 * nat * x128n) : tick_map =
+    initial_seconds_per_liquidity_outside) : tick_map * tick_index * tick_index * int * balance_nat_x128 * nat * x128n) : tick_map =
     if Big_map.mem tick_index ticks then
         ticks
     else if tick_witness.i > tick_index.i then
@@ -45,13 +46,20 @@ let rec initialize_tick ((ticks, tick_index, tick_witness,
                 next = next_tick_index ;
                 liquidity_net = 0 ;
                 n_positions = 0n ;
+                tick_cumulative_outside = initial_tick_cumulative_outside;
                 fee_growth_outside = initial_fee_growth_outside;
                 seconds_outside = initial_seconds_outside;
                 seconds_per_liquidity_outside = initial_seconds_per_liquidity_outside;
                 sqrt_price = half_bps_pow tick_index.i} ticks in
             ticks
         else
-            initialize_tick (ticks, tick_index, next_tick_index, initial_fee_growth_outside, initial_seconds_outside, initial_seconds_per_liquidity_outside)
+            initialize_tick
+                ( ticks, tick_index, next_tick_index
+                , initial_tick_cumulative_outside
+                , initial_fee_growth_outside
+                , initial_seconds_outside
+                , initial_seconds_per_liquidity_outside
+                )
 
 (* Account for the fact that this tick is a boundary for one more (or one less) position. *)
 let cover_tick_with_position (ticks : tick_map) (tick_index : tick_index) (pos_delta : int) (liquidity_delta : int) =
@@ -124,21 +132,23 @@ let set_position (s : storage) (p : set_position_param) : result =
     let ticks = if s.cur_tick_index.i >= p.lower_tick_index.i then
         let sums = get_last_cumulatives s.cumulatives_buffer in
         initialize_tick
-            ( ticks, p.lower_tick_index, p.lower_tick_witness, s.fee_growth
+            ( ticks, p.lower_tick_index, p.lower_tick_witness
+            , sums.tick.sum, s.fee_growth
             , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
             , sums.lps.sum
             )
     else
-        initialize_tick (ticks, p.lower_tick_index, p.lower_tick_witness, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
+        initialize_tick (ticks, p.lower_tick_index, p.lower_tick_witness, 0, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
     let ticks = if s.cur_tick_index.i >= p.upper_tick_index.i then
         let sums = get_last_cumulatives s.cumulatives_buffer in
         initialize_tick
-            ( ticks, p.upper_tick_index, p.upper_tick_witness, s.fee_growth
+            ( ticks, p.upper_tick_index, p.upper_tick_witness
+            , sums.tick.sum, s.fee_growth
             , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
             , sums.lps.sum
             )
     else
-        initialize_tick (ticks, p.upper_tick_index, p.upper_tick_witness, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
+        initialize_tick (ticks, p.upper_tick_index, p.upper_tick_witness, 0, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
 
     (* Form position key. *)
     let position_key = {owner=Tezos.sender ; lower_tick_index=p.lower_tick_index; upper_tick_index=p.upper_tick_index} in
@@ -244,6 +254,75 @@ let set_position (s : storage) (p : set_position_param) : result =
       ; ticks = ticks
       }
     )
+
+// Entrypoint that returns cumulative values at given range at the current moment
+// of time.
+let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_param) =
+    let sums = get_last_cumulatives s.cumulatives_buffer in
+    let cums_total =
+            { tick = sums.tick.sum
+            ; seconds = Tezos.now - epoch_time
+            ; seconds_per_liquidity = sums.lps.sum
+            } in
+
+    [@inline]
+    let eval_cums (above, index, cums_outside : bool * tick_index * cumulatives_data) =
+        // Formulas 6.22 when 'above', 6.23 otherwise
+        if (s.cur_tick_index >= index) = above
+        then
+            { tick =
+                cums_total.tick - cums_outside.tick
+            ; seconds =
+                assert_nat(cums_total.seconds - cums_outside.seconds, internal_seconds_cumulative_err)
+            ; seconds_per_liquidity = {x128 =
+                assert_nat(cums_total.seconds_per_liquidity.x128 - cums_outside.seconds_per_liquidity.x128, internal_lps_cumulative_err)
+                }
+            }
+        else
+            cums_outside
+        in
+
+    // // TODO: looks like the caller must provide indices of already initialized ticks
+    // // But does it make sense? Should we accept tick witnesses explicitly here too?
+    let lower_tick = get_tick s.ticks p.lower_tick_index tick_not_exist_err in
+    let upper_tick = get_tick s.ticks p.upper_tick_index tick_not_exist_err in
+
+    let lower_cums_outside =
+            { tick = lower_tick.tick_cumulative_outside
+            ; seconds = lower_tick.seconds_outside
+            ; seconds_per_liquidity = lower_tick.seconds_per_liquidity_outside
+            } in
+    let upper_cums_outside =
+            { tick = upper_tick.tick_cumulative_outside
+            ; seconds = upper_tick.seconds_outside
+            ; seconds_per_liquidity = upper_tick.seconds_per_liquidity_outside
+            } in
+
+    let cums_below_lower = eval_cums(false, p.lower_tick_index, lower_cums_outside) in
+    let cums_above_upper = eval_cums(true, p.upper_tick_index, upper_cums_outside) in
+    let res =
+            { tick_cumulative_inside =
+                cums_total.tick
+                    - cums_below_lower.tick
+                    - cums_above_upper.tick
+            ; seconds_inside =
+                assert_nat
+                ( cums_total.seconds
+                    - cums_below_lower.seconds
+                    - cums_above_upper.seconds
+                , internal_seconds_cumulative_err
+                )
+            ; seconds_per_liquidity_inside = {x128 =
+                assert_nat
+                ( cums_total.seconds_per_liquidity.x128
+                    - cums_below_lower.seconds_per_liquidity.x128
+                    - cums_above_upper.seconds_per_liquidity.x128
+                , internal_lps_cumulative_err
+                )}
+            ; tick_cumulative_inside = 0
+            }
+
+    in ([Tezos.transaction res 0mutez p.callback], s)
 
 // Increase the number of stored accumulators.
 let increase_observation_count (s, p : storage * increase_observation_count_param) : result =
@@ -386,5 +465,6 @@ let s = update_timed_cumulatives s in
 | Get_position_info p -> get_position_info s p
 | X_to_x_prime p -> x_to_x_prime s p
 | Call_fa2 p -> call_fa2 s p
+| Snapshot_cumulatives_inside p -> snapshot_cumulatives_inside(s, p)
 | Observe p -> observe s p
 | Increase_observation_count n -> increase_observation_count(s, n)

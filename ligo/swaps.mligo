@@ -45,6 +45,9 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             (* Deduct the fee we will actually be paying. *)
             let fee = assert_nat (dx_consummed - dx_for_dy, internal_impossible_err) in
             let fee_growth_x_new = {x128 = p.s.fee_growth.x.x128 + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity)} in
+            (* Flip tick cumulative growth. *)
+            let sums = get_last_cumulatives p.s.cumulatives_buffer in
+            let tick_cumulative_outside_new = sums.tick.sum - tick.tick_cumulative_outside in
             (* Flip fee growth. *)
             let fee_growth_outside_new = {tick.fee_growth_outside with
                 x = {x128 = assert_nat (fee_growth_x_new.x128 - tick.fee_growth_outside.x.x128, flip_fee_growth_outside_err)}} in
@@ -53,6 +56,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             let seconds_outside_new = assert_nat ((Tezos.now - epoch_time) - tick.seconds_outside, internal_negative_seconds_outside_err) in
             (* Update tick state. *)
             let tick_new = {tick with
+                    tick_cumulative_outside = tick_cumulative_outside_new ;
                     fee_growth_outside = fee_growth_outside_new ;
                     seconds_outside = seconds_outside_new ;
                 } in
@@ -110,6 +114,9 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             (* Deduct the fee we will actually be paying. *)
             let fee = assert_nat (dy_consummed - dy_for_dx, internal_impossible_err) in
             let fee_growth_y_new = {x128 = p.s.fee_growth.y.x128 + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity)} in
+            (* Flip tick cumulative growth. *)
+            let sums = get_last_cumulatives p.s.cumulatives_buffer in
+            let tick_cumulative_outside_new = sums.tick.sum - tick.tick_cumulative_outside in
             (* Flip fee growth. *)
             let fee_growth_outside_new = {tick.fee_growth_outside with
                 y = {x128 = assert_nat (fee_growth_y_new.x128 - tick.fee_growth_outside.y.x128, flip_fee_growth_outside_err)}} in
@@ -118,6 +125,7 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             let seconds_outside_new = assert_nat ((Tezos.now - epoch_time) - tick.seconds_outside, internal_negative_seconds_outside_err) in
             (* Update tick state. *)
             let tick_new = { tick with
+                    tick_cumulative_outside = tick_cumulative_outside_new ;
                     fee_growth_outside = fee_growth_outside_new ;
                     seconds_outside = seconds_outside_new ;
                 } in
