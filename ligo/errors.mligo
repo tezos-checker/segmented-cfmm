@@ -53,13 +53,13 @@
 // -- Contract configuration error codes
 // ---------------------------------------------------------------------------
 
-(* The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no transfer entrypoint. *)
+(* The `x_token_address` or `y_token_address` has no transfer entrypoint. *)
 [@inline] let asset_transfer_invalid_entrypoints_err = 200n
 
-(* The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no `update_operator` entrypoint. *)
+(* The `x_token_address` or `y_token_address` has no `update_operator` entrypoint. *)
 [@inline] let asset_update_operator_invalid_entrypoints_err = 201n
 
-(* The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no `approve` entrypoint. *)
+(* The `x_token_address` or `y_token_address` has no `approve` entrypoint. *)
 [@inline] let asset_approve_invalid_entrypoints_err = 202n
 
 

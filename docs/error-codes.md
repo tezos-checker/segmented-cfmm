@@ -36,9 +36,9 @@ Here is a summary of all the error codes thrown by the contract.
 
 | Error Code       | Error Label      | Description                                           |
 |------------------|------------------|-------------------------------------------------------|
-| 200 | `asset_transfer_invalid_entrypoints_err` | The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no transfer entrypoint. |
-| 201 | `asset_update_operator_invalid_entrypoints_err` | The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no `update_operator` entrypoint. |
-| 202 | `asset_approve_invalid_entrypoints_err` | The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no `approve` entrypoint. |
+| 200 | `asset_transfer_invalid_entrypoints_err` | The `x_token_address` or `y_token_address` has no transfer entrypoint. |
+| 201 | `asset_update_operator_invalid_entrypoints_err` | The `x_token_address` or `y_token_address` has no `update_operator` entrypoint. |
+| 202 | `asset_approve_invalid_entrypoints_err` | The `x_token_address` or `y_token_address` has no `approve` entrypoint. |
 
 
 

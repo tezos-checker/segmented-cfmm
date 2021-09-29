@@ -86,11 +86,11 @@ invalidConfigErrors = errorsEnumerate 200
   -- To remove an error, replace it with 'removedError'.
 
   [ "asset_transfer_invalid_entrypoints_err"
-      :? "The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no transfer entrypoint."
+      :? "The `x_token_address` or `y_token_address` has no transfer entrypoint."
   , "asset_update_operator_invalid_entrypoints_err"
-      :? "The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no `update_operator` entrypoint."
+      :? "The `x_token_address` or `y_token_address` has no `update_operator` entrypoint."
   , "asset_approve_invalid_entrypoints_err"
-      :? "The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no `approve` entrypoint."
+      :? "The `x_token_address` or `y_token_address` has no `approve` entrypoint."
 
   ]
 

@@ -17,8 +17,6 @@ type y_contract_transfer = address * (address * nat)
 type y_contract_operator_param = (address * nat) (* `approve` entrypoint. *)
 #endif
 
-[@inline] let const_x_token_entrypoint = ("KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn" : address) (* CHANGEME *)
-[@inline] let const_y_token_entrypoint = ("KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn" : address) (* CHANGEME *)
 
 (* Helper functions to create/remove an operator in x and y contracts. *)
 let make_operator_in_y (operator : address) (limit : nat) : operation =
@@ -30,7 +28,7 @@ let make_operator_in_y (operator : address) (limit : nat) : operation =
             ; token_id = y_token_id
             } ] in
     let y_contract = match
-        ( Tezos.get_entrypoint_opt "%update_operators" const_y_token_entrypoint
+        ( Tezos.get_entrypoint_opt "%update_operators" y_token_address
         : y_contract_operator_param contract option
         ) with
     | Some contract -> contract
@@ -38,7 +36,7 @@ let make_operator_in_y (operator : address) (limit : nat) : operation =
 #else
     let param = (operator, limit) in
     let y_contract = match
-        ( Tezos.get_entrypoint_opt "%approve" const_y_token_entrypoint
+        ( Tezos.get_entrypoint_opt "%approve" y_token_address
         : y_contract_operator_param contract option
         ) with
     | Some contract -> contract
@@ -54,7 +52,7 @@ let remove_operator_in_y (operator : address) : operation =
             ; token_id = y_token_id
             } ] in
     let y_contract = match
-        ( Tezos.get_entrypoint_opt "%update_operators" const_y_token_entrypoint
+        ( Tezos.get_entrypoint_opt "%update_operators" y_token_address
         : y_contract_operator_param contract option
         ) with
     | Some contract -> contract
@@ -62,7 +60,7 @@ let remove_operator_in_y (operator : address) : operation =
 #else
     let param = (operator, 0n) in
     let y_contract = match
-        ( Tezos.get_entrypoint_opt "%approve" const_y_token_entrypoint
+        ( Tezos.get_entrypoint_opt "%approve" y_token_address
         : y_contract_operator_param contract option
         ) with
     | Some contract -> contract
@@ -74,7 +72,7 @@ let remove_operator_in_y (operator : address) : operation =
 (* Helper functions to make transfers in asset x and y. *)
 let x_transfer (from : address) (to_ : address) (amnt : nat) : operation =
     let x_contract: x_contract_transfer contract =
-    match (Tezos.get_contract_opt const_x_token_entrypoint : x_contract_transfer contract option) with
+    match (Tezos.get_entrypoint_opt "%transfer" x_token_address : x_contract_transfer contract option) with
     | None -> (failwith asset_transfer_invalid_entrypoints_err : x_contract_transfer contract)
     | Some contract -> contract in
 #if X_IS_FA2
@@ -85,7 +83,7 @@ let x_transfer (from : address) (to_ : address) (amnt : nat) : operation =
 
 let y_transfer (from : address) (to_ : address) (amnt : nat) : operation =
     let y_contract: y_contract_transfer contract =
-    match (Tezos.get_contract_opt const_y_token_entrypoint : y_contract_transfer contract option) with
+    match (Tezos.get_entrypoint_opt "%transfer" y_token_address : y_contract_transfer contract option) with
     | None -> (failwith asset_transfer_invalid_entrypoints_err : y_contract_transfer contract)
     | Some contract -> contract in
 #if Y_IS_FA2
