@@ -77,7 +77,7 @@
 (* Time now is smaller than epoch time. *)
 [@inline] let internal_epoch_bigger_than_now_err = 302n
 
-(* The `const_fee_bps` is initialized to be higher than 10000 (100%). *)
+(* The `fee_bps` is initialized to be higher than 10000 (100%). *)
 [@inline] let internal_fee_more_than_100_percent_err = 303n
 
 (* Unexpected price direction movement after sqrt_price_move_x. *)

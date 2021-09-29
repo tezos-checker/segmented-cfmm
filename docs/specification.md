@@ -211,18 +211,20 @@ rate * position_liquidity * (seconds_per_liquidity_cumulative_t1 - seconds_per_l
 This contract relies on some constants and known external conditions which can
 differ between instantiations.
 
-To accomodate this, configuration options are given at compile-time, which means
-that:
-- to make different choices a new compilation is required
-- a contract cannot change these choices after deployment
+To accomodate this, some configuration options are given at compile-time,
+which means that to make different choices a new compilation is required, others
+at origination time, which means that a contract cannot change these choices
+after deployment.
 
-## Compilation options
+See [compilation](./compilation.md) for more information.
+
+## Configuration options
 
 - `x_token_type`: contract type of the `x` token, can be either [`FA1.2`][fa1.2] or [`FA2`][fa2].
 - `y_token_type`: contract type of the `y` token, can be either [`FA1.2`][fa1.2], [`FA2`][fa2], or [`CTEZ`][ctez].
-- `const_fee_bps`, a fraction determining how much of the tokens sent in a swap will
+- `fee_bps`, a fraction determining how much of the tokens sent in a swap will
   be subtracted beforehand, see [fees](#fees) for more info.
-- `const_ctez_burn_fee_bps`, a percentage to be subtracted from the `CTEZ` tokens being
+- `ctez_burn_fee_bps`, a percentage to be subtracted from the `CTEZ` tokens being
   deposited/withdrawn on every swap.
   See [fees](#fees) for more info.
   This option is only valid when the `y_token_type` is `CTEZ`.

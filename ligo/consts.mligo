@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
 
 (* Note: Some contract specific constants that can be edited per deployment
- * Need to be declared (use the Makefile to do so automatically):
- * - const_fee_bps : nat
- * - const_one_minus_fee_bps : nat
- * - const_ctez_burn_fee_bps : nat
+ * need to be set in the storage (use the Makefile to do so automatically):
+ * - fee_bps : nat
+ * - ctez_burn_fee_bps : nat
 *)
 
 #if CONSTS_MLIGO
@@ -22,5 +21,17 @@
 
 
 [@inline] let epoch_time = (0 : timestamp)
+
+
+(* Not quite constants, but effectively so.
+ * Both of these require that their respective inverse is smaller than 10000,
+ * which is a requirement of bps numbers.
+*)
+
+[@inline] let one_minus_fee_bps (c : constants) : nat =
+  abs(10000n - c.fee_bps)
+
+[@inline] let one_minus_ctez_burn_fee_bps (c : constants) : nat =
+  abs(10000n - c.ctez_burn_fee_bps)
 
 #endif

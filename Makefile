@@ -59,12 +59,6 @@ $(OUT)/segmented_cfmm_FA2_FA12.tz : y_token_type = FA12
 # Generic rule for compiling CFMM contract variations.
 $(OUT)/segmented_cfmm_%.tz : x_token_type = FA2
 $(OUT)/segmented_cfmm_%.tz : y_token_type = CTEZ
-$(OUT)/segmented_cfmm_%.tz : const_fee_bps = 10
-$(OUT)/segmented_cfmm_%.tz : const_ctez_burn_fee_bps = 5
-$(OUT)/segmented_cfmm_%.tz : x_token_id = 0
-$(OUT)/segmented_cfmm_%.tz : y_token_id = 0
-$(OUT)/segmented_cfmm_%.tz : x_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
-$(OUT)/segmented_cfmm_%.tz : y_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
 $(OUT)/segmented_cfmm_%.tz : debug =
 $(OUT)/segmented_cfmm_%.tz: $(shell find ligo -name '*.mligo')
 	mkdir -p $(OUT)
@@ -78,15 +72,6 @@ $(OUT)/segmented_cfmm_%.tz: $(shell find ligo -name '*.mligo')
 	# Make sure that if 'Y_IS_CTEZ' this implies 'Y_IS_FA12'
 	$(if $(findstring CTEZ,$(y_token_type)), echo "#define Y_IS_FA12" >> $(TOTAL_FILE))
 	$(if $(debug), echo "#define DEBUG" >> $(TOTAL_FILE))
-	echo "(* Hard-coded constants *)" >> $(TOTAL_FILE)
-	echo "(* Invariant : const_fee_bps + const_one_minus_fee_bps = 10000n *)"
-	echo "[@inline] let const_fee_bps : nat = $(const_fee_bps)n" >> $(TOTAL_FILE)
-	echo "[@inline] let const_one_minus_fee_bps : nat = $(shell expr 10000 - $(const_fee_bps) )n" >> $(TOTAL_FILE)
-	echo "[@inline] let const_ctez_burn_fee_bps : nat = $(const_ctez_burn_fee_bps)n" >> $(TOTAL_FILE)
-	echo "[@inline] let x_token_id : nat = $(x_token_id)n" >> $(TOTAL_FILE)
-	echo "[@inline] let y_token_id : nat = $(y_token_id)n" >> $(TOTAL_FILE)
-	echo "[@inline] let x_token_address = (\"$(x_token_address)\" : address)" >> $(TOTAL_FILE)
-	echo "[@inline] let y_token_address = (\"$(y_token_address)\" : address)" >> $(TOTAL_FILE)
 	echo "(* Import of the main module *)" >> $(TOTAL_FILE)
 	echo "#include \"main.mligo\"" >> $(TOTAL_FILE)
 	# ============ Compiling ligo contract $@ ============ #
@@ -94,9 +79,22 @@ $(OUT)/segmented_cfmm_%.tz: $(shell find ligo -name '*.mligo')
 	$(MEASURE) $(TOTAL_FILE) main
 	$(if $(debug),, rm $(TOTAL_FILE))
 
+$(OUT)/storage_default.tz : fee_bps = 10
+$(OUT)/storage_default.tz : ctez_burn_fee_bps = 5
+$(OUT)/storage_default.tz : x_token_id = 0
+$(OUT)/storage_default.tz : y_token_id = 0
+$(OUT)/storage_default.tz : x_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
+$(OUT)/storage_default.tz : y_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
 $(OUT)/storage_default.tz: $(shell find ligo -name '*.mligo')
 	# ============== Compiling default LIGO storage ============== #
-	$(BUILD_STORAGE) ligo/defaults.mligo entrypoint default_storage --output-file $(OUT)/storage_default.tz
+	$(BUILD_STORAGE) ligo/defaults.mligo entrypoint "default_storage( \
+	    { fee_bps = $(fee_bps)n \
+			; ctez_burn_fee_bps = $(ctez_burn_fee_bps)n \
+			; x_token_id = $(x_token_id)n \
+			; y_token_id = $(y_token_id)n \
+			; x_token_address = (\"$(x_token_address)\" : address) \
+			; y_token_address = (\"$(y_token_address)\" : address) \
+	    })" --output-file $(OUT)/storage_default.tz
 
 prepare_lib: every
 	# ============== Copying ligo sources to haskell lib paths ============== #

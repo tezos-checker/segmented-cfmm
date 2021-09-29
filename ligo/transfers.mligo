@@ -19,16 +19,16 @@ type y_contract_operator_param = (address * nat) (* `approve` entrypoint. *)
 
 
 (* Helper functions to create/remove an operator in x and y contracts. *)
-let make_operator_in_y (operator : address) (limit : nat) : operation =
+let make_operator_in_y (operator : address) (limit : nat) (c : constants) : operation =
 #if Y_IS_FA2
     let _limit = limit in // otherwise LIGO complains about 'limit' being unused
     let param = [ Add_operator
             { owner = Tezos.self_address
             ; operator = operator
-            ; token_id = y_token_id
+            ; token_id = c.y_token_id
             } ] in
     let y_contract = match
-        ( Tezos.get_entrypoint_opt "%update_operators" y_token_address
+        ( Tezos.get_entrypoint_opt "%update_operators" c.y_token_address
         : y_contract_operator_param contract option
         ) with
     | Some contract -> contract
@@ -36,7 +36,7 @@ let make_operator_in_y (operator : address) (limit : nat) : operation =
 #else
     let param = (operator, limit) in
     let y_contract = match
-        ( Tezos.get_entrypoint_opt "%approve" y_token_address
+        ( Tezos.get_entrypoint_opt "%approve" c.y_token_address
         : y_contract_operator_param contract option
         ) with
     | Some contract -> contract
@@ -44,15 +44,15 @@ let make_operator_in_y (operator : address) (limit : nat) : operation =
 #endif
     Tezos.transaction param 0mutez y_contract
 
-let remove_operator_in_y (operator : address) : operation =
+let remove_operator_in_y (operator : address) (c : constants) : operation =
 #if Y_IS_FA2
     let param = [ Remove_operator
             { owner = Tezos.self_address
             ; operator = operator
-            ; token_id = y_token_id
+            ; token_id = c.y_token_id
             } ] in
     let y_contract = match
-        ( Tezos.get_entrypoint_opt "%update_operators" y_token_address
+        ( Tezos.get_entrypoint_opt "%update_operators" c.y_token_address
         : y_contract_operator_param contract option
         ) with
     | Some contract -> contract
@@ -60,7 +60,7 @@ let remove_operator_in_y (operator : address) : operation =
 #else
     let param = (operator, 0n) in
     let y_contract = match
-        ( Tezos.get_entrypoint_opt "%approve" y_token_address
+        ( Tezos.get_entrypoint_opt "%approve" c.y_token_address
         : y_contract_operator_param contract option
         ) with
     | Some contract -> contract
@@ -70,24 +70,24 @@ let remove_operator_in_y (operator : address) : operation =
 
 
 (* Helper functions to make transfers in asset x and y. *)
-let x_transfer (from : address) (to_ : address) (amnt : nat) : operation =
+let x_transfer (from : address) (to_ : address) (amnt : nat) (c : constants) : operation =
     let x_contract: x_contract_transfer contract =
-    match (Tezos.get_entrypoint_opt "%transfer" x_token_address : x_contract_transfer contract option) with
+    match (Tezos.get_entrypoint_opt "%transfer" c.x_token_address : x_contract_transfer contract option) with
     | None -> (failwith asset_transfer_invalid_entrypoints_err : x_contract_transfer contract)
     | Some contract -> contract in
 #if X_IS_FA2
-    Tezos.transaction [(from, [(to_, (x_token_id, amnt))])] 0mutez x_contract
+    Tezos.transaction [(from, [(to_, (c.x_token_id, amnt))])] 0mutez x_contract
 #else
     Tezos.transaction (from, (to_, amnt)) 0mutez x_contract
 #endif
 
-let y_transfer (from : address) (to_ : address) (amnt : nat) : operation =
+let y_transfer (from : address) (to_ : address) (amnt : nat) (c : constants) : operation =
     let y_contract: y_contract_transfer contract =
-    match (Tezos.get_entrypoint_opt "%transfer" y_token_address : y_contract_transfer contract option) with
+    match (Tezos.get_entrypoint_opt "%transfer" c.y_token_address : y_contract_transfer contract option) with
     | None -> (failwith asset_transfer_invalid_entrypoints_err : y_contract_transfer contract)
     | Some contract -> contract in
 #if Y_IS_FA2
-    Tezos.transaction [(from, [(to_, (y_token_id, amnt))])] 0mutez y_contract
+    Tezos.transaction [(from, [(to_, (c.y_token_id, amnt))])] 0mutez y_contract
 #else
     Tezos.transaction (from, (to_, amnt)) 0mutez y_contract
 #endif

@@ -4,7 +4,7 @@
 #include "types.mligo"
 #include "consts.mligo"
 
-let default_storage : storage =
+let default_storage (constants : constants) : storage =
 
   let min_tick_state =
     { prev = { i = -impossible_tick }
@@ -50,6 +50,7 @@ let default_storage : storage =
   ; metadata = (Big_map.empty : metadata_map)
   ; new_position_id = 0n
   ; operators = (Big_map.empty : operators)
+  ; constants = constants
   }
 
 (* Identity contract using 'parameter' and 'storage'.

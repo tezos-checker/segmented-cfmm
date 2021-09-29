@@ -109,7 +109,7 @@ internalErrors = errorsEnumerate 300
       :? "Time now is smaller than epoch time."
 
   , "internal_fee_more_than_100_percent_err"
-      :? "The `const_fee_bps` is initialized to be higher than 10000 (100%)."
+      :? "The `fee_bps` is initialized to be higher than 10000 (100%)."
 
   , "internal_bad_sqrt_price_move_x_direction"
       :? "Unexpected price direction movement after sqrt_price_move_x."
