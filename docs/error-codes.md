@@ -56,7 +56,6 @@ Here is a summary of all the error codes thrown by the contract.
 | 307 | `internal_307` | Thrown when `(p.dx - dx_consummed)` or `(p.dy - dy_consummed)` is not nat. |
 | 308 | `internal_liquidity_below_zero_err` | Liquidity went below zero. |
 | 309 | `internal_309` | Thrown when `(p.dx - r.dx)` is not nat. |
-| 310 | `internal_insufficient_balance_err` | Contract does not have enough liquidity to execute the swap. |
 | 311 | `internal_311` | Thrown when `s.cur_tick_index.i >= upper_tick_index.i` and `(s.fee_growth.x - upper_tick.fee_growth_outside.x)` (or `y`) is not nat. |
 | 312 | `internal_312` | Thrown when `s.cur_tick_index.i < lower_tick_index.i` and `(s.fee_growth.x - lower_tick.fee_growth_outside.x)` (or `y`) is not nat. |
 | 313 | `internal_position_underflow_err` | Number of positions underflow. |

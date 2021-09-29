@@ -311,9 +311,6 @@ type storage = {
     *)
     fee_growth : balance_nat_x128 ;
 
-    (* Tokens' amounts. *)
-    balance : balance_nat ;
-
     (* States of all initialized ticks. *)
     ticks : tick_map ;
 

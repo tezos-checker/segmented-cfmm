@@ -98,9 +98,6 @@
 (* Thrown when `(p.dx - r.dx)` is not nat. *)
 [@inline] let internal_309 = 309n
 
-(* Contract does not have enough liquidity to execute the swap. *)
-[@inline] let internal_insufficient_balance_err = 310n
-
 (* Thrown when `s.cur_tick_index.i >= upper_tick_index.i` and `(s.fee_growth.x - upper_tick.fee_growth_outside.x)` (or `y`) is not nat. *)
 [@inline] let internal_311 = 311n
 
