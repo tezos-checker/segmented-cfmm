@@ -14,7 +14,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
         p
     else
         (* The fee that would be extracted from selling dx. *)
-        let fee  = ceildiv (p.dx * const_fee_bps) 10000n in
+        let fee  = ceildiv (p.dx * p.s.constants.fee_bps) 10000n in
         (* What the new price will be, assuming it's within the current tick. *)
         let sqrt_price_new = sqrt_price_move_x p.s.liquidity p.s.sqrt_price (assert_nat (p.dx - fee, internal_fee_more_than_100_percent_err)) in
         (* What the new value of cur_tick_index will be. *)
@@ -41,7 +41,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             (* How much dX does that correspond to. *)
             let dx_for_dy = ceildiv (Bitwise.shift_left dy 160n) (p.s.sqrt_price.x80 * sqrt_price_new.x80) in
             (* We will have to consumme more dx than that because a fee will be applied. *)
-            let dx_consummed = ceildiv (dx_for_dy * 10000n) const_one_minus_fee_bps in
+            let dx_consummed = ceildiv (dx_for_dy * 10000n) (one_minus_fee_bps(p.s.constants)) in
             (* Deduct the fee we will actually be paying. *)
             let fee = assert_nat (dx_consummed - dx_for_dy, internal_impossible_err) in
             let fee_growth_x_new = {x128 = p.s.fee_growth.x.x128 + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity)} in
@@ -79,7 +79,7 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
         p
     else
         (* The fee that would be extracted from selling dy. *)
-        let fee  = ceildiv (p.dy * const_fee_bps) 10000n in
+        let fee  = ceildiv (p.dy * p.s.constants.fee_bps) 10000n in
         (* What the new price will be, assuming it's within the current tick. *)
         let sqrt_price_new = sqrt_price_move_y p.s.liquidity p.s.sqrt_price (assert_nat (p.dy - fee, internal_fee_more_than_100_percent_err)) in
         (* What the new value of cur_tick_index will be. *)
@@ -110,7 +110,7 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
 
 
             (* We will have to consumme more dy than that because a fee will be applied. *)
-            let dy_consummed = ceildiv (dy_for_dx * 10000n) const_one_minus_fee_bps in
+            let dy_consummed = ceildiv (dy_for_dx * 10000n) (one_minus_fee_bps(p.s.constants)) in
             (* Deduct the fee we will actually be paying. *)
             let fee = assert_nat (dy_consummed - dy_for_dx, internal_impossible_err) in
             let fee_growth_y_new = {x128 = p.s.fee_growth.y.x128 + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity)} in
@@ -159,8 +159,8 @@ let x_to_y (s : storage) (p : x_to_y_param) : result =
     if dy_received < p.min_dy then
         (failwith smaller_than_min_asset_err : result)
     else
-        let op_receive_x = x_transfer Tezos.sender Tezos.self_address dx_spent in
-        let op_send_y = y_transfer Tezos.self_address p.to_dy dy_received in
+        let op_receive_x = x_transfer Tezos.sender Tezos.self_address dx_spent s.constants in
+        let op_send_y = y_transfer Tezos.self_address p.to_dy dy_received s.constants in
         ([op_receive_x ; op_send_y], s_new)
 
 
@@ -174,8 +174,8 @@ let y_to_x (s : storage) (p : y_to_x_param) : result =
     if dx_received < p.min_dx then
         (failwith smaller_than_min_asset_err : result)
     else
-        let op_receive_y = y_transfer Tezos.sender Tezos.self_address dy_spent in
-        let op_send_x = x_transfer Tezos.self_address p.to_dx dx_received in
+        let op_receive_y = y_transfer Tezos.sender Tezos.self_address dy_spent s.constants in
+        let op_send_x = x_transfer Tezos.self_address p.to_dx dx_received s.constants in
         ([op_receive_y ; op_send_x], s_new)
 
 
@@ -201,16 +201,16 @@ let x_to_x_prime (s : storage) (p : x_to_x_prime_param) : result =
             } in
 
     (* Transfer X token to the current CFMM contract. *)
-    let op_transfer_x_to_cfmm1 = x_transfer Tezos.sender Tezos.self_address dx_spent in
+    let op_transfer_x_to_cfmm1 = x_transfer Tezos.sender Tezos.self_address dx_spent s.constants in
 
     (* Make X' CFMM contract as an operator of current CFMM contract for Y. *)
-    let op_make_cfmm2_operator = make_operator_in_y p.x_prime_contract dy_received in
+    let op_make_cfmm2_operator = make_operator_in_y p.x_prime_contract dy_received s.constants in
 
     (* Make a call to X' CFMM contract to swap Y for X'. *)
     let op_call_y_to_x_prime = Tezos.transaction y_to_x_prime_param 0mutez cfmm2_contract in
 
     (* Remove X' CFMM contract as an operator of current CFMM contract. *)
-    let op_remove_cfmm2_operator = remove_operator_in_y p.x_prime_contract in
+    let op_remove_cfmm2_operator = remove_operator_in_y p.x_prime_contract s.constants in
 
     ( [ op_transfer_x_to_cfmm1
       ; op_make_cfmm2_operator

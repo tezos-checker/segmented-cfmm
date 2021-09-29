@@ -36,9 +36,9 @@ Here is a summary of all the error codes thrown by the contract.
 
 | Error Code       | Error Label      | Description                                           |
 |------------------|------------------|-------------------------------------------------------|
-| 200 | `asset_transfer_invalid_entrypoints_err` | The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no transfer entrypoint. |
-| 201 | `asset_update_operator_invalid_entrypoints_err` | The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no `update_operator` entrypoint. |
-| 202 | `asset_approve_invalid_entrypoints_err` | The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no `approve` entrypoint. |
+| 200 | `asset_transfer_invalid_entrypoints_err` | The `x_token_address` or `y_token_address` has no transfer entrypoint. |
+| 201 | `asset_update_operator_invalid_entrypoints_err` | The `x_token_address` or `y_token_address` has no `update_operator` entrypoint. |
+| 202 | `asset_approve_invalid_entrypoints_err` | The `x_token_address` or `y_token_address` has no `approve` entrypoint. |
 
 
 
@@ -49,7 +49,7 @@ Here is a summary of all the error codes thrown by the contract.
 | 300 | `internal_impossible_err` | Generic impossible error. |
 | 301 | `internal_tick_not_exist_err` | Tick is not initialized. |
 | 302 | `internal_epoch_bigger_than_now_err` | Time now is smaller than epoch time. |
-| 303 | `internal_fee_more_than_100_percent_err` | The `const_fee_bps` is initialized to be higher than 10000 (100%). |
+| 303 | `internal_fee_more_than_100_percent_err` | The `fee_bps` is initialized to be higher than 10000 (100%). |
 | 304 | `internal_bad_sqrt_price_move_x_direction` | Unexpected price direction movement after sqrt_price_move_x. |
 | 305 | `internal_bad_sqrt_price_move_y_direction` | Unexpected price direction movement after sqrt_price_move_y. |
 | 306 | `flip_fee_growth_outside_err` | Flip for `fee_growth_outside` failed. (This is an invariant of the contract). |

@@ -53,13 +53,13 @@
 // -- Contract configuration error codes
 // ---------------------------------------------------------------------------
 
-(* The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no transfer entrypoint. *)
+(* The `x_token_address` or `y_token_address` has no transfer entrypoint. *)
 [@inline] let asset_transfer_invalid_entrypoints_err = 200n
 
-(* The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no `update_operator` entrypoint. *)
+(* The `x_token_address` or `y_token_address` has no `update_operator` entrypoint. *)
 [@inline] let asset_update_operator_invalid_entrypoints_err = 201n
 
-(* The `const_x_token_entrypoint` or `const_y_token_entrypoint` has no `approve` entrypoint. *)
+(* The `x_token_address` or `y_token_address` has no `approve` entrypoint. *)
 [@inline] let asset_approve_invalid_entrypoints_err = 202n
 
 
@@ -77,7 +77,7 @@
 (* Time now is smaller than epoch time. *)
 [@inline] let internal_epoch_bigger_than_now_err = 302n
 
-(* The `const_fee_bps` is initialized to be higher than 10000 (100%). *)
+(* The `fee_bps` is initialized to be higher than 10000 (100%). *)
 [@inline] let internal_fee_more_than_100_percent_err = 303n
 
 (* Unexpected price direction movement after sqrt_price_move_x. *)

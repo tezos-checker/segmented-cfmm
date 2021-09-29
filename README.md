@@ -1,8 +1,9 @@
 # Segmented CFMM
 
-Implementation of a constant product market making smart-contract, which allows the curve to be defined on price
-segments. Based on the ideas described in
-https://uniswap.org/whitepaper-v3.pdf.
+Implementation of a constant product market making smart-contract, which allows
+the curve to be defined on price segments.
+
+Based on the ideas described in the [Uniswap V3 whitepaper](https://uniswap.org/whitepaper-v3.pdf).
 
 ## Python
 
@@ -18,8 +19,8 @@ exponentiations in the contract and verify that the precision obtained is suffic
 The [ligo](ligo) directory contains a [CameLIGO](https://ligolang.org/)
 implementation of a smart-contract.
 
-This code is work in progress and should not be expected to run or even compile.
-
+For instructions on how to compile the contract and/or its storage, please refer
+to the [compilation document](docs/compilation.md).
 
 ## Generating a contract metadata
 

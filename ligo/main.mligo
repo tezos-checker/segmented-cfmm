@@ -8,12 +8,6 @@
 #include "math.mligo"
 #include "swaps.mligo"
 #include "token/fa2.mligo"
-#include "defaults.mligo"
-
-
-#if !DUMMY_PRAGMA1
-This is an example of conditionally present code, remove it once normal pragmas are set.
-#endif
 
 [@inline]
 let get_registered_cumulatives_unsafe (buffer : timed_cumulatives_buffer) (i : nat) : timed_cumulatives =
@@ -237,14 +231,14 @@ let set_position (s : storage) (p : set_position_param) : result =
     let _: unit = if delta.y > int(p.maximum_tokens_contributed.y) then unit else failwith high_tokens_err in
 
     let op_x = if delta.x > 0 then
-        x_transfer Tezos.sender Tezos.self_address (abs delta.x)
+        x_transfer Tezos.sender Tezos.self_address (abs delta.x) s.constants
     else
-        x_transfer Tezos.self_address p.to_x (abs delta.x) in
+        x_transfer Tezos.self_address p.to_x (abs delta.x) s.constants in
 
     let op_y = if delta.y > 0 then
-        y_transfer Tezos.sender Tezos.self_address (abs delta.y)
+        y_transfer Tezos.sender Tezos.self_address (abs delta.y) s.constants
     else
-        y_transfer Tezos.self_address p.to_y (abs delta.y) in
+        y_transfer Tezos.self_address p.to_y (abs delta.y) s.constants in
 
     ( [op_x ; op_y]
     , { s with

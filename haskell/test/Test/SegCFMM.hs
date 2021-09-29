@@ -19,7 +19,7 @@ import Tezos.Address (unsafeParseAddress)
 import Tezos.Core (timestampPlusSeconds)
 
 import SegCFMM.Types
-import Test.SegCFMM.Contract (segCFMMContract)
+import Test.SegCFMM.Contract (TokenType(..), segCFMMContract)
 import Test.SegCFMM.Storage (defaultStorage)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
@@ -40,7 +40,7 @@ setPositionTest
   => m ()
 setPositionTest = do
   owner1 <- newAddress auto
-  cfmm <- originateSegCFMM defaultStorage
+  cfmm <- originateSegCFMM FA2 CTEZ defaultStorage
   currentTime <- getNow
   let
     -- TODO: originate proper contract
@@ -72,7 +72,7 @@ swapXYTest
 swapXYTest = do
   owner1 <- newAddress auto
   receiver <- newAddress auto
-  cfmm <- originateSegCFMM defaultStorage
+  cfmm <- originateSegCFMM FA2 CTEZ defaultStorage
 
   let
     param = XToYParam
@@ -94,7 +94,7 @@ swapXToXPrimeTest
   => m ()
 swapXToXPrimeTest = do
   owner1 <- newAddress auto
-  cfmm <- originateSegCFMM defaultStorage
+  cfmm <- originateSegCFMM FA2 CTEZ defaultStorage
 
   let
     param = XToXPrimeParam
@@ -118,11 +118,11 @@ swapXToXPrimeTest = do
 -------------------------------------------------------------------
 
 originateSegCFMM
- :: MonadNettest caps base m
- => Storage
- -> m (ContractHandler Parameter Storage)
-originateSegCFMM storage = do
-  originateSimple "Segmented CFMM" storage segCFMMContract
+  :: MonadNettest caps base m
+  => TokenType -> TokenType -> Storage
+  -> m (ContractHandler Parameter Storage)
+originateSegCFMM xTokenType yTokenType storage = do
+  originateSimple "Segmented CFMM" storage $ segCFMMContract xTokenType yTokenType
 
 
 -- | Note: `half_bps_pow` only supports sqrt_price up to this tick index: `2^20 - 1`.

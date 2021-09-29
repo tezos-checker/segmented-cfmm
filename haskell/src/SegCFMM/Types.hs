@@ -205,6 +205,7 @@ data Storage = Storage
     -- ^ Incremental position id to be assigned to new position.
   , sOperators :: Operators
     -- ^ FA2 operators
+  , sConstants :: Constants
   }
 
 instance Buildable Storage where
@@ -381,6 +382,19 @@ initCumulativesBuffer extraReservedSlots = CumulativesBuffer
   , tbReservedLength = extraReservedSlots + 1
   }
 
+-- | Stored constants picked at origination
+data Constants = Constants
+  { cFeeBps :: Natural
+  , cCtezBurnFeeBps :: Natural
+  , cXTokenId :: Natural
+  , cYTokenId :: Natural
+  , cXTokenAddress :: Address
+  , cYTokenAddress :: Address
+  }
+
+instance Buildable Constants where
+  build = genericF
+
 ------------------------------------------------------------------------
 -- Operators
 ------------------------------------------------------------------------
@@ -514,6 +528,15 @@ instance HasAnnotation CumulativesBuffer where
 
 deriveRPCWithStrategy "CumulativesBuffer" ligoLayout
 instance Buildable CumulativesBufferRPC where
+  build = genericF
+
+customGeneric "Constants" ligoLayout
+deriving anyclass instance IsoValue Constants
+instance HasAnnotation Constants where
+  annOptions = segCfmmAnnOptions
+
+deriveRPCWithStrategy "Constants" ligoLayout
+instance Buildable ConstantsRPC where
   build = genericF
 
 customGeneric "Storage" ligoLayout

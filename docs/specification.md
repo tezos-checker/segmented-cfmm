@@ -143,7 +143,7 @@ For example, if the swap fee is 0.3% and the user sends in 10000 `y` tokens, the
 * 9970 `y` tokens will be deposited into the liquidity pool and exchanged for `x` tokens
   according to the _constant function_ calculations.
 
-Furthermore, when the `y` token is [`ctez`][ctez], a _protocol fee_ is subtracted from the `ctez`
+Furthermore, when the `y` token is [`CTEZ`][ctez], a _protocol fee_ is subtracted from the `CTEZ`
 tokens being deposited/withdrawn on every swap.
 This fee is burned immediately.
 
@@ -211,21 +211,29 @@ rate * position_liquidity * (seconds_per_liquidity_cumulative_t1 - seconds_per_l
 This contract relies on some constants and known external conditions which can
 differ between instantiations.
 
-To accomodate this, configuration options are given at compile-time, which means
-that:
-- to make different choices a new compilation is required
-- a contract cannot change these choices after deployment
+To accomodate this, some configuration options are given at compile-time,
+which means that to make different choices a new compilation is required, others
+at origination time, which means that a contract cannot change these choices
+after deployment.
 
-## Compilation options
+See [compilation](./compilation.md) for more information.
 
-- `x` token contract type, can be either [`FA1.2`][fa1.2] or [`FA2`][fa2].
-- `y` token contract type, can be either [`FA1.2`][fa1.2], [`FA2`][fa2], or [`ctez`][ctez].
-- `swap_fee`, a fraction determining how much of the tokens sent in a swap will
+## Configuration options
+
+- `x_token_type`: contract type of the `x` token, can be either [`FA1.2`][fa1.2] or [`FA2`][fa2].
+- `y_token_type`: contract type of the `y` token, can be either [`FA1.2`][fa1.2], [`FA2`][fa2], or [`CTEZ`][ctez].
+- `fee_bps`, a fraction determining how much of the tokens sent in a swap will
   be subtracted beforehand, see [fees](#fees) for more info.
-- `protocol_fee`, a percentage to be subtracted from the `ctez` tokens being
+- `ctez_burn_fee_bps`, a percentage to be subtracted from the `CTEZ` tokens being
   deposited/withdrawn on every swap.
   See [fees](#fees) for more info.
-  This option is only valid when the `y` token is `ctez`.
+  This option is only valid when the `y_token_type` is `CTEZ`.
+- `x_token_address` the `address` of the contract holding the `x` token.
+- `y_token_address` the `address` of the contract holding the `y` token.
+- `x_token_id` the [`FA2`][fa2] `token_id` for the `x` token.
+  This option is only valid when the `x_token_type` is `CTEZ` or `FA2`.
+- `y_token_id` the [`FA2`][fa2] `token_id` for the `y` token.
+  This option is only valid when the `y_token_type` is `CTEZ` or `FA2`
 
 # Entrypoints
 
@@ -348,8 +356,8 @@ Note: in order to be able to perform a swap, this contract must be made an
   this contract's.
 - The [swap fee](#fees) is subtracted from this amount and later awarded to LPs
   with active positions.
-- When the `y` token is `ctez`, a [protocol fee](#fees) is subtracted
-  after converting the `x` tokens to `ctez`.
+- When the `y` token is `CTEZ`, a [protocol fee](#fees) is subtracted
+  after converting the `x` tokens to `CTEZ`.
 - If the swap is no longer acceptable because the `deadline` was not met, fails
   with `past_deadline_err` error code.
 - If less than `min_dy` amount of token `y` would be obtained from the swap, fails
@@ -376,8 +384,8 @@ Perform a token [swap](#swaps) from `y` to `x`.
 
 Analogous to the [`x_to_y`](#x_to_y) entrypoint, with the following caveats:
 
-- When the `y` token is `ctez`, a [protocol fee](#fees) is subtracted
-  _before_ converting the `ctez` tokens to `x` (and after applying the swap fee).
+- When the `y` token is `CTEZ`, a [protocol fee](#fees) is subtracted
+  _before_ converting the `CTEZ` tokens to `x` (and after applying the swap fee).
 
 ```ocaml
 type y_to_x_param = {
@@ -405,8 +413,8 @@ Note: in order to be able to perform a swap, this contract must be made an
   this contract's.
 - The [swap fee](#fees) is subtracted from this amount and later awarded to LPs
   with active positions.
-- When the `y` token is `ctez`, a [protocol fee](#fees) is subtracted
-  after converting the `x` tokens to `ctez`.
+- When the `y` token is `CTEZ`, a [protocol fee](#fees) is subtracted
+  after converting the `x` tokens to `CTEZ`.
 - If the swap is no longer acceptable because the `deadline` was not met, fails
   with `past_deadline_err` error code.
 - Instead of completing the single swap, the `x_prime_contract` will be called.

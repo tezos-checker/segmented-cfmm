@@ -14,7 +14,12 @@ license:        MIT
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
-    test/segmented_cfmm_default.tz
+    test/segmented_cfmm_FA12.tz
+    test/segmented_cfmm_FA12_CTEZ.tz
+    test/segmented_cfmm_FA12_FA2.tz
+    test/segmented_cfmm_FA2.tz
+    test/segmented_cfmm_FA2_CTEZ.tz
+    test/segmented_cfmm_FA2_FA12.tz
     test/storage_default.tz
 extra-doc-files:
     README.md

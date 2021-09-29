@@ -281,6 +281,15 @@ let init_cumulatives_buffer (extra_reserved_slots : nat) : timed_cumulatives_buf
 // TZIP-16 metadata map
 type metadata_map = (string, bytes) big_map
 
+type constants = {
+    fee_bps : nat ;
+    ctez_burn_fee_bps : nat ;
+    x_token_id : nat ;
+    y_token_id : nat ;
+    x_token_address : address ;
+    y_token_address : address ;
+}
+
 type storage = {
     (* Virtual liquidity, the value L for which the curve locally looks like x * y = L^2. *)
     liquidity : nat ;
@@ -326,6 +335,8 @@ type storage = {
     (* FA2-related *)
     operators : operators ;
 
+    (* Constants for options that are settable at origination *)
+    constants : constants ;
 }
 
 (* Entrypoints types *)
