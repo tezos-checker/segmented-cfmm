@@ -190,7 +190,6 @@ data Storage = Storage
   , sFeeGrowth :: PerToken (X 128 Natural)
     -- ^ Represent the total amount of fees that have been earned per unit of
     -- virtual liquidity, over the entire history of the contract.
-  , sBalance :: PerToken Natural
   , sTicks :: TickMap
     -- ^ Ticks' states.
   , sPositions :: PositionMap

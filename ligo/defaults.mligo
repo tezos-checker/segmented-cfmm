@@ -42,7 +42,6 @@ let default_storage (constants : constants) : storage =
   ; cur_tick_index = { i = 0 }
   ; cur_tick_witness  = { i = -const_max_tick }
   ; fee_growth = { x = { x128 = 0n }; y = { x128 = 0n } }
-  ; balance = { x = 0n ; y = 0n }
   ; ticks = ticks
   ; positions = (Big_map.empty : position_map)
   ; position_indexes = (Big_map.empty : position_index_map)

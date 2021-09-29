@@ -148,8 +148,7 @@ let update_storage_x_to_y (s : storage) (dx : nat) : (nat * nat * storage) =
     let r = x_to_y_rec {s = s ; dx = dx ; dy = 0n} in
     let dx_spent = assert_nat (dx - r.dx, internal_309) in
     let dy_received = r.dy in
-    let s_new = {s with balance = {x = s.balance.x + dx_spent ;  y = assert_nat (s.balance.y - dy_received, internal_insufficient_balance_err)}} in
-    (dx_spent, dy_received, s_new)
+    (dx_spent, dy_received, r.s)
 
 
 (* Trade up to a quantity dx of asset x, receives dy *)
@@ -170,13 +169,12 @@ let y_to_x (s : storage) (p : y_to_x_param) : result =
     let r = y_to_x_rec {s = s ; dy = p.dy ; dx = 0n} in
     let dy_spent = assert_nat (p.dy - r.dy, internal_309) in
     let dx_received = r.dx in
-    let s_new = {s with balance = {y = s.balance.y + dy_spent ;  x = assert_nat (s.balance.x - dx_received, internal_insufficient_balance_err)}} in
     if dx_received < p.min_dx then
         (failwith smaller_than_min_asset_err : result)
     else
         let op_receive_y = y_transfer Tezos.sender Tezos.self_address dy_spent s.constants in
         let op_send_x = x_transfer Tezos.self_address p.to_dx dx_received s.constants in
-        ([op_receive_y ; op_send_x], s_new)
+        ([op_receive_y ; op_send_x], r.s)
 
 
 (* Trade X with X' in a different contract. *)

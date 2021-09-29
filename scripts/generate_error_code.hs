@@ -129,8 +129,7 @@ internalErrors = errorsEnumerate 300
   , "internal_309"
       :? "Thrown when `(p.dx - r.dx)` is not nat."
 
-  , "internal_insufficient_balance_err"
-      :? "Contract does not have enough liquidity to execute the swap."
+  , removedError
 
   , "internal_311"
       :? "Thrown when `s.cur_tick_index.i >= upper_tick_index.i` and `(s.fee_growth.x - upper_tick.fee_growth_outside.x)` (or `y`) is not nat."
