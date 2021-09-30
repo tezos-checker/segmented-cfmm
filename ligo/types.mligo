@@ -18,6 +18,8 @@ type tick_index = {i : int}
 
 type position_id = nat
 
+type token_id = nat
+
 type operator =
   { owner : address
   ; operator : address
@@ -285,8 +287,8 @@ type metadata_map = (string, bytes) big_map
 type constants = {
     fee_bps : nat ;
     ctez_burn_fee_bps : nat ;
-    x_token_id : nat ;
-    y_token_id : nat ;
+    x_token_id : token_id ;
+    y_token_id : token_id ;
     x_token_address : address ;
     y_token_address : address ;
 }

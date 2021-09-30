@@ -328,8 +328,8 @@ initCumulativesBuffer extraReservedSlots = CumulativesBuffer
 data Constants = Constants
   { cFeeBps :: Natural
   , cCtezBurnFeeBps :: Natural
-  , cXTokenId :: Natural
-  , cYTokenId :: Natural
+  , cXTokenId :: FA2.TokenId
+  , cYTokenId :: FA2.TokenId
   , cXTokenAddress :: Address
   , cYTokenAddress :: Address
   }
@@ -489,6 +489,8 @@ deriving via (GenericBuildable Storage) instance Buildable Storage
 deriving anyclass instance IsoValue Storage
 instance HasAnnotation Storage where
   annOptions = segCfmmAnnOptions
+
+type instance AsRPC FA2.TokenId = FA2.TokenId
 
 deriveRPCWithStrategy "Storage" ligoLayout
 deriving via (GenericBuildable StorageRPC) instance Buildable StorageRPC

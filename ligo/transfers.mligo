@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2021 Arthur Breitman
 // SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
 
-type token_id = nat
-
 #if X_IS_FA2
 type x_contract_transfer = (address * (address * (token_id * nat)) list) list
 #else
