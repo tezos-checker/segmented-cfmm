@@ -14,6 +14,11 @@ let ceildiv (numerator : nat) (denominator : nat) : nat = abs ((- numerator) / (
 let ceildiv_int (numerator : int) (denominator : int) : int = - ((- numerator) /  denominator)
 let floordiv (numerator : nat) (denominator : nat) : nat =  numerator / denominator
 
+(*
+  When the `sqrt_price` moves from `y` to `x`, calculate the corresponding change to `cur_tick_index`:
+    log_{sqrt(1.0001)}(x/y)
+    2 * ln(x/y) / ln(1.0001)
+ *)
 (* accurate for x/y in [0.7, 1.5] *)
 (* Note, for simplify, our sqrt_prices are not on a grid of 0.5 bps, they are on a grid of 10000 (Exp[0.0005] - 1) bps *)
 let floor_log_half_bps ((x, y, out_of_bounds_err) : nat * nat * nat) : int =
@@ -23,7 +28,7 @@ let floor_log_half_bps ((x, y, out_of_bounds_err) : nat * nat * nat) : int =
     else
         let x_plus_y = x + y in
         let num : int = 60003 * (x - y) * (int x_plus_y) in
-        let denom = 2n * (x_plus_y * x_plus_y + 2n * x * y) in
+        let denom = x_plus_y * x_plus_y + 2n * x * y in
         num / (int denom)
 
 let floor_log_half_bps_x80 ((x, y, out_of_bounds_err) : x80n * x80n * nat) : int =
