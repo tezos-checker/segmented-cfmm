@@ -88,7 +88,9 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
         let next_tick_index = tick.next in
         if cur_tick_index_new.i < next_tick_index.i then
             (* The trade did not push us past the current tick. *)
-            let dx = Bitwise.shift_right ((assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_bad_sqrt_price_move_y_direction)) * p.s.liquidity) 80n in
+            (* From 6.16 formula: dx = L * (1 / old sqrt_price - 1 / new sqrt_price), where dx is how X decreases *)
+            let dx = ceildiv (p.s.liquidity * Bitwise.shift_left (assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_bad_sqrt_price_move_y_direction)) 80n)
+                             (sqrt_price_new.x80 * p.s.sqrt_price.x80) in
             let s_new = {p.s with
                 sqrt_price = sqrt_price_new ;
                 cur_tick_index = cur_tick_index_new ;
