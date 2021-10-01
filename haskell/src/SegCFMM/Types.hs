@@ -219,6 +219,9 @@ data Storage = Storage
   , sOperators :: Operators
     -- ^ FA2 operators
   , sConstants :: Constants
+    -- ^ Settable constants of the contract
+  , sLadder :: Ladder
+    -- ^ Exponents ladder for power calculations
   }
 
 -- Needed by `sMetadata`
@@ -393,6 +396,19 @@ data Constants = Constants
   }
   deriving stock Eq
 
+
+type Ladder = BigMap LadderKey FixedPoint
+
+data FixedPoint = FixedPoint
+  { fpV :: Natural
+  , fpOffset :: Integer
+  } deriving stock (Ord, Eq)
+
+data LadderKey = LadderKey
+  { lkExp :: Natural
+  , lkPositive :: Bool
+  } deriving stock (Ord, Eq)
+
 ------------------------------------------------------------------------
 -- Operators
 ------------------------------------------------------------------------
@@ -541,6 +557,24 @@ instance HasAnnotation Constants where
 
 deriveRPCWithStrategy "Constants" ligoLayout
 deriving via (GenericBuildable ConstantsRPC) instance Buildable ConstantsRPC
+
+customGeneric "FixedPoint" ligoLayout
+deriving via (GenericBuildable FixedPoint) instance Buildable FixedPoint
+deriving anyclass instance IsoValue FixedPoint
+instance HasAnnotation FixedPoint where
+  annOptions = segCfmmAnnOptions
+
+deriveRPCWithStrategy "FixedPoint" ligoLayout
+deriving via (GenericBuildable FixedPointRPC) instance Buildable FixedPointRPC
+
+customGeneric "LadderKey" ligoLayout
+deriving via (GenericBuildable LadderKey) instance Buildable LadderKey
+deriving anyclass instance IsoValue LadderKey
+instance HasAnnotation LadderKey where
+  annOptions = segCfmmAnnOptions
+
+deriveRPCWithStrategy "LadderKey" ligoLayout
+deriving via (GenericBuildable LadderKeyRPC) instance Buildable LadderKeyRPC
 
 customGeneric "Storage" ligoLayout
 deriving via (GenericBuildable Storage) instance Buildable Storage

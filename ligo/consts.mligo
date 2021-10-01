@@ -11,7 +11,9 @@
 #else
 #define CONSTS_MLIGO
 
-(* Note: `half_bps_pow` only supports sqrt_price up to this tick index: `2^20 - 1`. *)
+(* Note: `half_bps_pow` only supports sqrt_price up to this tick index: `2^20 - 1`
+   when originated with the 'default_ladder'.
+*)
 [@inline] let const_max_tick : nat = 1048575n
 
 (* Invalid tick index. Shouldn't be reached. Cannot be defined as failwith

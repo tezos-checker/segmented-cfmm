@@ -293,6 +293,13 @@ type constants = {
     y_token_address : address ;
 }
 
+
+(* See defaults.mligo for more info *)
+type fixed_point = { v : nat ; offset : int }
+type ladder_key = { exp : nat ; positive : bool }
+type ladder = (ladder_key, fixed_point) big_map
+
+
 type storage = {
     (* Virtual liquidity, the value L for which the curve locally looks like x * y = L^2. *)
     liquidity : nat ;
@@ -337,6 +344,9 @@ type storage = {
 
     (* Constants for options that are settable at origination *)
     constants : constants ;
+
+    (* Exponents ladder for the calculation of 'half_bps_pow' *)
+    ladder : ladder;
 }
 
 (* Entrypoints types *)
