@@ -49,7 +49,7 @@ test_FA2_positions =
       ownerOnly <- newAddress auto
       -- may own some position and eventually will own all of them
       finalOwner <- newAddress auto
-      cfmm <- fst <$> prepareSomeSegCFMM' [ownerAndOperator, ownerOnly, finalOwner]
+      cfmm <- fst <$> prepareSomeSegCFMM [ownerAndOperator, ownerOnly, finalOwner]
       -- create positions
       let ownerFor ownerType = case ownerType of
             FullyOwned -> ownerAndOperator

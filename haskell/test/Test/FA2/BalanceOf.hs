@@ -19,13 +19,13 @@ import Morley.Nettest
 import Morley.Nettest.Tasty
 
 import Test.FA2.Common
-import Test.Util (balanceOf, balancesOf, prepareSomeSegCFMM, prepareSomeSegCFMM')
+import Test.Util (balanceOf, balancesOf, prepareSomeSegCFMM)
 
 test_unknown_position :: TestTree
 test_unknown_position =
   nettestScenarioOnEmulatorCaps "balance_of requires exising positions" do
     owner <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM owner
+    cfmm <- fst <$> prepareSomeSegCFMM [owner]
 
     expectCustomError_ #fA2_TOKEN_UNDEFINED $ balanceOf cfmm (FA2.TokenId 0) owner
     expectCustomError_ #fA2_TOKEN_UNDEFINED $ balanceOf cfmm (FA2.TokenId 1) owner
@@ -35,14 +35,14 @@ test_empty_requests :: TestTree
 test_empty_requests =
   nettestScenarioOnEmulatorCaps "balance_of accepts empty requests" do
     owner <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM owner
+    cfmm <- fst <$> prepareSomeSegCFMM [owner]
     balancesOf cfmm [] owner @@== []
 
 test_owned_position :: TestTree
 test_owned_position =
   nettestScenarioOnEmulatorCaps "balance_of is 1 for an owned position" do
     owner <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM owner
+    cfmm <- fst <$> prepareSomeSegCFMM [owner]
     setSimplePosition cfmm owner -10 10
     balanceOf cfmm (FA2.TokenId 0) owner @@== 1
 
@@ -51,7 +51,7 @@ test_unowned_position =
   nettestScenarioOnEmulatorCaps "balance_of is 0 for someone else's position" do
     owner <- newAddress auto
     nonOwner <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM' [owner, nonOwner]
+    cfmm <- fst <$> prepareSomeSegCFMM [owner, nonOwner]
     setSimplePosition cfmm owner -10 15
 
     balanceOf cfmm (FA2.TokenId 0) nonOwner @@== 0
@@ -60,7 +60,7 @@ test_exisiting_position :: TestTree
 test_exisiting_position =
   nettestScenarioOnEmulatorCaps "balance_of is 0 if caller is unknown" do
     owner <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM owner
+    cfmm <- fst <$> prepareSomeSegCFMM [owner]
     setSimplePosition cfmm owner 10 15
 
     nonOwner <- newAddress auto
@@ -74,7 +74,7 @@ test_multiple_positions =
     owner3 <- newAddress auto
     nonOwner1 <- newAddress auto
     nonOwner2 <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM' [owner1, owner2, owner3, nonOwner1]
+    cfmm <- fst <$> prepareSomeSegCFMM [owner1, owner2, owner3, nonOwner1]
     setSimplePosition cfmm owner1 -20 -15   -- TokenId 0
     setSimplePosition cfmm owner1 -10 1     -- TokenId 1
     setSimplePosition cfmm owner1 6 17      -- TokenId 2

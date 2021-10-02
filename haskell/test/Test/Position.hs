@@ -49,6 +49,19 @@ mkStorage xToken xTokenId yToken yTokenId feeBps =
       }
     }
 
+-- | Cumulatives buffer after some calls to contract that do not
+-- change \"much\".
+cumulativesBuffer1 :: Timestamp -> CumulativesBuffer
+cumulativesBuffer1 now =
+  let initVal = initCumulativesBuffer 0
+  in initVal
+    { cbFirst = 1, cbLast = 1
+    , cbMap = mkBigMap $ one
+        ( 1
+        , initTimedCumulatives{ tcTime = now }
+        )
+    }
+
 test_equal_ticks :: TestTree
 test_equal_ticks =
   nettestScenarioOnEmulatorCaps "setting a position with lower_tick=upper_tick fails" do
@@ -174,8 +187,11 @@ test_setting_a_position_with_zero_liquidity_is_a_noop =
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
 
-    -- The storage shouldn't have changed
+    -- The storage shouldn't have changed (with few exceptions).
+    now <- getNow
     getFullStorage cfmm @@== initialSt
+      { sCumulativesBuffer = cumulativesBuffer1 now
+      }
     (balanceOf xToken xTokenId cfmm <&> fromIntegral @Natural @Integer) @@== 0
     (balanceOf yToken yTokenId cfmm <&> fromIntegral @Natural @Integer) @@== 0
 
@@ -230,8 +246,12 @@ test_deposit_and_withdrawal_is_a_noop =
           , uppDeadline = deadline
           , uppMaximumTokensContributed = PerToken 1000000 1000000
           }
-    -- The storage shouldn't have changed (with the exception that the 'new position id' counter has gone up).
-    getFullStorage cfmm @@== initialSt { sNewPositionId = sNewPositionId initialSt + 1}
+    -- The storage shouldn't have changed (with few exceptions).
+    now <- getNow
+    getFullStorage cfmm @@== initialSt
+      { sNewPositionId = sNewPositionId initialSt + 1
+      , sCumulativesBuffer = cumulativesBuffer1 now
+      }
     -- The contract's balance should be 0.
     -- There is a margin of error, so the contract may end up with at most 1 token.
     xBalance <- balanceOf xToken xTokenId cfmm <&> fromIntegral @Natural @Integer
@@ -631,8 +651,12 @@ test_lowest_and_highest_ticks_cannot_be_garbage_collected =
           , uppDeadline = deadline
           , uppMaximumTokensContributed = PerToken 1000000 1000000
           }
-    -- The storage shouldn't have changed (with the exception that the 'new position id' counter has gone up).
-    getFullStorage cfmm @@== initialSt { sNewPositionId = sNewPositionId initialSt + 1}
+    -- The storage shouldn't have changed (with few exceptions).
+    now <- getNow
+    getFullStorage cfmm @@== initialSt
+      { sNewPositionId = sNewPositionId initialSt + 1
+      , sCumulativesBuffer = cumulativesBuffer1 now
+      }
 
 test_withdrawal_overflow :: TestTree
 test_withdrawal_overflow =

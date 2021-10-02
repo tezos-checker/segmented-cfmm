@@ -3,6 +3,10 @@
 
 module Test.Invariants
   ( checkAllInvariants
+
+    -- * Individual invariants checks
+  , checkCumulativesBufferInvariants
+  , checkCumulativesBufferTimeInvariants
   ) where
 
 import Prelude
@@ -10,9 +14,9 @@ import qualified Unsafe
 
 import Data.Ix (inRange)
 import qualified Data.List as List
-import qualified Data.Map as Map
+import qualified Data.Map.Merge.Strict as Map.Merge
 import Fmt
-import Lorentz hiding (assert, not, now, (>>))
+import Lorentz hiding (assert, map, not, now, or, (>>))
 import Morley.Nettest
 import Tezos.Core (timestampToSeconds)
 
@@ -28,6 +32,7 @@ checkAllInvariants cfmm = do
   checkStorageInvariants st
   checkBalanceInvariants cfmm st
   checkAccumulatorsInvariants cfmm st
+  checkCumulativesBufferInvariants st
 
 -- | Invariant:
 -- For all accumulators: the sum of all the values accumulated between any two consecutive ticks
@@ -71,7 +76,7 @@ checkAccumulatorsInvariants cfmm st = do
 -- The contract always has enough balance to liquidite all positions (and pay any fees due).
 checkBalanceInvariants :: (HasCallStack, MonadEmulated caps base m) => ContractHandler Parameter Storage -> Storage -> m ()
 checkBalanceInvariants cfmm st = do
-  let positions = Map.toList $ bmMap $ sPositions st
+  let positions = toPairs $ bmMap $ sPositions st
 
   -- Liquidate all positions and rollback.
   offshoot "contract should have enough liquidity to liquidate all positions" do
@@ -176,9 +181,67 @@ checkTickMapInvariants (sTicks -> tickMap) = do
         ]
 
       -- Invariant 4
-      assert (indices == sort (Map.keys (bmMap tickMap))) $ unlinesF @_ @Builder
+      assert (indices == sort (keys (bmMap tickMap))) $ unlinesF @_ @Builder
         [ "Expected to have traversed all the nodes in the linked-list."
         , "Some nodes may not be reachable."
-        , "Linked-list indices: " <> build (sort (Map.keys (bmMap tickMap)))
+        , "Linked-list indices: " <> build (sort (keys (bmMap tickMap)))
         , "Reachable indices:   " <> build indices
         ]
+
+-- | Invariants:
+-- 1. Non-map fields in the buffer are sensible.
+--    1.1. The last index is greater or equal than the first index.
+--    1.2. The reserved map size is not smaller than the actual number of records.
+-- 2. The map contains values under the appropriate keys.
+-- 3. Timestamps increase strictly monotonically.
+-- 4. Cumulative values increase strictly monotonically.
+--
+-- We have no way to check that values outside of [first, last] range are dummy
+-- values and only they are.
+checkCumulativesBufferInvariants :: forall caps base m. (HasCallStack, MonadNettest caps base m) => Storage -> m ()
+checkCumulativesBufferInvariants (sCumulativesBuffer -> buffer@CumulativesBuffer{..}) = do
+  -- Invariant 1.1
+  checkCompares cbLast (>=) cbFirst
+
+  -- Invariant 1.2
+  checkCompares cbReservedLength (>=) (cbActualLength buffer)
+
+  -- Invariants 2
+  let bufferMap = cbAllEntries buffer
+  keys bufferMap @== [cbFirst .. cbFirst + cbReservedLength - 1]
+
+  -- Only actual records
+  let bufferRecordsMap = cbEntries buffer
+
+  -- Invariant 3
+  isMonothonic $ elems bufferRecordsMap <&> tcTime
+
+  -- Invariant 4
+  isMonothonic $ elems bufferRecordsMap <&> scSum . tcSpl
+  -- Tick index can be negative, we don't check it
+
+-- | Invariants on storages separated in time.
+--
+-- 1. Recorded values to not change.
+checkCumulativesBufferTimeInvariants
+  :: forall caps base m. (HasCallStack, MonadNettest caps base m)
+  => (Storage, Storage) -> m ()
+checkCumulativesBufferTimeInvariants storages = do
+  let mapBoth f (a, b) = (f a, f b)
+
+  let buffers = mapBoth sCumulativesBuffer storages
+  let bufferMaps = mapBoth cbEntries buffers
+
+  -- Invariant 1
+  let mergeEq k v1 v2 = assert (v1 == v2) $
+        "Value for key " +| k |+ " has changed:\n\
+        \  Was:\n    " +| v1 |+ "\n\
+        \  After:\n    " +| v2 |+ "\n"
+  _ <- uncurry
+    (Map.Merge.mergeA
+      Map.Merge.dropMissing
+      Map.Merge.dropMissing
+      (Map.Merge.zipWithAMatched mergeEq)
+    ) bufferMaps
+
+  pass

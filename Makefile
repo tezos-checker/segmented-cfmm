@@ -60,7 +60,6 @@ $(OUT)/segmented_cfmm_FA2_FA12.tz : y_token_type = FA12
 # Generic rule for compiling CFMM contract variations.
 $(OUT)/segmented_cfmm_%.tz : x_token_type = FA2
 $(OUT)/segmented_cfmm_%.tz : y_token_type = CTEZ
-$(OUT)/segmented_cfmm_%.tz : debug =
 $(OUT)/segmented_cfmm_%.tz: $(shell find ligo -name '*.mligo')
 	mkdir -p $(OUT)
 	$(call validate_token_type, $(x_token_type), FA2 FA12)
@@ -100,6 +99,7 @@ $(OUT)/storage_default.tz: $(shell find ligo -name '*.mligo')
 $(OUT)/liquidity_mining.tz: ligo/liquidity_mining.mligo ligo/types.mligo
 	$(BUILD) ligo/liquidity_mining.mligo main --output-file $@
 
+prepare_lib: debug = 1
 prepare_lib: every
 	# ============== Copying ligo sources to haskell lib paths ============== #
 	cp -r $(OUT)/*.tz haskell/test/

@@ -51,7 +51,7 @@ test_BasicWorkflow =
     let getRewardOf = balanceOf miningRewardTokenContract (fa2TokenId miningRewardToken)
 
     -- Prepare the contracts
-    (cfmm, _) <- prepareSomeSegCFMM liquidityProvider
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
     staker <- originateSimple "LM" (mkStorage cfmm) liquidityMiningContract
 
     -- Step I: incentive creation
