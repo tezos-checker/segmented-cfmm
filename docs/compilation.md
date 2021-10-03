@@ -34,7 +34,7 @@ make out/segmented_cfmm_default.tz \
   y_token_type=CTEZ
 ```
 
-Please refer to the [compilation options](./specification.md#compilation-options)
+Please refer to the [compilation options](./specification.md#configuration-options)
 section of the specification for an explanation of these options.
 
 ## Compiling the contract storage

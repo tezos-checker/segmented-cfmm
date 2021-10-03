@@ -5,26 +5,58 @@
 
 -- | Types mirrored from LIGO implementation.
 module SegCFMM.Types
-  ( X (..)
+  ( -- * Parameter
+    X(..)
+  , powerOfX
   , mkX
+  , adjustScale
+  , Parameter(..)
+  , XToYParam(..)
+  , YToXParam(..)
+  , XToXPrimeParam(..)
+  , SetPositionParam(..)
+  , ObserveParam
+  , PositionInfo(..)
+  , CumulativesInsideSnapshot(..)
+  , SnapshotCumulativesInsideParam(..)
+  , GetPositionInfoParam
+  -- * Storage
+  , Storage(..)
+  , PerToken(..)
+  , TickIndex(..)
+  , minTickIndex
+  , maxTickIndex
+  , TickState(..)
+  , TickMap
+  , PositionIndex(..)
+  , PositionState(..)
+  , PositionId(..)
+  , PositionMap
+  , PositionIndexMap
+  , CumulativesValue(..)
+  , CumulativesValueRPC(..)
+  , TickCumulative(..)
+  , SplCumulative(..)
+  , TimedCumulatives(..)
+  , initTimedCumulatives
+  , CumulativesBuffer(..)
+  , initCumulativesBuffer
+  , Constants(..)
 
-  , Storage (..)
-  , Parameter (..)
-  , PerToken (..)
-  , TickIndex (..)
-  , TickState (..)
-  , SetPositionParam (..)
-  , XToYParam (..)
-  , YToXParam (..)
-  , XToXPrimeParam (..)
+  -- * Operators
+  , Operator(..)
+  -- * helpers
+  , Operators
+  , segCfmmAnnOptions
   ) where
 
 import Universum
 
-import Fmt (Buildable, build, genericF)
+import Fmt (Buildable, GenericBuildable(..), build)
 
-import Lorentz hiding (now)
+import Lorentz hiding (abs, now)
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
+import qualified Lorentz.Contracts.Spec.FA2Interface.ParameterInstances ()
 import qualified Lorentz.Contracts.Spec.TZIP16Interface as TZIP16
 import Morley.Client (AsRPC, deriveRPCWithStrategy)
 
@@ -33,7 +65,7 @@ newtype X (n :: Nat) a = X
   { pickX :: a
     -- ^ Get the value multiplied by @2^n@.
   } deriving stock (Show, Eq, Generic)
-    deriving newtype (IsoValue, HasAnnotation)
+    deriving newtype (IsoValue, HasAnnotation, Num, Integral, Enum, Ord, Real)
 
 instance (Buildable a, KnownNat n) => Buildable (X n a) where
   build x = build (pickX x) <> " X 2^" <> build (powerOfX x)
@@ -46,6 +78,13 @@ powerOfX (X{} :: X n a) = natVal (Proxy @n)
 -- | Convert a fraction to 'X'.
 mkX :: forall a n b. (KnownNat n, RealFrac a, Integral b) => a -> X n b
 mkX = X . round . (* 2 ^ natVal (Proxy @n))
+
+adjustScale :: forall n2 n1 i. (Integral i, KnownNat n1, KnownNat n2) => X n1 i -> X n2 i
+adjustScale (X i) =
+  let scaleAdjustment = toInteger (natVal (Proxy @n2)) - toInteger (natVal (Proxy @n1))
+  in  if scaleAdjustment >= 0
+        then X (i * 2^scaleAdjustment)
+        else X (i `div` 2^(-scaleAdjustment))
 
 data Parameter
   = X_to_y XToYParam
@@ -67,9 +106,6 @@ data Parameter
   | Increase_observation_count Natural
     -- ^ Set the number of stored accumulators for geometric mean price oracle.
 
-instance Buildable Parameter where
-  build = genericF
-
 -- | Parameter of @X_to_Y@ entrypoints
 data XToYParam = XToYParam
   { xpDx :: Natural
@@ -82,9 +118,6 @@ data XToYParam = XToYParam
     -- ^ Recipient of Y tokens.
   }
 
-instance Buildable XToYParam where
-  build = genericF
-
 -- | Parameter of @Y_to_X@ entrypoints
 data YToXParam = YToXParam
   { ypDy :: Natural
@@ -96,9 +129,6 @@ data YToXParam = YToXParam
   , ypToDx :: Address
     -- ^ Recipient of X tokens.
   }
-
-instance Buildable YToXParam where
-  build = genericF
 
 -- | Parameter of @X_to_X_prime@ entrypoints
 data XToXPrimeParam = XToXPrimeParam
@@ -113,10 +143,6 @@ data XToXPrimeParam = XToXPrimeParam
   , xppToDxPrime :: Address
     -- ^ Recipient of X tokens.
   }
-
-instance Buildable XToXPrimeParam where
-  build = genericF
-
 
 data SetPositionParam = SetPositionParam
   { sppLowerTickIndex :: TickIndex
@@ -140,9 +166,6 @@ data SetPositionParam = SetPositionParam
     -- If a higher amount is required, the entrypoint fails.
   }
 
-instance Buildable SetPositionParam where
-  build = genericF
-
 type ObserveParam = View [Timestamp] [CumulativesValue]
 
 data PositionInfo = PositionInfo
@@ -156,20 +179,11 @@ data CumulativesInsideSnapshot = CumulativesInsideSnapshot
   , cisSecondsInside :: Natural
   }
 
-instance Buildable CumulativesInsideSnapshot where
-  build = genericF
-
 data SnapshotCumulativesInsideParam = SnapshotCumulativesInsideParam
   { sciLowerTickIndex :: TickIndex
   , sciUpperTickIndex :: TickIndex
   , sciCallback :: ContractRef CumulativesInsideSnapshot
   }
-
-instance Buildable SnapshotCumulativesInsideParam where
-  build = genericF
-
-instance Buildable PositionInfo where
-  build = genericF
 
 type GetPositionInfoParam = View PositionId PositionInfo
 
@@ -207,9 +221,6 @@ data Storage = Storage
   , sConstants :: Constants
   }
 
-instance Buildable Storage where
-  build = genericF
-
 -- Needed by `sMetadata`
 instance Buildable (ByteString) where
   build = build . show @Text
@@ -222,20 +233,31 @@ data PerToken a = PerToken
   { ptX :: a
   , ptY :: a
   }
+  deriving stock (Eq, Functor)
 
-instance Buildable a => Buildable (PerToken a) where
-  build = genericF
+instance Num a => Num (PerToken a) where
+  PerToken x1 y1 + PerToken x2 y2 = PerToken (x1 + x2) (y1 + y2)
+  PerToken x1 y1 * PerToken x2 y2 = PerToken (x1 * x2) (y1 * y2)
+  PerToken x1 y1 - PerToken x2 y2 = PerToken (x1 - x2) (y1 - y2)
+  abs (PerToken x y) = PerToken (abs x) (abs y)
+  signum (PerToken x y) = PerToken (signum x) (signum y)
+  fromInteger = error "fromInteger is not defined for 'PerToken'"
 
 type instance AsRPC (PerToken a) = PerToken a
 
 -- | Tick types, representing pieces of the curve offered between different tick segments.
 newtype TickIndex = TickIndex Integer
   deriving stock (Generic, Show)
-  deriving newtype (Enum, Ord, Eq, Num, Real, Integral)
+  deriving newtype (Enum, Ord, Eq, Num, Real, Integral, Buildable)
   deriving anyclass IsoValue
 
-instance Buildable TickIndex where
-  build = genericF
+instance Bounded TickIndex where
+  minBound = -1048575
+  maxBound = 1048575
+
+minTickIndex, maxTickIndex :: TickIndex
+minTickIndex = minBound
+maxTickIndex = maxBound
 
 instance HasAnnotation TickIndex where
   annOptions = segCfmmAnnOptions
@@ -252,7 +274,7 @@ data TickState = TickState
   , tsLiquidityNet :: Integer
     -- ^ Track total amount of liquidity that is added/removed when
     -- this tick is crossed.
-  , tsNPosition :: Natural
+  , tsNPositions :: Natural
     -- ^ Number of positions that cover this tick.
   , tsSecondsOutside :: Natural
     -- ^ Overall number of seconds spent below or above this tick
@@ -267,10 +289,7 @@ data TickState = TickState
   , tsSqrtPrice :: X 80 Natural
     -- ^ Square root of the price associated with this tick.
   }
-
-instance Buildable TickState where
-  build = genericF
-
+  deriving stock Eq
 
 type TickMap = BigMap TickIndex TickState
 
@@ -283,10 +302,6 @@ data PositionIndex = PositionIndex
     -- ^ Upper bound.
   } deriving stock (Ord, Eq)
 
-instance Buildable PositionIndex where
-  build = genericF
-
-
 data PositionState = PositionState
   { psLiquidity :: Natural
     -- ^ Amount of virtual liquidity that the position represented the last
@@ -298,18 +313,13 @@ data PositionState = PositionState
     -- ^ When deleting a position_state, we also need to delete `position_index`
     -- in `store.position_indexes`. Storing `position_id` here allows us to delete that.
   }
-
-instance Buildable PositionState where
-  build = genericF
-
+  deriving stock Eq
 
 newtype PositionId = PositionId Natural
   deriving stock (Generic, Show)
   deriving newtype (Enum, Ord, Eq, Num, Real, Integral)
   deriving anyclass IsoValue
-
-instance Buildable PositionId where
-  build = genericF
+  deriving Buildable via GenericBuildable PositionId
 
 instance HasAnnotation PositionId where
   annOptions = segCfmmAnnOptions
@@ -335,33 +345,27 @@ data TickCumulative = TickCumulative
   { tcSum :: Integer
   , tcBlockStartValue :: TickIndex
   }
+  deriving stock Eq
 
-instance Buildable TickCumulative where
-  build = genericF
-
-data LpsCumulative = LpsCumulative
-  { lcSum :: X 128 Natural
-  , lcBlockStartLiquidityValue :: Natural
+data SplCumulative = SplCumulative
+  { scSum :: X 128 Natural
+  , scBlockStartLiquidityValue :: Natural
   }
-
-instance Buildable LpsCumulative where
-  build = genericF
+  deriving stock Eq
 
 data TimedCumulatives = TimedCumulatives
   { tcTime :: Timestamp
   , tcTick :: TickCumulative
-  , tcLps :: LpsCumulative
+  , tcSpl :: SplCumulative
   }
+  deriving stock Eq
 
 initTimedCumulatives :: TimedCumulatives
 initTimedCumulatives = TimedCumulatives
   { tcTime = timestampFromSeconds 100
   , tcTick = TickCumulative 0 (TickIndex 0)
-  , tcLps = LpsCumulative (mkX @Double 0) 1
+  , tcSpl = SplCumulative (mkX @Double 0) 1
   }
-
-instance Buildable TimedCumulatives where
-  build = genericF
 
 data CumulativesBuffer = CumulativesBuffer
   { tbMap :: BigMap Natural TimedCumulatives
@@ -369,9 +373,6 @@ data CumulativesBuffer = CumulativesBuffer
   , tbLast :: Natural
   , tbReservedLength :: Natural
   }
-
-instance Buildable CumulativesBuffer where
-  build = genericF
 
 initCumulativesBuffer :: Natural -> CumulativesBuffer
 initCumulativesBuffer extraReservedSlots = CumulativesBuffer
@@ -385,14 +386,12 @@ initCumulativesBuffer extraReservedSlots = CumulativesBuffer
 data Constants = Constants
   { cFeeBps :: Natural
   , cCtezBurnFeeBps :: Natural
-  , cXTokenId :: Natural
-  , cYTokenId :: Natural
+  , cXTokenId :: FA2.TokenId
+  , cYTokenId :: FA2.TokenId
   , cXTokenAddress :: Address
   , cYTokenAddress :: Address
   }
-
-instance Buildable Constants where
-  build = genericF
+  deriving stock Eq
 
 ------------------------------------------------------------------------
 -- Operators
@@ -402,12 +401,6 @@ data Operator = Operator
   { oOwner :: Address
   , oOperator :: Address
   } deriving stock (Eq, Ord)
-
-instance Buildable Operator where
-  build = genericF
-
-instance (Buildable a, Buildable b) => Buildable (a, b) where
-  build = genericF
 
 type Operators = BigMap Operator ()
 
@@ -427,75 +420,82 @@ segCfmmAnnOptions = defaultAnnOptions
 -----------------------------------------------------------------
 
 customGeneric "XToYParam" ligoLayout
+deriving via (GenericBuildable XToYParam) instance Buildable XToYParam
 deriving anyclass instance IsoValue XToYParam
 instance HasAnnotation XToYParam where
   annOptions = segCfmmAnnOptions
 
 customGeneric "YToXParam" ligoLayout
+deriving via (GenericBuildable YToXParam) instance Buildable YToXParam
 deriving anyclass instance IsoValue YToXParam
 instance HasAnnotation YToXParam where
   annOptions = segCfmmAnnOptions
 
 customGeneric "XToXPrimeParam" ligoLayout
+deriving via (GenericBuildable XToXPrimeParam) instance Buildable XToXPrimeParam
 deriving anyclass instance IsoValue XToXPrimeParam
 instance HasAnnotation XToXPrimeParam where
   annOptions = segCfmmAnnOptions
 
 customGeneric "SetPositionParam" ligoLayout
+deriving via (GenericBuildable SetPositionParam) instance Buildable SetPositionParam
 deriving anyclass instance IsoValue SetPositionParam
 instance HasAnnotation SetPositionParam where
   annOptions = segCfmmAnnOptions
 
 customGeneric "PositionInfo" ligoLayout
+deriving via (GenericBuildable PositionInfo) instance Buildable PositionInfo
 deriving anyclass instance IsoValue PositionInfo
 instance HasAnnotation PositionInfo where
   annOptions = segCfmmAnnOptions
 
 customGeneric "Operator" ligoLayout
+deriving via (GenericBuildable Operator) instance Buildable Operator
 deriving anyclass instance IsoValue Operator
 instance HasAnnotation Operator where
   annOptions = segCfmmAnnOptions
 
-customGeneric "FA2.Parameter" ligoLayout
-deriving anyclass instance IsoValue FA2.Parameter
-instance HasAnnotation FA2.Parameter where
-  annOptions = segCfmmAnnOptions
-instance ParameterHasEntrypoints FA2.Parameter where
-  type ParameterEntrypointsDerivation FA2.Parameter = EpdPlain
-
 customGeneric "CumulativesInsideSnapshot" ligoLayout
+deriving via (GenericBuildable CumulativesInsideSnapshot) instance Buildable CumulativesInsideSnapshot
 deriving anyclass instance IsoValue CumulativesInsideSnapshot
 instance HasAnnotation CumulativesInsideSnapshot where
   annOptions = segCfmmAnnOptions
 
 customGeneric "SnapshotCumulativesInsideParam" ligoLayout
+deriving via (GenericBuildable SnapshotCumulativesInsideParam) instance Buildable SnapshotCumulativesInsideParam
 deriving anyclass instance IsoValue SnapshotCumulativesInsideParam
 instance HasAnnotation SnapshotCumulativesInsideParam where
   annOptions = segCfmmAnnOptions
 
 customGeneric "Parameter" ligoLayout
+deriving via (GenericBuildable Parameter) instance Buildable Parameter
 deriving anyclass instance IsoValue Parameter
+
 instance ParameterHasEntrypoints Parameter where
   type ParameterEntrypointsDerivation Parameter = EpdDelegate
 
 
 customGeneric "PerToken" ligoLayout
+deriving via (GenericBuildable (PerToken a)) instance Buildable a => Buildable (PerToken a)
 deriving anyclass instance IsoValue a => IsoValue (PerToken a)
 instance HasAnnotation a => HasAnnotation (PerToken a) where
   annOptions = segCfmmAnnOptions
 
 customGeneric "TickState" ligoLayout
+deriving via (GenericBuildable TickState) instance Buildable TickState
 deriving anyclass instance IsoValue TickState
 instance HasAnnotation TickState where
   annOptions = segCfmmAnnOptions
 
 
 customGeneric "PositionIndex" ligoLayout
+deriving via (GenericBuildable PositionIndex) instance Buildable PositionIndex
 deriving anyclass instance IsoValue PositionIndex
 instance HasAnnotation PositionIndex where
   annOptions = segCfmmAnnOptions
 
 customGeneric "PositionState" ligoLayout
+deriving via (GenericBuildable PositionState) instance Buildable PositionState
 deriving anyclass instance IsoValue PositionState
 instance HasAnnotation PositionState where
   annOptions = segCfmmAnnOptions
@@ -504,45 +504,51 @@ customGeneric "CumulativesValue" ligoLayout
 deriving anyclass instance IsoValue CumulativesValue
 instance HasAnnotation CumulativesValue where
   annOptions = segCfmmAnnOptions
+deriveRPCWithStrategy "CumulativesValue" ligoLayout
 
 customGeneric "TickCumulative" ligoLayout
+deriving via (GenericBuildable TickCumulative) instance Buildable TickCumulative
 deriving anyclass instance IsoValue TickCumulative
 instance HasAnnotation TickCumulative where
   annOptions = segCfmmAnnOptions
 
-customGeneric "LpsCumulative" ligoLayout
-deriving anyclass instance IsoValue LpsCumulative
-instance HasAnnotation LpsCumulative where
+customGeneric "SplCumulative" ligoLayout
+deriving via (GenericBuildable SplCumulative) instance Buildable SplCumulative
+deriving anyclass instance IsoValue SplCumulative
+instance HasAnnotation SplCumulative where
   annOptions = segCfmmAnnOptions
 
 customGeneric "TimedCumulatives" ligoLayout
+deriving via (GenericBuildable TimedCumulatives) instance Buildable TimedCumulatives
 deriving anyclass instance IsoValue TimedCumulatives
 instance HasAnnotation TimedCumulatives where
   annOptions = segCfmmAnnOptions
 
 customGeneric "CumulativesBuffer" ligoLayout
+deriving via (GenericBuildable CumulativesBuffer) instance Buildable CumulativesBuffer
 deriving anyclass instance IsoValue CumulativesBuffer
 instance HasAnnotation CumulativesBuffer where
   annOptions = segCfmmAnnOptions
 
 deriveRPCWithStrategy "CumulativesBuffer" ligoLayout
-instance Buildable CumulativesBufferRPC where
-  build = genericF
+deriving via (GenericBuildable CumulativesBufferRPC) instance Buildable CumulativesBufferRPC
 
 customGeneric "Constants" ligoLayout
+deriving via (GenericBuildable Constants) instance Buildable Constants
 deriving anyclass instance IsoValue Constants
 instance HasAnnotation Constants where
   annOptions = segCfmmAnnOptions
 
 deriveRPCWithStrategy "Constants" ligoLayout
-instance Buildable ConstantsRPC where
-  build = genericF
+deriving via (GenericBuildable ConstantsRPC) instance Buildable ConstantsRPC
 
 customGeneric "Storage" ligoLayout
+deriving via (GenericBuildable Storage) instance Buildable Storage
 deriving anyclass instance IsoValue Storage
 instance HasAnnotation Storage where
   annOptions = segCfmmAnnOptions
 
+type instance AsRPC FA2.TokenId = FA2.TokenId
+
 deriveRPCWithStrategy "Storage" ligoLayout
-instance Buildable StorageRPC where
-  build = genericF
+deriving via (GenericBuildable StorageRPC) instance Buildable StorageRPC

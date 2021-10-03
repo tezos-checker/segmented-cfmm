@@ -14,6 +14,11 @@ let ceildiv (numerator : nat) (denominator : nat) : nat = abs ((- numerator) / (
 let ceildiv_int (numerator : int) (denominator : int) : int = - ((- numerator) /  denominator)
 let floordiv (numerator : nat) (denominator : nat) : nat =  numerator / denominator
 
+(*
+  When the `sqrt_price` moves from `y` to `x`, calculate the corresponding change to `cur_tick_index`:
+    log_{sqrt(1.0001)}(x/y)
+    2 * ln(x/y) / ln(1.0001)
+ *)
 (* accurate for x/y in [0.7, 1.5] *)
 (* Note, for simplify, our sqrt_prices are not on a grid of 0.5 bps, they are on a grid of 10000 (Exp[0.0005] - 1) bps *)
 let floor_log_half_bps ((x, y, out_of_bounds_err) : nat * nat * nat) : int =
@@ -23,7 +28,7 @@ let floor_log_half_bps ((x, y, out_of_bounds_err) : nat * nat * nat) : int =
     else
         let x_plus_y = x + y in
         let num : int = 60003 * (x - y) * (int x_plus_y) in
-        let denom = 2n * (x_plus_y * x_plus_y + 2n * x * y) in
+        let denom = x_plus_y * x_plus_y + 2n * x * y in
         num / (int denom)
 
 let floor_log_half_bps_x80 ((x, y, out_of_bounds_err) : x80n * x80n * nat) : int =
@@ -38,6 +43,26 @@ let assert_nat (x, error_code : int * nat) : nat =
     match is_nat x with
     | None -> (failwith error_code : nat)
     | Some n -> n
+
+(* `Bitwise.shift_right x y` is only defined for `y <= 256n`.
+    This function handles larger values of `y`.
+ *)
+let rec stepped_shift_right (x, y : nat * nat) : nat =
+    if y <= 256n then
+        Bitwise.shift_right x y
+    else
+        let new_x = Bitwise.shift_right x 256n in
+        stepped_shift_right (new_x, abs (y - 256))
+
+(* `Bitwise.shift_left x y` is only defined for `y <= 256n`.
+    This function handles larger values of `y`.
+ *)
+let rec stepped_shift_left (x, y : nat * nat) : nat =
+    if y <= 256n then
+        Bitwise.shift_left x y
+    else
+        let new_x = Bitwise.shift_left x 256n in
+        stepped_shift_left (new_x, abs (y - 256))
 
 (* TODO move ladders to a bigmap and load lazily *)
 let positive_ladder = [
@@ -95,15 +120,20 @@ let rec half_bps_pow_rec ((tick, acc, ladder) : nat * fixed_point * (fixed_point
         | [] -> (failwith price_out_of_bounds_err : fixed_point)
         | h :: t -> half_bps_pow_rec (half, (if rem = 0n then acc else fixed_point_mul h acc), t)
 
+(*
+  For a tick index `i`, calculate the corresponding `sqrt_price`:
+    sqrt(e^bps)^i * 2^80
+  using the exponentiation by squaring method, where:
+    bps = 0.0001
+ *)
 let half_bps_pow (tick : int) : x80n =
-    let product = half_bps_pow_rec (abs tick, {v=0n;offset=0}, (if tick > 0  then positive_ladder  else negative_ladder)) in
+    let product = half_bps_pow_rec (abs tick, {v=1n;offset=0}, (if tick > 0  then positive_ladder  else negative_ladder)) in
     let doffset = -80 - product.offset in
     if doffset > 0 then
-        {x80 = Bitwise.shift_right product.v (abs doffset)}
+        {x80 = stepped_shift_right (product.v, abs doffset)}
     else
         (* This branch should almost never happen, in general the price we get is not a round number. *)
-        {x80 = Bitwise.shift_left product.v (abs doffset)}
-
+        {x80 = stepped_shift_left (product.v, abs doffset)}
 
 (* ladder explanation
 

@@ -60,30 +60,58 @@ let cover_tick_with_position (ticks : tick_map) (tick_index : tick_index) (pos_d
     let tick = get_tick ticks tick_index internal_tick_not_exist_err in
     let n_pos = assert_nat (tick.n_positions + pos_delta, internal_position_underflow_err) in
     let new_liquidity = tick.liquidity_net + liquidity_delta in
-    if n_pos = 0n then
-        (*  Garbage collect the tick.
-            The largest and smallest tick are initialized with n_positions = 1 so they cannot
-            be accidentally garbage collected. *)
+    Big_map.add tick_index
+        { tick with
+            n_positions = n_pos;
+            liquidity_net = new_liquidity
+        } ticks
+
+(*  Garbage collect the tick.
+    The largest and smallest tick are initialized with n_positions = 1 so they cannot
+    be accidentally garbage collected. *)
+let garbage_collect_tick (s : storage) (tick_index : tick_index) : storage =
+    let tick = get_tick s.ticks tick_index internal_tick_not_exist_err in
+
+    if tick.n_positions = 0n then
 #if DEBUG
-        let _ : unit = if new_liquidity <> 0 then
+        let _ : unit = if tick.liquidity_net <> 0 then
             failwith internal_non_empty_position_gc_err
             else unit in
 #endif
+        let ticks = s.ticks in
         let prev = get_tick ticks tick.prev internal_tick_not_exist_err in
         let next = get_tick ticks tick.next internal_tick_not_exist_err in
         (* prev links to next and next to prev, skipping the deleted tick *)
         let prev = {prev with next = tick.next} in
         let next = {next with prev = tick.prev} in
-        let ticks = Big_map.update tick_index (None : tick_state option) ticks in
+        let ticks = Big_map.remove tick_index ticks in
         let ticks = Big_map.update tick.prev (Some prev) ticks in
         let ticks = Big_map.update tick.next (Some next) ticks in
-        ticks
+
+        (* If this tick is the `cur_tick_witness`, then deleting the tick would invalidate `cur_tick_witness`,
+           so we need to move it to the previous initialized tick.
+        *)
+        let cur_tick_witness = if s.cur_tick_witness = tick_index then tick.prev else s.cur_tick_witness in
+
+        {s with ticks = ticks; cur_tick_witness = cur_tick_witness }
     else
-        Big_map.add tick_index
-            { tick with
-                n_positions = n_pos;
-                liquidity_net = new_liquidity
-            } ticks
+        s
+
+(*  Garbage collects:
+      * the position if its liquidity becomes 0,
+      * and the ticks if they are no longer the boundaries of any existing position.
+*)
+let garbage_collection (s : storage) (position : position_state) (position_index : position_index) : storage =
+    let s = if position.liquidity = 0n
+                then
+                    { s with
+                        positions = Big_map.remove position_index s.positions;
+                        position_indexes = Big_map.remove position.position_id s.position_indexes;
+                    }
+                else s in
+    let s = garbage_collect_tick s position_index.lower_tick_index in
+    let s = garbage_collect_tick s position_index.upper_tick_index in
+    s
 
 let calc_fee_growth_inside (s : storage) (lower_tick_index : tick_index) (upper_tick_index : tick_index) : balance_nat_x128 =
     let lower_tick = get_tick s.ticks lower_tick_index internal_tick_not_exist_err in
@@ -119,8 +147,19 @@ let collect_fees (s : storage) (key : position_index) (position : position_state
     let positions = Big_map.update key (Some position) s.positions in
     ({s with positions = positions}, fees, position)
 
+(*  Checks if a new tick sits between `cur_tick_witness` and `cur_tick_index`.
+    If it does, we need to move `cur_tick_witness` forward to maintain its invariant:
+        `cur_tick_witness` is the highest initialized tick lower than or equal to `cur_tick_index`.
+*)
+let update_cur_tick_witness (s : storage) (tick_index : tick_index) : storage =
+    if tick_index > s.cur_tick_witness && tick_index <= s.cur_tick_index
+        then { s with cur_tick_witness = tick_index }
+        else s
+
 let set_position (s : storage) (p : set_position_param) : result =
     let _: unit = check_deadline p.deadline in
+    let _: unit = if p.lower_tick_index >= p.upper_tick_index then failwith tick_order_err else unit in
+
     (* Initialize ticks if need be. *)
     let ticks = s.ticks in
     let ticks = if s.cur_tick_index.i >= p.lower_tick_index.i then
@@ -129,7 +168,7 @@ let set_position (s : storage) (p : set_position_param) : result =
             ( ticks, p.lower_tick_index, p.lower_tick_witness
             , sums.tick.sum, s.fee_growth
             , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
-            , sums.lps.sum
+            , sums.spl.sum
             )
     else
         initialize_tick (ticks, p.lower_tick_index, p.lower_tick_witness, 0, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
@@ -139,10 +178,14 @@ let set_position (s : storage) (p : set_position_param) : result =
             ( ticks, p.upper_tick_index, p.upper_tick_witness
             , sums.tick.sum, s.fee_growth
             , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
-            , sums.lps.sum
+            , sums.spl.sum
             )
     else
         initialize_tick (ticks, p.upper_tick_index, p.upper_tick_witness, 0, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
+    let s = {s with ticks = ticks} in
+
+    let s = update_cur_tick_witness s p.lower_tick_index in
+    let s = update_cur_tick_witness s p.upper_tick_index in
 
     (* Form position key. *)
     let position_key = {owner=Tezos.sender ; lower_tick_index=p.lower_tick_index; upper_tick_index=p.upper_tick_index} in
@@ -175,14 +218,11 @@ let set_position (s : storage) (p : set_position_param) : result =
     (* Update related ticks. *)
     let ticks = cover_tick_with_position ticks p.lower_tick_index positions_num_delta p.liquidity_delta in
     let ticks = cover_tick_with_position ticks p.upper_tick_index positions_num_delta (-p.liquidity_delta) in
-    (* delete the position if liquidity has fallen to 0 *)
+    let s = { s with ticks = ticks } in
+
+
+    (* Create/update position *)
     let (positions, position_indexes, new_position_id) =
-        if liquidity_new = 0n then
-            ( Big_map.remove position_key s.positions
-            , Big_map.remove position.position_id s.position_indexes
-            , s.new_position_id
-            )
-        else
             ( Big_map.add position_key ({position with liquidity = liquidity_new}) s.positions
             , ( if is_new then
                   Big_map.add position.position_id position_key s.position_indexes
@@ -190,6 +230,12 @@ let set_position (s : storage) (p : set_position_param) : result =
               )
             , ( if is_new then s.new_position_id + 1n else s.new_position_id )
             ) in
+    let s =
+        { s with
+            positions = positions;
+            position_indexes = position_indexes;
+            new_position_id = new_position_id;
+        } in
 
     (* Compute how much should be deposited / withdrawn to change liquidity by liquidity_net *)
 
@@ -210,10 +256,6 @@ let set_position (s : storage) (p : set_position_param) : result =
     else if p.lower_tick_index.i <= s.cur_tick_index.i && s.cur_tick_index.i < p.upper_tick_index.i then
         (* update interval we are in, if need be ... *)
         let s = { s with
-                    cur_tick_witness =
-                        if p.lower_tick_index.i > s.cur_tick_witness.i
-                            then p.lower_tick_index
-                            else s.cur_tick_witness ;
                     liquidity = assert_nat (s.liquidity + p.liquidity_delta, internal_liquidity_below_zero_err)
                 } in
         (s, {
@@ -227,8 +269,11 @@ let set_position (s : storage) (p : set_position_param) : result =
     let delta = {x = delta.x - fees.x ; y = delta.y - fees.y} in
 
     (* Check delta doesn't exceed maximum_tokens_contributed. *)
-    let _: unit = if delta.x > int(p.maximum_tokens_contributed.x) then unit else failwith high_tokens_err in
-    let _: unit = if delta.y > int(p.maximum_tokens_contributed.y) then unit else failwith high_tokens_err in
+    let _: unit = if delta.x > int(p.maximum_tokens_contributed.x) then failwith high_tokens_err else unit in
+    let _: unit = if delta.y > int(p.maximum_tokens_contributed.y) then failwith high_tokens_err else unit in
+
+    (* Garbage collection *)
+    let s = garbage_collection s position position_key in
 
     let op_x = if delta.x > 0 then
         x_transfer Tezos.sender Tezos.self_address (abs delta.x) s.constants
@@ -240,14 +285,7 @@ let set_position (s : storage) (p : set_position_param) : result =
     else
         y_transfer Tezos.self_address p.to_y (abs delta.y) s.constants in
 
-    ( [op_x ; op_y]
-    , { s with
-        positions = positions
-      ; position_indexes = position_indexes
-      ; new_position_id = new_position_id
-      ; ticks = ticks
-      }
-    )
+    ([op_x ; op_y], s )
 
 // Entrypoint that returns cumulative values at given range at the current moment
 // of time.
@@ -256,7 +294,7 @@ let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_pa
     let cums_total =
             { tick = sums.tick.sum
             ; seconds = Tezos.now - epoch_time
-            ; seconds_per_liquidity = sums.lps.sum
+            ; seconds_per_liquidity = sums.spl.sum
             } in
 
     [@inline]
@@ -269,7 +307,7 @@ let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_pa
             ; seconds =
                 assert_nat(cums_total.seconds - cums_outside.seconds, internal_seconds_cumulative_err)
             ; seconds_per_liquidity = {x128 =
-                assert_nat(cums_total.seconds_per_liquidity.x128 - cums_outside.seconds_per_liquidity.x128, internal_lps_cumulative_err)
+                assert_nat(cums_total.seconds_per_liquidity.x128 - cums_outside.seconds_per_liquidity.x128, internal_spl_cumulative_err)
                 }
             }
         else
@@ -311,7 +349,7 @@ let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_pa
                 ( cums_total.seconds_per_liquidity.x128
                     - cums_below_lower.seconds_per_liquidity.x128
                     - cums_above_upper.seconds_per_liquidity.x128
-                , internal_lps_cumulative_err
+                , internal_spl_cumulative_err
                 )}
             ; tick_cumulative_inside = 0
             }
@@ -373,7 +411,7 @@ let get_cumulatives (buffer : timed_cumulatives_buffer) (t : timestamp) : cumula
         // When no updates to contract are performed, time-weighted accumulators grow
         // linearly. Extrapolating to get the value at timestamp in-between.
         //
-        // tick_cumulative(t) and liqudity_per_second_cumulative(t) functions produced
+        // tick_cumulative(t) and seconds_per_liquidity_cumulative(t) functions produced
         // by this extrapolation are continuous.
         // 1. At [left, right) range found by the binary search above, cumulatives are
         //    continuous by construction - our extrapolation is linear.
@@ -384,15 +422,15 @@ let get_cumulatives (buffer : timed_cumulatives_buffer) (t : timestamp) : cumula
                 let at_left_block_end_tick_value = sums_at_right.tick.block_start_value
                 in sums_at_left.tick.sum + time_delta * at_left_block_end_tick_value.i
             ; seconds_per_liquidity_cumulative =
-                let at_left_block_end_lps_value = sums_at_right.lps.block_start_liquidity_value
-                in {x128 = sums_at_left.lps.sum.x128 +
-                    Bitwise.shift_left time_delta 128n / at_left_block_end_lps_value }
+                let at_left_block_end_spl_value = sums_at_right.spl.block_start_liquidity_value
+                in {x128 = sums_at_left.spl.sum.x128 +
+                    Bitwise.shift_left time_delta 128n / at_left_block_end_spl_value }
             }
     else // t = r_v.time
         // This means that t = timestamp of the last recorded entry,
         // and we cannot use extrapolation as above
         { tick_cumulative = r_v.tick.sum
-        ; seconds_per_liquidity_cumulative = r_v.lps.sum
+        ; seconds_per_liquidity_cumulative = r_v.spl.sum
         }
 
 let observe (s : storage) (p : observe_param) : result =
@@ -417,9 +455,13 @@ let update_timed_cumulatives (s : storage) : storage =
                 { block_start_value = s.cur_tick_index
                 ; sum = last_value.tick.sum + time_passed * s.cur_tick_index.i
                 }
-            ; lps =
+            ; spl =
                 { block_start_liquidity_value = s.liquidity
-                ; sum = {x128 = last_value.lps.sum.x128 + Bitwise.shift_left time_passed 128n / s.liquidity};
+                ; sum =
+                    let spl_since_last_block =
+                        if s.liquidity = 0n then 0n
+                        else Bitwise.shift_left time_passed 128n / s.liquidity in
+                    {x128 = last_value.spl.sum.x128 + spl_since_last_block};
                 }
             ; time = Tezos.now
             } in

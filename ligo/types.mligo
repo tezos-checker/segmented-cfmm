@@ -18,6 +18,8 @@ type tick_index = {i : int}
 
 type position_id = nat
 
+type token_id = nat
+
 type operator =
   { owner : address
   ; operator : address
@@ -73,8 +75,9 @@ type update_operators_param = update_operator list
 
 
 type fa2_parameter =
-  | Transfer of transfer_params
+  [@layout:comb]
   | Balance_of of balance_request_params
+  | Transfer of transfer_params
   | Update_operators of update_operators_param
 
 
@@ -192,7 +195,7 @@ type position_state = {
 (* Map containing Liquidity providers. Indexed by `position_index`. *)
 type position_map = (position_index, position_state) big_map
 
-(* One-to-one relation from `postion_id` to `position_index`.
+(* One-to-one relation from `position_id` to `position_index`.
 Used for querying `position_state` with just a `position_id`. *)
 type position_index_map = (position_id, position_index) big_map
 
@@ -210,8 +213,8 @@ type tick_cumulative = {
     block_start_value : tick_index
 }
 
-// Liquidity per seconds cumulative
-type lps_cumulative = {
+// Seconds per liquidity cumulative
+type spl_cumulative = {
     (* The time-weighted cumulative value. *)
     sum : x128n ;
     (* Liquidity value at the beginning of the block. *)
@@ -221,13 +224,13 @@ type lps_cumulative = {
 type timed_cumulatives =
     { time : timestamp
     ; tick : tick_cumulative
-    ; lps : lps_cumulative
+    ; spl : spl_cumulative
     }
 
 let init_timed_cumulatives : timed_cumulatives =
     { time = (100 : timestamp)  // Should not really matter
     ; tick = { sum = 0; block_start_value = {i = 0} }
-    ; lps = { sum = {x128 = 0n}; block_start_liquidity_value = 0n }
+    ; spl = { sum = {x128 = 0n}; block_start_liquidity_value = 0n }
     }
 
 // Extendable ring buffer with time-weighted 1/L cumulative values.
@@ -284,8 +287,8 @@ type metadata_map = (string, bytes) big_map
 type constants = {
     fee_bps : nat ;
     ctez_burn_fee_bps : nat ;
-    x_token_id : nat ;
-    y_token_id : nat ;
+    x_token_id : token_id ;
+    y_token_id : token_id ;
     x_token_address : address ;
     y_token_address : address ;
 }

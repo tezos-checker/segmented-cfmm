@@ -1,16 +1,18 @@
 #!/usr/bin/env stack
--- stack --resolver lts-17.3 script --package string-interpolate --package universum
+-- stack --resolver lts-17.3 script --package string-interpolate --package universum --package text-manipulate
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 -- | Script for adding new error to ligo and also update the docs.
 module GenerateErrorCode where
 
 import Data.String.Interpolate (i)
+import Data.Text.Manipulate (toCamel)
 import Prelude ()
 import Universum
 
@@ -77,6 +79,9 @@ invalidInputErrors = errorsEnumerate 100
 
   , "observe_future_timestamp_err"
       :? "Some of the timestamps passed to the `observe` entrypoint are yet in the future."
+
+  , "tick_order_err"
+      :? "When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`."
 
   ]
 
@@ -176,8 +181,8 @@ internalErrors = errorsEnumerate 300
   , "internal_seconds_cumulative_err"
       :? "Some problem in cumulative seconds computation."
 
-  , "internal_lps_cumulative_err"
-      :? "Some problem in cumulative liquidity per seconds computation."
+  , "internal_spl_cumulative_err"
+      :? "Some problem in cumulative seconds per liquidity computation."
 
   ]
 
@@ -275,7 +280,53 @@ Here is a summary of all the error codes thrown by the contract.
 
 |]
 
+---------------------------------------------------------------------------------
+-- Haskell
+---------------------------------------------------------------------------------
+
+haskellFnName :: ErrorItem -> Text
+haskellFnName = toCamel . eiLabel
+
+errorItemToHaskellText :: ErrorItem -> Text
+errorItemToHaskellText err@ErrorItem{eiDesc, eiCode} =
+  [i|
+-- | #{eiDesc}
+#{fnName} :: Natural
+#{fnName} = #{eiCode}|]
+  where
+    fnName = haskellFnName err
+
+haskellErrorsTemplate :: Text
+haskellErrorsTemplate =
+  [i|-- SPDX-FileCopyrightText: 2021 Arthur Breitman
+-- SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
+
+-- NOTE: This file should not be modified directly.
+-- Use @stack scripts/generate_error_code.hs@ instead.
+
+{-\# OPTIONS_GHC -Wno-missing-export-lists \#-}
+
+module SegCFMM.Errors where
+
+import Universum
+
+----------------------------------------------------------------------------
+-- Invalid Input Error Codes
+----------------------------------------------------------------------------
+#{unlines $ errorItemToHaskellText <$> invalidInputErrors}
+
+----------------------------------------------------------------------------
+-- Contract Configuration Error Codes
+----------------------------------------------------------------------------
+#{unlines $ errorItemToHaskellText <$> invalidConfigErrors}
+
+----------------------------------------------------------------------------
+-- Internal Error Codes
+----------------------------------------------------------------------------
+#{unlines $ errorItemToHaskellText <$> internalErrors}|]
+
 main :: IO ()
 main = do
   writeFile "ligo/errors.mligo" ligoErrorsTemplate
   writeFile "docs/error-codes.md" mdErrorsTemplate
+  writeFile "haskell/src/SegCFMM/Errors.hs" haskellErrorsTemplate

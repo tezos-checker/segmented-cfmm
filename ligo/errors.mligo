@@ -47,6 +47,9 @@
 (* Some of the timestamps passed to the `observe` entrypoint are yet in the future. *)
 [@inline] let observe_future_timestamp_err = 110n
 
+(* When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. *)
+[@inline] let tick_order_err = 111n
+
 
 
 // ---------------------------------------------------------------------------
@@ -143,8 +146,8 @@
 (* Some problem in cumulative seconds computation. *)
 [@inline] let internal_seconds_cumulative_err = 325n
 
-(* Some problem in cumulative liquidity per seconds computation. *)
-[@inline] let internal_lps_cumulative_err = 326n
+(* Some problem in cumulative seconds per liquidity computation. *)
+[@inline] let internal_spl_cumulative_err = 326n
 
 
 
