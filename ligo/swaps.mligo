@@ -7,6 +7,25 @@
 #include "math.mligo"
 #include "helpers.mligo"
 
+(*
+Note [Rounding the swap result]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When calculating how many tokens to give the user for a swap, we can either round the
+amount up (using `ceildiv`) or down (using `floordiv`) to the nearest integer.
+
+Rounding it up would mean we'd sometimes give the user ~1 extra token.
+Over time, this effect could compound and slowly drain the contract's balance faster than expected.
+This, in turn, would mean some Liquidity Providers would not be able to liquidate their positions.
+
+Furthermore, rounding it up would open the door to exploits.
+Imagine a scenario where, at the current exchange rate, it costs 20 Y tokens to buy 1 X token.
+A user could simply trade in 1 Y token, and receive 0.05 X tokens.
+0.05 would be rounded up to 1, and the user would make an easy 1900% profit.
+
+To prevent this, we must round it down.
+*)
+
 (* Calculates the new `cur_tick_index` after a given price change. *)
 let calc_new_cur_tick_index (cur_tick_index : tick_index) (sqrt_price_old : x80n) (sqrt_price_new : x80n) (l : ladder): tick_index =
     let cur_tick_index_delta = floor_log_half_bps_x80(sqrt_price_new, sqrt_price_old, too_big_price_change_err) in
@@ -145,7 +164,8 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
         if cur_tick_index_new.i < next_tick_index.i then
             (* The trade did not push us past the current tick. *)
             (* From 6.16 formula: dx = L * (1 / old sqrt_price - 1 / new sqrt_price), where dx is how X decreases *)
-            let dx = ceildiv (p.s.liquidity * Bitwise.shift_left (assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_bad_sqrt_price_move_y_direction)) 80n)
+            // Note [Rounding the swap result]
+            let dx = floordiv (p.s.liquidity * Bitwise.shift_left (assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_bad_sqrt_price_move_y_direction)) 80n)
                              (sqrt_price_new.x80 * p.s.sqrt_price.x80) in
             let s_new = {p.s with
                 sqrt_price = sqrt_price_new ;
@@ -160,7 +180,8 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
 
             (* How much dx will we receive for going all the way to cur_tick_witness. *)
             (* From 6.16 formula: dx = L * (1 / old sqrt_price - 1 / new sqrt_price), where dx is how X decreases *)
-            let dx = ceildiv (p.s.liquidity * Bitwise.shift_left (assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_bad_sqrt_price_move_y_direction)) 80n)
+            // Note [Rounding the swap result]
+            let dx = floordiv (p.s.liquidity * Bitwise.shift_left (assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_bad_sqrt_price_move_y_direction)) 80n)
                              (sqrt_price_new.x80 * p.s.sqrt_price.x80) in
             (* How much dy does that correspond to. *)
             let dy_for_dx = ceildiv (Bitwise.shift_left dx 160n) (p.s.sqrt_price.x80 * sqrt_price_new.x80) in
