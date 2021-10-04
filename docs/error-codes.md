@@ -54,7 +54,7 @@ Here is a summary of all the error codes thrown by the contract.
 | 304 | `internal_bad_sqrt_price_move_x_direction` | Unexpected price direction movement after sqrt_price_move_x. |
 | 305 | `internal_bad_sqrt_price_move_y_direction` | Unexpected price direction movement after sqrt_price_move_y. |
 | 306 | `flip_fee_growth_outside_err` | Flip for `fee_growth_outside` failed. (This is an invariant of the contract). |
-| 307 | `internal_307` | Thrown when `(p.dx - dx_consummed)` or `(p.dy - dy_consummed)` is not nat. |
+| 307 | `internal_307` | Thrown when `(p.dx - dx_consumed)` or `(p.dy - dy_consumed)` is not nat. |
 | 308 | `internal_liquidity_below_zero_err` | Liquidity went below zero. |
 | 309 | `internal_309` | Thrown when `(p.dx - r.dx)` is not nat. |
 | 311 | `internal_311` | Thrown when `s.cur_tick_index.i >= upper_tick_index.i` and `(s.fee_growth.x - upper_tick.fee_growth_outside.x)` (or `y`) is not nat. |

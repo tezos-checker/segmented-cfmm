@@ -92,7 +92,7 @@
 (* Flip for `fee_growth_outside` failed. (This is an invariant of the contract). *)
 [@inline] let flip_fee_growth_outside_err = 306n
 
-(* Thrown when `(p.dx - dx_consummed)` or `(p.dy - dy_consummed)` is not nat. *)
+(* Thrown when `(p.dx - dx_consumed)` or `(p.dy - dy_consumed)` is not nat. *)
 [@inline] let internal_307 = 307n
 
 (* Liquidity went below zero. *)

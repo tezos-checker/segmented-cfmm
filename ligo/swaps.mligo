@@ -96,10 +96,10 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             let dy = Bitwise.shift_right (p.s.liquidity * (assert_nat (p.s.sqrt_price.x80 - sqrt_price_new.x80, internal_bad_sqrt_price_move_x_direction))) 80n in
             (* How much dX does that correspond to. *)
             let dx_for_dy = ceildiv (Bitwise.shift_left dy 160n) (p.s.sqrt_price.x80 * sqrt_price_new.x80) in
-            (* We will have to consumme more dx than that because a fee will be applied. *)
-            let dx_consummed = ceildiv (dx_for_dy * 10000n) (one_minus_fee_bps(p.s.constants)) in
+            (* We will have to consume more dx than that because a fee will be applied. *)
+            let dx_consumed = ceildiv (dx_for_dy * 10000n) (one_minus_fee_bps(p.s.constants)) in
             (* Deduct the fee we will actually be paying. *)
-            let fee = assert_nat (dx_consummed - dx_for_dy, internal_impossible_err) in
+            let fee = assert_nat (dx_consumed - dx_for_dy, internal_impossible_err) in
             let fee_growth_x_new = {x128 = p.s.fee_growth.x.x128 + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity)} in
             (* Flip tick cumulative growth. *)
             let sums = get_last_cumulatives p.s.cumulatives_buffer in
@@ -127,7 +127,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
                 (* Update liquidity as we enter new tick region. *)
                 liquidity = assert_nat (p.s.liquidity - tick.liquidity_net, internal_liquidity_below_zero_err)
                 } in
-            let p_new = {p with s = s_new ; dx = assert_nat (p.dx - dx_consummed, internal_307) ; dy = p.dy + dy} in
+            let p_new = {p with s = s_new ; dx = assert_nat (p.dx - dx_consumed, internal_307) ; dy = p.dy + dy} in
             x_to_y_rec p_new
 
 let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
@@ -167,10 +167,10 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             (* plouf *)
 
 
-            (* We will have to consumme more dy than that because a fee will be applied. *)
-            let dy_consummed = ceildiv (dy_for_dx * 10000n) (one_minus_fee_bps(p.s.constants)) in
+            (* We will have to consume more dy than that because a fee will be applied. *)
+            let dy_consumed = ceildiv (dy_for_dx * 10000n) (one_minus_fee_bps(p.s.constants)) in
             (* Deduct the fee we will actually be paying. *)
-            let fee = assert_nat (dy_consummed - dy_for_dx, internal_impossible_err) in
+            let fee = assert_nat (dy_consumed - dy_for_dx, internal_impossible_err) in
             let fee_growth_y_new = {x128 = p.s.fee_growth.y.x128 + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity)} in
             (* Flip tick cumulative growth. *)
             let sums = get_last_cumulatives p.s.cumulatives_buffer in
@@ -198,7 +198,7 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
                 (* Update liquidity as we enter new tick region. *)
                 liquidity = assert_nat (p.s.liquidity + tick.liquidity_net, internal_liquidity_below_zero_err)
                 } in
-            let p_new = {p with s = s_new ; dy = assert_nat (p.dy - dy_consummed, internal_307) ; dx = p.dx + dx} in
+            let p_new = {p with s = s_new ; dy = assert_nat (p.dy - dy_consumed, internal_307) ; dx = p.dx + dx} in
             y_to_x_rec p_new
 
 (* Get amount of X spent, Y received, and updated storage. *)
