@@ -7,6 +7,62 @@
 #include "math.mligo"
 #include "helpers.mligo"
 
+(* Calculates the new `cur_tick_index` after a given price change. *)
+let calc_new_cur_tick_index (cur_tick_index : tick_index) (sqrt_price_old : x80n) (sqrt_price_new : x80n) (l : ladder): tick_index =
+    let cur_tick_index_delta = floor_log_half_bps_x80(sqrt_price_new, sqrt_price_old, too_big_price_change_err) in
+    let cur_tick_index_new = {i = cur_tick_index.i + cur_tick_index_delta } in
+
+    (*
+      When a very small change in `sqrt_price` occurs, `cur_tick_index_delta` might be
+      small enough that it gets rounded down to 0.
+
+      For example, assuming liquidity=1,000,000, and the contract is at index 0, the current `sqrt_price` should be:
+        $ ligo repl cameligo
+        > #use "ligo/main.mligo";;
+          #use "ligo/defaults.mligo";;
+          let cur_sqrt_price = half_bps_pow(0, default_ladder);;
+          cur_sqrt_price;;
+        < record[x80 -> +1208925819614629174706176]
+      Depositing 10 Y tokens will move the price as follows:
+        > let new_sqrt_price = sqrt_price_move_y 1000000n (half_bps_pow(0, default_ladder)) 10n;;
+          new_sqrt_price;;
+        < record[x80 -> +1208937908872825320997924]
+      In this instance, `floor_log_half_bps_x80` would round the `cur_tick_index_delta` down to 0:
+        > floor_log_half_bps_x80(new_sqrt_price, cur_sqrt_price, 0n);;
+        < 0
+      This means that placing many small swaps would slowly move the `sqrt_price` upwards,
+      but the `cur_tick_index` would always be stuck without moving (due to all the deltas being rounded down to 0).
+
+      To avoid `cur_tick_index` being stuck, we check whether `sqrt_price_new` has moved beyond
+      the price for `cur_tick_index + 1`.
+      If it has, then we need to bump up `cur_tick_index` by 1 to unstuck it.
+
+      ---
+
+      Similarly, in some edge cases, `floor_log_half_bps_x80` may end up rounding the `cur_tick_index_delta` up!
+      Depositing 50 Y tokens will move the price as follows:
+        > let new_sqrt_price = sqrt_price_move_y 1000000n (half_bps_pow(0, default_ladder)) 50n;;
+      Which sits between the sqrt_price for ticks 0 and 1, so we would
+      expect `cur_tick_index_delta` to be 0 and `cur_tick_index` to stay at 0.
+        > half_bps_pow(0, default_ladder) <= new_sqrt_price && new_sqrt_price < half_bps_pow(1, default_ladder);;
+        < true(unit)
+      However, it is so close to the sqrt_price of tick 1 that `floor_log_half_bps_x80` ends up overshooting and rounds
+      the `cur_tick_index_delta` up to 1.
+        > floor_log_half_bps_x80(new_sqrt_price, cur_sqrt_price, 0n);;
+        < 1
+
+      In this case, we check whether `sqrt_price_new` is below the price for `cur_tick_index`.
+      If it is, we decrement `cur_tick_index` by 1.
+    *)
+    let next_index_sqrt_price = half_bps_pow (cur_tick_index_new.i + 1, l) in
+    let cur_index_sqrt_price = half_bps_pow (cur_tick_index_new.i, l) in
+    let cur_tick_index_new =
+            if next_index_sqrt_price.x80 <= sqrt_price_new.x80
+                then {i = cur_tick_index_new.i + 1}
+            else if sqrt_price_new.x80 < cur_index_sqrt_price.x80
+                then {i = cur_tick_index_new.i - 1}
+            else cur_tick_index_new in
+    cur_tick_index_new
 
 (* Helper function for x_to_y, recursively loops over ticks to execute a trade. *)
 let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
@@ -18,7 +74,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
         (* What the new price will be, assuming it's within the current tick. *)
         let sqrt_price_new = sqrt_price_move_x p.s.liquidity p.s.sqrt_price (assert_nat (p.dx - fee, internal_fee_more_than_100_percent_err)) in
         (* What the new value of cur_tick_index will be. *)
-        let cur_tick_index_new = {i = p.s.cur_tick_index.i + floor_log_half_bps_x80(sqrt_price_new, p.s.sqrt_price, too_big_price_change_err)} in
+        let cur_tick_index_new = calc_new_cur_tick_index p.s.cur_tick_index p.s.sqrt_price sqrt_price_new p.s.ladder in
         if cur_tick_index_new.i >= p.s.cur_tick_witness.i then
             (* The trade did not push us past the current tick. *)
             let dy = Bitwise.shift_right ((assert_nat (p.s.sqrt_price.x80 - sqrt_price_new.x80, internal_bad_sqrt_price_move_x_direction)) * p.s.liquidity) 80n in
@@ -83,7 +139,7 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
         (* What the new price will be, assuming it's within the current tick. *)
         let sqrt_price_new = sqrt_price_move_y p.s.liquidity p.s.sqrt_price (assert_nat (p.dy - fee, internal_fee_more_than_100_percent_err)) in
         (* What the new value of cur_tick_index will be. *)
-        let cur_tick_index_new = {i = p.s.cur_tick_index.i + floor_log_half_bps_x80(sqrt_price_new, p.s.sqrt_price, too_big_price_change_err)} in
+        let cur_tick_index_new = calc_new_cur_tick_index p.s.cur_tick_index p.s.sqrt_price sqrt_price_new p.s.ladder in
         let tick = get_tick p.s.ticks p.s.cur_tick_witness internal_tick_not_exist_err in
         let next_tick_index = tick.next in
         if cur_tick_index_new.i < next_tick_index.i then
