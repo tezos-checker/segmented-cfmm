@@ -23,7 +23,8 @@ let rec initialize_tick ((ticks, tick_index, tick_witness,
     initial_tick_cumulative_outside,
     initial_fee_growth_outside,
     initial_seconds_outside,
-    initial_seconds_per_liquidity_outside) : tick_map * tick_index * tick_index * int * balance_nat_x128 * nat * x128n) : tick_map =
+    initial_seconds_per_liquidity_outside,
+    ladder) : tick_map * tick_index * tick_index * int * balance_nat_x128 * nat * x128n * ladder) : tick_map =
     if Big_map.mem tick_index ticks then
         ticks
     else if tick_witness.i > tick_index.i then
@@ -44,7 +45,7 @@ let rec initialize_tick ((ticks, tick_index, tick_witness,
                 fee_growth_outside = initial_fee_growth_outside;
                 seconds_outside = initial_seconds_outside;
                 seconds_per_liquidity_outside = initial_seconds_per_liquidity_outside;
-                sqrt_price = half_bps_pow tick_index.i} ticks in
+                sqrt_price = half_bps_pow (tick_index.i, ladder)} ticks in
             ticks
         else
             initialize_tick
@@ -53,6 +54,7 @@ let rec initialize_tick ((ticks, tick_index, tick_witness,
                 , initial_fee_growth_outside
                 , initial_seconds_outside
                 , initial_seconds_per_liquidity_outside
+                , ladder
                 )
 
 (* Account for the fact that this tick is a boundary for one more (or one less) position. *)
@@ -169,9 +171,20 @@ let set_position (s : storage) (p : set_position_param) : result =
             , sums.tick.sum, s.fee_growth
             , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
             , sums.spl.sum
+            , s.ladder
             )
     else
-        initialize_tick (ticks, p.lower_tick_index, p.lower_tick_witness, 0, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
+        initialize_tick
+            ( ticks
+            , p.lower_tick_index
+            , p.lower_tick_witness
+            , 0
+            , {x = {x128 = 0n} ; y = {x128 = 0n}}
+            , 0n
+            , {x128 = 0n}
+            , s.ladder
+            )
+    in
     let ticks = if s.cur_tick_index.i >= p.upper_tick_index.i then
         let sums = get_last_cumulatives s.cumulatives_buffer in
         initialize_tick
@@ -179,9 +192,20 @@ let set_position (s : storage) (p : set_position_param) : result =
             , sums.tick.sum, s.fee_growth
             , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
             , sums.spl.sum
+            , s.ladder
             )
     else
-        initialize_tick (ticks, p.upper_tick_index, p.upper_tick_witness, 0, {x = {x128 = 0n} ; y = {x128 = 0n}}, 0n, {x128 = 0n})  in
+        initialize_tick
+            ( ticks
+            , p.upper_tick_index
+            , p.upper_tick_witness
+            , 0
+            , {x = {x128 = 0n} ; y = {x128 = 0n}}
+            , 0n
+            , {x128 = 0n}
+            , s.ladder
+            )
+    in
     let s = {s with ticks = ticks} in
 
     let s = update_cur_tick_witness s p.lower_tick_index in
