@@ -21,6 +21,7 @@ extra-source-files:
     test/segmented_cfmm_FA2_CTEZ.tz
     test/segmented_cfmm_FA2_FA12.tz
     test/storage_default.tz
+    test/liquidity_mining.tz
 extra-doc-files:
     README.md
 
@@ -30,6 +31,8 @@ source-repository head
 
 library
   exposed-modules:
+      FA2.Types
+      LiquidityMining.Types
       SegCFMM.Errors
       SegCFMM.Types
       SegCFMM.TZIP16Metadata
@@ -177,7 +180,9 @@ test-suite segmented-cfmm-test
   main-is: Main.hs
   other-modules:
       Test.Invariants
+      Test.LiquidityMining.Contract
       Test.Math
+      Test.Mining
       Test.SegCFMM
       Test.SegCFMM.Contract
       Test.SegCFMM.Storage

@@ -9,8 +9,11 @@ module Test.Util
   -- * Cleveland helpers
     clevelandProp
   , evalJust
+  -- * FA2 helpers
+  , simpleFA2Storage
   -- * Segmented CFMM helpers
   , originateSegCFMM
+  , prepareSomeSegCFMM
   , mkDeadline
   , advanceSecs
   , mapToList
@@ -35,8 +38,10 @@ import Morley.Nettest.Pure (PureM, runEmulated)
 import Tezos.Core (timestampPlusSeconds)
 import Time (sec)
 
-import SegCFMM.Types
+import FA2.Types
+import SegCFMM.Types as CFMM
 import Test.SegCFMM.Contract (TokenType(..), segCFMMContract)
+import Test.SegCFMM.Storage as CFMM
 
 deriving stock instance Eq CumulativesBuffer
 deriving stock instance Eq Storage
@@ -55,6 +60,17 @@ evalJust = \case
   Just a -> pure a
 
 ----------------------------------------------------------------------------
+-- FA2 helpers
+----------------------------------------------------------------------------
+
+simpleFA2Storage :: (Address, FA2.TokenId) -> FA2.Storage
+simpleFA2Storage rich = FA2.Storage
+  { sLedger = mkBigMap [ (rich, 100000) ]
+  , sOperators = mempty
+  , sTokenMetadata = mempty
+  }
+
+----------------------------------------------------------------------------
 -- Segmented CFMM helpers
 ----------------------------------------------------------------------------
 
@@ -64,6 +80,47 @@ originateSegCFMM
   -> m (ContractHandler Parameter Storage)
 originateSegCFMM xTokenType yTokenType storage = do
   originateSimple "Segmented CFMM" storage $ segCFMMContract xTokenType yTokenType
+
+-- | Originate some CFMM contract.
+--
+-- This will originate the necessary FA2 tokens and the CFMM contract itself
+-- to operate on them.
+prepareSomeSegCFMM
+  :: MonadNettest caps base m
+  => Address
+  -> m ( ContractHandler CFMM.Parameter CFMM.Storage
+       , (FA2Token, FA2Token)
+       )
+prepareSomeSegCFMM liquidityProvider = do
+  let xTokenId = FA2.TokenId 0
+  let yTokenId = FA2.TokenId 1
+  let xFa2storage = simpleFA2Storage (liquidityProvider, xTokenId)
+  let yFa2storage = simpleFA2Storage (liquidityProvider, yTokenId)
+  xToken <- originateSimple "fa2-X" xFa2storage
+    (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
+  yToken <- originateSimple "fa2-Y" yFa2storage
+    (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
+
+  let initialSt = CFMM.defaultStorage
+        { CFMM.sConstants = (CFMM.sConstants CFMM.defaultStorage)
+          { CFMM.cXTokenAddress = toAddress xToken
+          , CFMM.cXTokenId = xTokenId
+          , CFMM.cYTokenAddress = toAddress yToken
+          , CFMM.cYTokenId = yTokenId
+          }
+        }
+  cfmm <- originateSegCFMM FA2 FA2 initialSt
+
+  withSender liquidityProvider do
+    call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) xTokenId]
+    call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) yTokenId]
+
+  return
+    ( cfmm
+    , ( FA2Token (toAddress xToken) xTokenId
+      , FA2Token (toAddress yToken) yTokenId
+      )
+    )
 
 -- | Create a valid deadline
 mkDeadline :: MonadNettest caps base m => m Timestamp
