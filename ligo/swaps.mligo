@@ -100,7 +100,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             let s_new = {p.s with
                 sqrt_price = sqrt_price_new ;
                 cur_tick_index = cur_tick_index_new ;
-                fee_growth = {p.s.fee_growth with x = {x128 = p.s.fee_growth.x.x128 + fee / p.s.liquidity}}} in
+                fee_growth = {p.s.fee_growth with x = {x128 = p.s.fee_growth.x.x128 + Bitwise.shift_left fee 128n / p.s.liquidity}}} in
             {p with s = s_new ; dx = 0n ; dy = p.dy + dy}
         else
             (*We did cross the tick. *)
@@ -170,7 +170,7 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             let s_new = {p.s with
                 sqrt_price = sqrt_price_new ;
                 cur_tick_index = cur_tick_index_new ;
-                fee_growth = {p.s.fee_growth with y = {x128 = p.s.fee_growth.y.x128 + fee / p.s.liquidity}}} in
+                fee_growth = {p.s.fee_growth with y = {x128 = p.s.fee_growth.y.x128 + Bitwise.shift_left fee 128n / p.s.liquidity}}} in
             {p with s = s_new ; dy = 0n ; dx = p.dx + dx}
         else
             (*We did cross the tick. *)
