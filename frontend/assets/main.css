@@ -1,0 +1,29 @@
+/* SPDX-FileCopyrightText: 2021 Arthur Breitman
+SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman */
+
+@tailwind base;
+@tailwind components;
+
+
+.tooltip {
+  position: relative;
+  display: block;
+}
+
+.tooltip .tooltip_text {
+  visibility: hidden;
+  background-color: black;
+  color: #fff;
+  border-radius: 6px;
+
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  top: 34px;
+}
+
+.tooltip:hover .tooltip_text {
+  visibility: visible;
+}
+
+@tailwind utilities;
