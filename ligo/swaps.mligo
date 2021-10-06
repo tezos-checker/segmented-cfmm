@@ -125,15 +125,20 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             let tick_cumulative_outside_new = sums.tick.sum - tick.tick_cumulative_outside in
             (* Flip fee growth. *)
             let fee_growth_outside_new = {tick.fee_growth_outside with
-                x = {x128 = assert_nat (fee_growth_x_new.x128 - tick.fee_growth_outside.x.x128, flip_fee_growth_outside_err)}} in
+                x = {x128 = assert_nat (fee_growth_x_new.x128 - tick.fee_growth_outside.x.x128, internal_flip_fee_growth_outside_err)}} in
             let fee_growth_new = {p.s.fee_growth with x=fee_growth_x_new} in
             (* Flip time growth. *)
             let seconds_outside_new = assert_nat ((Tezos.now - epoch_time) - tick.seconds_outside, internal_negative_seconds_outside_err) in
+            (* Flip seconds_per_liquidity_outside *)
+            let seconds_per_liquidity_outside_new =
+                { x128 = assert_nat(sums.spl.sum.x128 - tick.seconds_per_liquidity_outside.x128, internal_flip_seconds_per_liquidity_outside_err)
+                } in
             (* Update tick state. *)
             let tick_new = {tick with
                     tick_cumulative_outside = tick_cumulative_outside_new ;
                     fee_growth_outside = fee_growth_outside_new ;
                     seconds_outside = seconds_outside_new ;
+                    seconds_per_liquidity_outside = seconds_per_liquidity_outside_new ;
                 } in
             let ticks_new = Big_map.update p.s.cur_tick_witness (Some tick_new) p.s.ticks  in
             (* Update global state. *)
@@ -198,15 +203,20 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             let tick_cumulative_outside_new = sums.tick.sum - next_tick.tick_cumulative_outside in
             (* Flip fee growth. *)
             let fee_growth_outside_new = {next_tick.fee_growth_outside with
-                y = {x128 = assert_nat (fee_growth_y_new.x128 - next_tick.fee_growth_outside.y.x128, flip_fee_growth_outside_err)}} in
+                y = {x128 = assert_nat (fee_growth_y_new.x128 - next_tick.fee_growth_outside.y.x128, internal_flip_fee_growth_outside_err)}} in
             let fee_growth_new = {p.s.fee_growth with y=fee_growth_y_new} in
             (* Flip time growth. *)
             let seconds_outside_new = assert_nat ((Tezos.now - epoch_time) - next_tick.seconds_outside, internal_negative_seconds_outside_err) in
+            (* Flip seconds_per_liquidity_outside *)
+            let seconds_per_liquidity_outside_new =
+                { x128 = assert_nat(sums.spl.sum.x128 - next_tick.seconds_per_liquidity_outside.x128, internal_flip_seconds_per_liquidity_outside_err)
+                } in
             (* Update tick state. *)
             let next_tick_new = { next_tick with
                     tick_cumulative_outside = tick_cumulative_outside_new ;
                     fee_growth_outside = fee_growth_outside_new ;
                     seconds_outside = seconds_outside_new ;
+                    seconds_per_liquidity_outside = seconds_per_liquidity_outside_new ;
                 } in
             let ticks_new = Big_map.update next_tick_index (Some next_tick_new) p.s.ticks  in
             (* Update global state. *)

@@ -90,7 +90,7 @@
 [@inline] let internal_bad_sqrt_price_move_y_direction = 305n
 
 (* Flip for `fee_growth_outside` failed. (This is an invariant of the contract). *)
-[@inline] let flip_fee_growth_outside_err = 306n
+[@inline] let internal_flip_fee_growth_outside_err = 306n
 
 (* Thrown when `(p.dx - dx_consumed)` or `(p.dy - dy_consumed)` is not nat. *)
 [@inline] let internal_307 = 307n
@@ -148,6 +148,9 @@
 
 (* Some problem in cumulative seconds per liquidity computation. *)
 [@inline] let internal_spl_cumulative_err = 326n
+
+(* Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract). *)
+[@inline] let internal_flip_seconds_per_liquidity_outside_err = 327n
 
 
 
