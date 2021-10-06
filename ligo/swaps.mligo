@@ -89,7 +89,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
         p
     else
         (* The fee that would be extracted from selling dx. *)
-        let fee  = ceildiv (p.dx * p.s.constants.fee_bps) 10000n in
+        let fee = ceildiv (p.dx * p.s.constants.fee_bps) 10000n in
         (* What the new price will be, assuming it's within the current tick. *)
         let sqrt_price_new = sqrt_price_move_x p.s.liquidity p.s.sqrt_price (assert_nat (p.dx - fee, internal_fee_more_than_100_percent_err)) in
         (* What the new value of cur_tick_index will be. *)
@@ -184,8 +184,8 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             let dx = floordiv (p.s.liquidity * Bitwise.shift_left (assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_bad_sqrt_price_move_y_direction)) 80n)
                              (sqrt_price_new.x80 * p.s.sqrt_price.x80) in
             (* How much dy does that correspond to. *)
-            let dy_for_dx = ceildiv (Bitwise.shift_left dx 160n) (p.s.sqrt_price.x80 * sqrt_price_new.x80) in
-            (* plouf *)
+            (* From 6.14 formula. *)
+            let dy_for_dx = Bitwise.shift_right (p.s.liquidity * (assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_bad_sqrt_price_move_x_direction))) 80n in
 
 
             (* We will have to consume more dy than that because a fee will be applied. *)
