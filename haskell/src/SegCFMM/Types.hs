@@ -244,7 +244,7 @@ instance Num a => Num (PerToken a) where
   PerToken x1 y1 - PerToken x2 y2 = PerToken (x1 - x2) (y1 - y2)
   abs (PerToken x y) = PerToken (abs x) (abs y)
   signum (PerToken x y) = PerToken (signum x) (signum y)
-  fromInteger = error "fromInteger is not defined for 'PerToken'"
+  fromInteger i = join PerToken (fromInteger i)
 
 type instance AsRPC (PerToken a) = PerToken a
 
@@ -329,6 +329,8 @@ instance HasAnnotation PositionId where
 
 type instance AsRPC PositionId = PositionId
 
+instance PositionId `CanCastTo` FA2.TokenId
+instance FA2.TokenId `CanCastTo` PositionId
 
 -- | Map containing Liquidity providers.
 type PositionMap = BigMap PositionIndex PositionState
