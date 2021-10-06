@@ -195,20 +195,20 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             let fee_growth_y_new = {x128 = p.s.fee_growth.y.x128 + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity)} in
             (* Flip tick cumulative growth. *)
             let sums = get_last_cumulatives p.s.cumulatives_buffer in
-            let tick_cumulative_outside_new = sums.tick.sum - tick.tick_cumulative_outside in
+            let tick_cumulative_outside_new = sums.tick.sum - next_tick.tick_cumulative_outside in
             (* Flip fee growth. *)
-            let fee_growth_outside_new = {tick.fee_growth_outside with
-                y = {x128 = assert_nat (fee_growth_y_new.x128 - tick.fee_growth_outside.y.x128, flip_fee_growth_outside_err)}} in
+            let fee_growth_outside_new = {next_tick.fee_growth_outside with
+                y = {x128 = assert_nat (fee_growth_y_new.x128 - next_tick.fee_growth_outside.y.x128, flip_fee_growth_outside_err)}} in
             let fee_growth_new = {p.s.fee_growth with y=fee_growth_y_new} in
             (* Flip time growth. *)
-            let seconds_outside_new = assert_nat ((Tezos.now - epoch_time) - tick.seconds_outside, internal_negative_seconds_outside_err) in
+            let seconds_outside_new = assert_nat ((Tezos.now - epoch_time) - next_tick.seconds_outside, internal_negative_seconds_outside_err) in
             (* Update tick state. *)
-            let tick_new = { tick with
+            let next_tick_new = { next_tick with
                     tick_cumulative_outside = tick_cumulative_outside_new ;
                     fee_growth_outside = fee_growth_outside_new ;
                     seconds_outside = seconds_outside_new ;
                 } in
-            let ticks_new = Big_map.update p.s.cur_tick_witness (Some tick_new) p.s.ticks  in
+            let ticks_new = Big_map.update next_tick_index (Some next_tick_new) p.s.ticks  in
             (* Update global state. *)
             let s_new = {p.s with
                 sqrt_price = sqrt_price_new ;
@@ -217,7 +217,7 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
                 ticks = ticks_new ;
                 fee_growth = fee_growth_new ;
                 (* Update liquidity as we enter new tick region. *)
-                liquidity = assert_nat (p.s.liquidity + tick.liquidity_net, internal_liquidity_below_zero_err)
+                liquidity = assert_nat (p.s.liquidity + next_tick.liquidity_net, internal_liquidity_below_zero_err)
                 } in
             let p_new = {p with s = s_new ; dy = assert_nat (p.dy - dy_consumed, internal_307) ; dx = p.dx + dx} in
             y_to_x_rec p_new
