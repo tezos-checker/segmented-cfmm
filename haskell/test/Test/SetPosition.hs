@@ -802,13 +802,13 @@ test_position_initialization =
 
       do
         -- TODO: test creating multiple positions, otherwise the secondsPerLiquidityOutside value will always be 0
-        (expectedSecondsOutside, expectedTickCumulativeOutside, expectedFeeGrowthOutside, expectedSecondsPerLiquidityOutside) <- initTickAccumulators cfmm st lowerTickIndex
+        Accumulators expectedSecondsOutside expectedTickCumulativeOutside expectedFeeGrowthOutside expectedSecondsPerLiquidityOutside <- initTickAccumulators cfmm st lowerTickIndex
         (lowerTick & tsSecondsOutside) @== expectedSecondsOutside
         (lowerTick & tsTickCumulativeOutside) @== expectedTickCumulativeOutside
         (lowerTick & tsFeeGrowthOutside) @== expectedFeeGrowthOutside
         (lowerTick & tsSecondsPerLiquidityOutside) @== expectedSecondsPerLiquidityOutside
       do
-        (expectedSecondsOutside, expectedTickCumulativeOutside, expectedFeeGrowthOutside, expectedSecondsPerLiquidityOutside) <- initTickAccumulators cfmm st upperTickIndex
+        Accumulators expectedSecondsOutside expectedTickCumulativeOutside expectedFeeGrowthOutside expectedSecondsPerLiquidityOutside <- initTickAccumulators cfmm st upperTickIndex
         (upperTick & tsSecondsOutside) @== expectedSecondsOutside
         (lowerTick & tsTickCumulativeOutside) @== expectedTickCumulativeOutside
         (upperTick & tsFeeGrowthOutside) @== expectedFeeGrowthOutside
@@ -832,7 +832,7 @@ test_position_initialization =
 
       -- TODO: do some swaps, otherwise this will always be zero.
       -- The swaps must be within ranges with positive liquidity.
-      expectedFeeGrowthInside <- feeGrowthInside st lowerTickIndex upperTickIndex
+      expectedFeeGrowthInside <- tickAccumulatorsInside cfmm st lowerTickIndex upperTickIndex <&> aFeeGrowth
       psFeeGrowthInsideLast position @== expectedFeeGrowthInside
 
       -- Check FA2 transfers

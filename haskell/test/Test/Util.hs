@@ -15,6 +15,7 @@ module Test.Util
   , originateSegCFMM
   , prepareSomeSegCFMM
   , prepareSomeSegCFMM'
+  , observe
   , mkDeadline
   , advanceSecs
   , mapToList
@@ -138,6 +139,15 @@ prepareSomeSegCFMM' liquidityProviders = do
       , FA2Token (toAddress yToken) yTokenId
       )
     )
+
+observe :: (HasCallStack, MonadEmulated caps base m) => ContractHandler Parameter st -> m CumulativesValue
+observe cfmm = do
+  currentTime <- getNow
+  consumer <- originateSimple @[CumulativesValue] "consumer" [] contractConsumer
+  call cfmm (Call @"Observe") $ mkView [currentTime] consumer
+  getFullStorage consumer >>= \case
+    [[cv]] -> pure cv
+    _ -> failure "Expected to get exactly 1 CumulativeValue"
 
 -- | Create a valid deadline
 mkDeadline :: MonadNettest caps base m => m Timestamp

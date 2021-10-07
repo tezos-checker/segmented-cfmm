@@ -14,19 +14,85 @@ import qualified Data.Map as Map
 import Fmt
 import Lorentz hiding (assert, not, now, (>>))
 import Morley.Nettest
+import Tezos.Core (timestampToSeconds)
 
 import SegCFMM.Types
 import Test.Math
 import Test.Util
 
-checkAllInvariants :: (HasCallStack, MonadEmulated caps base m) => ContractHandler cp Storage -> m ()
-checkAllInvariants ch = do
-  st <- getFullStorage ch
+checkAllInvariants :: (HasCallStack, MonadEmulated caps base m) => ContractHandler Parameter Storage -> m ()
+checkAllInvariants cfmm = do
+  st <- getFullStorage cfmm
   checkTickMapInvariants st
   checkTickInvariants st
   checkStorageInvariants st
+  checkBalanceInvariants cfmm st
+  checkAccumulatorsInvariants cfmm st
 
 -- | Invariant:
+-- For all accumulators: the sum of all the values accumulated between any two consecutive ticks
+-- must equal the global accumulated value.
+-- E.g.: if the ticks [i1, i2, i3, i4] have been initialized, then:
+--   fee_growth == fee_growth_inside(i1, i2) + fee_growth_inside(i2, i3) + fee_growth_inside(i3, i4)
+{-# ANN checkAccumulatorsInvariants ("HLint: ignore Use uncurry" :: Text) #-}
+checkAccumulatorsInvariants
+  :: (HasCallStack, MonadEmulated caps base m)
+  => ContractHandler Parameter Storage
+  -> Storage
+  -> m ()
+checkAccumulatorsInvariants cfmm st = do
+  tickIndices <- mapToList (sTicks st) <&> fmap fst
+  let tickIndicesPaired = tickIndices `zip` Unsafe.tail tickIndices
+  insideAccumulators <- for tickIndicesPaired \(idx1, idx2) -> tickAccumulatorsInside cfmm st idx1 idx2
+  let sumInsideAccumulators = foldl1 addTickAccumulators insideAccumulators
+
+  CumulativesValue {cvTickCumulative, cvSecondsPerLiquidityCumulative} <- observe cfmm
+  now <- getNow
+  let globalAccumulators =
+        Accumulators
+          { aSeconds = timestampToSeconds now
+          , aTickCumulative = cvTickCumulative
+          , aFeeGrowth = sFeeGrowth st
+          , aSecondsPerLiquidity = cvSecondsPerLiquidityCumulative
+          }
+
+  globalAccumulators @== sumInsideAccumulators
+  where
+    addTickAccumulators :: Accumulators -> Accumulators -> Accumulators
+    addTickAccumulators tc1 tc2 =
+      Accumulators
+        { aSeconds = aSeconds tc1 + aSeconds tc2
+        , aTickCumulative = aTickCumulative tc1 + aTickCumulative tc2
+        , aFeeGrowth = aFeeGrowth tc1 + aFeeGrowth tc2
+        , aSecondsPerLiquidity = aSecondsPerLiquidity tc1 + aSecondsPerLiquidity tc2
+        }
+
+-- | Invariant:
+-- The contract always has enough balance to liquidite all positions (and pay any fees due).
+checkBalanceInvariants :: (HasCallStack, MonadEmulated caps base m) => ContractHandler Parameter Storage -> Storage -> m ()
+checkBalanceInvariants cfmm st = do
+  let positions = Map.toList $ bmMap $ sPositions st
+
+  -- Liquidate all positions and rollback.
+  offshoot "contract should have enough liquidity to liquidate all positions" do
+    for_ positions \(idx, pstate) -> do
+      let liquidityProvider = piOwner idx
+      deadline <- mkDeadline
+      withSender liquidityProvider do
+        call cfmm (Call @"Set_position")
+          SetPositionParam
+            { sppLowerTickIndex = piLowerTickIndex idx
+            , sppUpperTickIndex = piUpperTickIndex idx
+            , sppLowerTickWitness = piLowerTickIndex idx
+            , sppUpperTickWitness = piUpperTickIndex idx
+            , sppLiquidityDelta = - fromIntegral (psLiquidity pstate)
+            , sppToX = liquidityProvider
+            , sppToY = liquidityProvider
+            , sppDeadline = deadline
+            , sppMaximumTokensContributed = PerToken 0 0
+            }
+
+-- | Invariants:
 -- 1. @cur_tick_witness@ is the highest initialized tick lower than or equal to @cur_tick_index@.
 -- 2. Current liquidity is equal to the sum of all the tick's @liquidity_net@
 --    from the lowest tick up to the current tick.

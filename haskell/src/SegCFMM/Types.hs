@@ -9,6 +9,7 @@ module SegCFMM.Types
     X(..)
   , powerOfX
   , mkX
+  , mkX'
   , adjustScale
   , Parameter(..)
   , XToYParam(..)
@@ -76,9 +77,13 @@ type instance AsRPC (X n a) = X n a
 powerOfX :: KnownNat n => X n a -> Natural
 powerOfX (X{} :: X n a) = natVal (Proxy @n)
 
--- | Convert a fraction to 'X'.
-mkX :: forall a n b. (KnownNat n, RealFrac a, Integral b) => a -> X n b
-mkX = X . round . (* 2 ^ natVal (Proxy @n))
+-- | Stores the number is a @2^n@ scale.
+mkX :: forall a n. (KnownNat n, Integral a) => a -> X n a
+mkX a = X (a * 2 ^ natVal (Proxy @n))
+
+-- | Stores the number is a @2^n@ scale.
+mkX' :: forall a n b. (KnownNat n, RealFrac a, Integral b) => a -> X n b
+mkX' = X . round . (* 2 ^ natVal (Proxy @n))
 
 adjustScale :: forall n2 n1 i. (Integral i, KnownNat n1, KnownNat n2) => X n1 i -> X n2 i
 adjustScale (X i) =
@@ -237,7 +242,7 @@ data PerToken a = PerToken
   { ptX :: a
   , ptY :: a
   }
-  deriving stock (Eq, Functor)
+  deriving stock (Eq, Show, Functor)
 
 instance Num a => Num (PerToken a) where
   PerToken x1 y1 + PerToken x2 y2 = PerToken (x1 + x2) (y1 + y2)
@@ -370,7 +375,7 @@ initTimedCumulatives :: TimedCumulatives
 initTimedCumulatives = TimedCumulatives
   { tcTime = timestampFromSeconds 100
   , tcTick = TickCumulative 0 (TickIndex 0)
-  , tcSpl = SplCumulative (mkX @Double 0) 1
+  , tcSpl = SplCumulative (mkX 0) 1
   }
 
 data CumulativesBuffer = CumulativesBuffer

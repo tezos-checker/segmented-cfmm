@@ -4,7 +4,8 @@
 -- | This module implements some of the equations described in the Uniswap v3 whitepaper.
 module Test.Math
   ( sqrtPriceFor
-  , feeGrowthInside
+  , Accumulators(..)
+  , tickAccumulatorsInside
   , liquidityDeltaToTokensDelta
   , initTickAccumulators
   ) where
@@ -12,8 +13,8 @@ module Test.Math
 import Prelude
 
 import qualified Data.Map as Map
+import Fmt (Buildable, GenericBuildable(..))
 import Lorentz hiding (assert, not, now, (>>))
-import Lorentz.Test (contractConsumer)
 import Morley.Nettest
 import Tezos.Core (timestampToSeconds)
 
@@ -23,6 +24,15 @@ import Test.Util
 _280 :: Integral a => a
 _280 = 2^(80 :: Integer)
 
+data Accumulators = Accumulators
+  { aSeconds :: Natural
+  , aTickCumulative :: Integer
+  , aFeeGrowth :: PerToken (X 128 Natural)
+  , aSecondsPerLiquidity :: X 128 Natural
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving Buildable via (GenericBuildable Accumulators)
+
 -- | Calculate the expected @sqrt_price@ for a given tick index.
 sqrtPriceFor :: TickIndex -> X 30 Natural
 sqrtPriceFor (TickIndex i) =
@@ -31,22 +41,50 @@ sqrtPriceFor (TickIndex i) =
   -- we need to account for that loss of precision, so we reduce the scale
   -- of each number from 2^80 to 2^30.
   adjustScale @30 $
-    mkX @Double @80 (sqrt (exp 0.0001) ^^ i)
+    mkX' @Double @80 (sqrt (exp 0.0001) ^^ i)
 
 -- | Calculate the fee growth within a given range since the contract was originated.
-feeGrowthInside :: (MonadEmulated caps base m, HasCallStack) => Storage -> TickIndex -> TickIndex -> m (PerToken (X 128 Natural))
-feeGrowthInside st lowerTickIndex upperTickIndex = do
-  -- Equation 6.17
-  let feeGrowthAbove ti ts = if sCurTickIndex st >= ti then sFeeGrowth st - tsFeeGrowthOutside ts else tsFeeGrowthOutside ts
-  -- Equation 6.18
-  let feeGrowthBelow ti ts = if sCurTickIndex st >= ti then tsFeeGrowthOutside ts else sFeeGrowth st - tsFeeGrowthOutside ts
-  -- Equation 6.18
-  let feeGrowthInside' lowerTi lowerTs upperTi upperTs =
-        sFeeGrowth st - feeGrowthBelow lowerTi lowerTs - feeGrowthAbove upperTi upperTs
+tickAccumulatorsInside
+  :: forall caps base m
+   . (MonadEmulated caps base m, HasCallStack)
+  => ContractHandler Parameter Storage
+  -> Storage
+  -> TickIndex
+  -> TickIndex
+  -> m Accumulators
+tickAccumulatorsInside cfmm st lowerTi upperTi = do
+  lowerTs <- st & sTicks & bmMap & Map.lookup lowerTi & evalJust
+  upperTs <- st & sTicks & bmMap & Map.lookup upperTi & evalJust
 
-  lowerTick <- st & sTicks & bmMap & Map.lookup lowerTickIndex & evalJust
-  upperTick <- st & sTicks & bmMap & Map.lookup upperTickIndex & evalJust
-  pure $ feeGrowthInside' lowerTickIndex lowerTick upperTickIndex upperTick
+  currentTime <- getNow
+  CumulativesValue {cvTickCumulative, cvSecondsPerLiquidityCumulative} <- observe cfmm
+  pure Accumulators
+    { aSeconds
+        = tickAccumulatorInside lowerTs upperTs (timestampToSeconds currentTime) tsSecondsOutside
+    , aTickCumulative
+        = tickAccumulatorInside lowerTs upperTs cvTickCumulative tsTickCumulativeOutside
+    , aFeeGrowth
+        = tickAccumulatorInside lowerTs upperTs (sFeeGrowth st) tsFeeGrowthOutside
+    , aSecondsPerLiquidity
+        = tickAccumulatorInside lowerTs upperTs cvSecondsPerLiquidityCumulative tsSecondsPerLiquidityOutside
+    }
+  where
+    -- Equation 6.17
+    tickAccumulatorAbove :: Num a => (TickIndex, TickState) -> a -> (TickState -> a) -> a
+    tickAccumulatorAbove (idx, ts) globalAcc tickAccOutside =
+      if sCurTickIndex st >= idx then globalAcc - tickAccOutside ts else tickAccOutside ts
+
+    -- Equation 6.18
+    tickAccumulatorBelow :: Num a => (TickIndex, TickState) -> a -> (TickState -> a) -> a
+    tickAccumulatorBelow (idx, ts) globalAcc tickAccOutside =
+        if sCurTickIndex st >= idx then tickAccOutside ts else globalAcc - tickAccOutside ts
+
+    -- Equation 6.19
+    tickAccumulatorInside :: Num a => TickState -> TickState -> a -> (TickState -> a) -> a
+    tickAccumulatorInside lowerTs upperTs globalAcc tickAccOutside =
+      globalAcc
+      - tickAccumulatorBelow (lowerTi, lowerTs) globalAcc tickAccOutside
+      - tickAccumulatorAbove (upperTi, upperTs) globalAcc tickAccOutside
 
 -- | When adding @liquidity_delta@ to a position, calculate how many tokens will need to be deposited/withdrawn.
 liquidityDeltaToTokensDelta :: Integer -> TickIndex -> TickIndex -> TickIndex -> X 80 Natural -> PerToken Integer
@@ -100,24 +138,25 @@ liquidityDeltaToTokensDelta liquidityDelta lowerTickIndex upperTickIndex current
 --
 -- Calculates the initial value of the accumulators tracked by a tick's state.
 initTickAccumulators
-  :: MonadNettest caps base m
+  :: MonadEmulated caps base m
   => ContractHandler Parameter st -> Storage -> TickIndex
-  -> m (Natural, Integer, PerToken (X 128 Natural), X 128 Natural)
+  -> m Accumulators
 initTickAccumulators cfmm st tickIndex =
   if sCurTickIndex st >= tickIndex
     then do
-      currentTime <- getNow
-      let secondsOutside = timestampToSeconds currentTime
-      let feeGrowthOutside = sFeeGrowth st
-
-      consumer <- originateSimple @[CumulativesValue] "consumer" [] contractConsumer
-      call cfmm (Call @"Observe") $ mkView [currentTime] consumer
-      (tickCumulativeOutside, secondsPerLiquidityOutside) <-
-        getStorage consumer >>= \case
-          [[CumulativesValueRPC {cvTickCumulativeRPC, cvSecondsPerLiquidityCumulativeRPC}]] ->
-            pure (cvTickCumulativeRPC, cvSecondsPerLiquidityCumulativeRPC)
-          _ -> failure "Expected to get exactly 1 CumulativeValue"
-
-      pure (secondsOutside, tickCumulativeOutside, feeGrowthOutside, secondsPerLiquidityOutside)
+      secondsOutside <- getNow <&> timestampToSeconds
+      CumulativesValue tickCumulative secondsPerLiquidity <- observe cfmm
+      pure Accumulators
+        { aSeconds = secondsOutside
+        , aTickCumulative = tickCumulative
+        , aFeeGrowth = sFeeGrowth st
+        , aSecondsPerLiquidity = secondsPerLiquidity
+        }
     else do
-      pure (0, 0, PerToken 0 0, 0)
+      -- pure (0, 0, PerToken 0 0, 0)
+      pure Accumulators
+        { aSeconds = 0
+        , aTickCumulative = 0
+        , aFeeGrowth = PerToken 0 0
+        , aSecondsPerLiquidity = 0
+        }
