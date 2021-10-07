@@ -44,9 +44,9 @@ module SegCFMM.Types
   , Constants(..)
 
   -- * Operators
-  , Operator(..)
-  -- * helpers
   , Operators
+
+  -- * helpers
   , segCfmmAnnOptions
   ) where
 
@@ -415,12 +415,9 @@ data LadderKey = LadderKey
 -- Operators
 ------------------------------------------------------------------------
 
-data Operator = Operator
-  { oOwner :: Address
-  , oOperator :: Address
-  } deriving stock (Eq, Ord)
+deriving stock instance Ord FA2.OperatorParam
 
-type Operators = BigMap Operator ()
+type Operators = BigMap FA2.OperatorParam ()
 
 instance Buildable () where
   build _ = "()"
@@ -465,12 +462,6 @@ customGeneric "PositionInfo" ligoLayout
 deriving via (GenericBuildable PositionInfo) instance Buildable PositionInfo
 deriving anyclass instance IsoValue PositionInfo
 instance HasAnnotation PositionInfo where
-  annOptions = segCfmmAnnOptions
-
-customGeneric "Operator" ligoLayout
-deriving via (GenericBuildable Operator) instance Buildable Operator
-deriving anyclass instance IsoValue Operator
-instance HasAnnotation Operator where
   annOptions = segCfmmAnnOptions
 
 customGeneric "CumulativesInsideSnapshot" ligoLayout

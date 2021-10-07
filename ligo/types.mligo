@@ -20,12 +20,6 @@ type position_id = nat
 
 type token_id = nat
 
-type operator =
-  { owner : address
-  ; operator : address
-  }
-type operators = (operator, unit) big_map
-
 type transfer_destination =
   [@layout:comb]
   { to_ : address
@@ -72,6 +66,8 @@ type update_operator =
   | Remove_operator of operator_param
 
 type update_operators_param = update_operator list
+
+type operators = (operator_param, unit) big_map
 
 
 type fa2_parameter =

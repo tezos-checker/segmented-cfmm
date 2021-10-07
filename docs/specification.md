@@ -323,6 +323,8 @@ specified token `owner`.
   `owner` and `position`, the last update will take effect.
 - Operators can be updated for for an `owner` that does not yet own the given
   `position`.
+- Operator updates require the `owner` to be the `SENDER`, fails with
+  `FA2_NOT_OWNER` otherwise.
 
 ```ocaml
 type position_id = nat

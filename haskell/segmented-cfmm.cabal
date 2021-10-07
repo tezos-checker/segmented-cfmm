@@ -179,6 +179,11 @@ test-suite segmented-cfmm-test
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
+      Test.FA2
+      Test.FA2.BalanceOf
+      Test.FA2.Common
+      Test.FA2.Transfer
+      Test.FA2.UpdateOperators
       Test.Invariants
       Test.LiquidityMining.Contract
       Test.Math

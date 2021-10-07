@@ -45,7 +45,7 @@ test_BasicWorkflow =
 
     -- Prepare token with reward
     miningRewardTokenContract <- originateSimple "reward-token"
-      (simpleFA2Storage (rewardGiver, FA2.theTokenId))
+      (simpleFA2Storage [rewardGiver] FA2.theTokenId)
       (FA2.fa2Contract def)
     let miningRewardToken = FA2Token (toAddress miningRewardTokenContract) FA2.theTokenId
     let getRewardOf = balanceOf miningRewardTokenContract (fa2TokenId miningRewardToken)
