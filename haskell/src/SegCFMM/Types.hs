@@ -52,6 +52,7 @@ module SegCFMM.Types
 
 import Universum
 
+import Data.Ix (Ix)
 import Fmt (Buildable, GenericBuildable(..), build)
 
 import Lorentz hiding (abs, now)
@@ -65,7 +66,7 @@ newtype X (n :: Nat) a = X
   { pickX :: a
     -- ^ Get the value multiplied by @2^n@.
   } deriving stock (Show, Eq, Generic)
-    deriving newtype (IsoValue, HasAnnotation, Num, Integral, Enum, Ord, Real)
+    deriving newtype (IsoValue, HasAnnotation, Num, Integral, Enum, Ord, Real, Ix)
 
 instance (Buildable a, KnownNat n) => Buildable (X n a) where
   build x = build (pickX x) <> " X 2^" <> build (powerOfX x)

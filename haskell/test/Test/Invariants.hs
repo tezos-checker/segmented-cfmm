@@ -8,6 +8,7 @@ module Test.Invariants
 import Prelude
 import qualified Unsafe
 
+import Data.Ix (inRange)
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Fmt
@@ -47,14 +48,19 @@ checkStorageInvariants st = do
   sLiquidity st @== fromIntegral @Integer @Natural expectedLiquidity
 
   -- Invariant 3.
-  (sSqrtPrice st & adjustScale) @== (sCurTickIndex st & sqrtPriceFor)
+  -- Note that the global @cur_tick_index@ does not always match the global @sqrt_price@ _exactly_.
+  -- A small swap may cause the @sqrt_price@ to move a tiny bit,
+  -- but it may not be enough to make the @cur_tick_index@ jump a whole unit (+1 or -1).
+  checkCompares
+    (sCurTickIndex st & sqrtPriceFor, sCurTickIndex st + 1 & sqrtPriceFor)
+    inRange
+    (sSqrtPrice st & adjustScale)
 
 -- | Invariants:
 -- 1. The sum of all the tick's liquidity_net must be 0
 -- 2. Scanning the ticks from left-to-right, the running sum of their liquidity_net must never drop below 0
 --      (otherwise we'd have a tick range with negative liquidity)
--- 3. All ticks (except the first and the last) must have liquidity =/= 0
--- 4. All ticks must have n_positions > 0
+-- 3. All ticks must have n_positions > 0
 {-# ANN checkTickInvariants ("HLint: ignore Avoid lambda using `infix`" :: Text) #-}
 checkTickInvariants :: (HasCallStack, MonadNettest caps base m) => Storage -> m ()
 checkTickInvariants st = do
@@ -70,10 +76,6 @@ checkTickInvariants st = do
     checkCompares runningSum (>=) 0
 
   -- Invariant 3
-  for_ (tickLiquidities & Unsafe.tail & Unsafe.init) \tickLiquidity ->
-    tickLiquidity @/= 0
-
-  -- Invariant 4
   for_ (ticks <&> tsNPositions . snd) \nPositions ->
     checkCompares nPositions (>) 0
 
