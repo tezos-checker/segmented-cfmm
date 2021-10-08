@@ -26,7 +26,7 @@ escape_double_quote = $(subst $\",$\\",$(1))
 validate_token_type = $(if $(filter $(1),$(2)),,$(error $(1) is not a valid choice, please select one of:$(2)))
 
 
-.PHONY: all every prepare_lib lib metadata error-codes test typescript clean
+.PHONY: all every prepare_lib lib metadata error-codes test typescript frontend clean
 
 all: \
 	$(OUT)/segmented_cfmm_default.tz \
@@ -140,6 +140,16 @@ typescript: prepare_lib
 
 	rm -rf $(TS_OUT)/segmented-cfmm/src/generated/*
 	stack exec -- segmented-cfmm generate-typescript --target=$(TS_OUT)/segmented-cfmm/src/generated/
+
+
+	# Copy generated files to the frontend
+	mkdir -p frontend/src/Generated
+	cp $(TS_OUT)/segmented-cfmm/src/common.ts frontend/src/Generated/common.ts
+	cp -r $(TS_OUT)/segmented-cfmm/src/generated/ frontend/src/Generated/generated/
+
+# Quickly setup the frontend and run the it locally. Check `frontend/readme.md` for details.
+frontend:
+	cd frontend && yarn && yarn tailwind && yarn dev
 
 clean:
 	rm -rf $(OUT)
