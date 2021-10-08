@@ -72,6 +72,7 @@ library
       NegativeLiterals
       NoImplicitPrelude
       NumDecimals
+      NumericUnderscores
       OverloadedLabels
       OverloadedStrings
       PatternSynonyms
@@ -143,6 +144,7 @@ executable segmented-cfmm
       NegativeLiterals
       NoImplicitPrelude
       NumDecimals
+      NumericUnderscores
       OverloadedLabels
       OverloadedStrings
       PatternSynonyms
@@ -188,12 +190,13 @@ test-suite segmented-cfmm-test
       Test.LiquidityMining.Contract
       Test.Math
       Test.Mining
-      Test.SegCFMM
       Test.SegCFMM.Contract
       Test.SegCFMM.Storage
       Test.SegCFMM.Types
       Test.SetPosition
       Test.Util
+      Test.XToY
+      Test.YToX
       Tree
       Paths_segmented_cfmm
   hs-source-dirs:
@@ -226,6 +229,7 @@ test-suite segmented-cfmm-test
       NegativeLiterals
       NoImplicitPrelude
       NumDecimals
+      NumericUnderscores
       OverloadedLabels
       OverloadedStrings
       PatternSynonyms

@@ -257,7 +257,7 @@ type instance AsRPC (PerToken a) = PerToken a
 -- | Tick types, representing pieces of the curve offered between different tick segments.
 newtype TickIndex = TickIndex Integer
   deriving stock (Generic, Show)
-  deriving newtype (Enum, Ord, Eq, Num, Real, Integral, Buildable)
+  deriving newtype (Enum, Ord, Eq, Num, Real, Integral, Buildable, Ix)
   deriving anyclass IsoValue
 
 instance Bounded TickIndex where
@@ -298,7 +298,7 @@ data TickState = TickState
   , tsSqrtPrice :: X 80 Natural
     -- ^ Square root of the price associated with this tick.
   }
-  deriving stock Eq
+  deriving stock (Eq, Show)
 
 type TickMap = BigMap TickIndex TickState
 
@@ -351,6 +351,7 @@ data CumulativesValue = CumulativesValue
   { cvTickCumulative :: Integer
   , cvSecondsPerLiquidityCumulative :: X 128 Natural
   }
+  deriving stock Show
 
 data TickCumulative = TickCumulative
   { tcSum :: Integer

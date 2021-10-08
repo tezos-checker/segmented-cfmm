@@ -17,3 +17,7 @@
       - main
   - module:
     - name: Test.SetPosition
+  - module:
+    - name: Test.XToY
+  - module:
+    - name: Test.YToX

@@ -763,7 +763,7 @@ test_position_initialization =
         call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) xTokenId]
         call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) yTokenId]
 
-      advanceSecs waitTime cfmm
+      advanceSecs waitTime [cfmm]
 
       deadline <- mkDeadline
       withSender liquidityProvider $
