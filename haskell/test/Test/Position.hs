@@ -1449,14 +1449,14 @@ test_position_initialization =
           Accumulators expectedSecondsOutside expectedTickCumulativeOutside expectedFeeGrowthOutside expectedSecondsPerLiquidityOutside <- initTickAccumulators cfmm st lowerTickIndex
           (lowerTick & tsSecondsOutside & fromIntegral) @== expectedSecondsOutside
           (lowerTick & tsTickCumulativeOutside) @== expectedTickCumulativeOutside
-          (lowerTick & tsFeeGrowthOutside <&> fromIntegral) @== expectedFeeGrowthOutside
-          (lowerTick & tsSecondsPerLiquidityOutside <&> fromIntegral) @== expectedSecondsPerLiquidityOutside
+          (lowerTick & tsFeeGrowthOutside <&> fmap toInteger) @== expectedFeeGrowthOutside
+          (lowerTick & tsSecondsPerLiquidityOutside <&> toInteger) @== expectedSecondsPerLiquidityOutside
         do
           Accumulators expectedSecondsOutside expectedTickCumulativeOutside expectedFeeGrowthOutside expectedSecondsPerLiquidityOutside <- initTickAccumulators cfmm st upperTickIndex
           (upperTick & tsSecondsOutside & fromIntegral) @== expectedSecondsOutside
           (upperTick & tsTickCumulativeOutside) @== expectedTickCumulativeOutside
-          (upperTick & tsFeeGrowthOutside <&> fromIntegral) @== expectedFeeGrowthOutside
-          (upperTick & tsSecondsPerLiquidityOutside <&> fromIntegral) @== expectedSecondsPerLiquidityOutside
+          (upperTick & tsFeeGrowthOutside <&> fmap toInteger) @== expectedFeeGrowthOutside
+          (upperTick & tsSecondsPerLiquidityOutside <&> toInteger) @== expectedSecondsPerLiquidityOutside
 
         -- Check global state updates
         let positionIsActive = lowerTickIndex <= sCurTickIndex st && sCurTickIndex st < upperTickIndex

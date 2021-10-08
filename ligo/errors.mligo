@@ -47,7 +47,7 @@
 (* Some of the timestamps passed to the `observe` entrypoint are yet in the future. *)
 [@inline] let observe_future_timestamp_err = 110n
 
-(* When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. *)
+(* When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. When observing cumulative values at range, `upper_tick_index` must be greater or equal than `lower_tick_index`. *)
 [@inline] let tick_order_err = 111n
 
 (* Liquidity of a position went below zero. *)

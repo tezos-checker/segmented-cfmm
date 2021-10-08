@@ -59,5 +59,3 @@ After the conversion, the bytes can be use in the field `metadata` when originat
 In error scenarios, the contract fails with an error code.
 
 See the [Error Codes](docs/error-codes.md) file for the list of error codes.
-
-

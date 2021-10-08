@@ -60,7 +60,8 @@ import Universum
 import Data.Ix (Ix)
 import qualified Data.Map as Map
 import Data.Ratio ((%))
-import Fmt (Buildable, GenericBuildable(..), build, (+|), (|+))
+import Fmt (Buildable, GenericBuildable(..), build, pretty, (+|), (|+))
+import qualified Text.Show
 
 import qualified Control.Exception as E
 import Lorentz hiding (abs, now)
@@ -74,7 +75,15 @@ newtype X (n :: Nat) a = X
   { pickX :: a
     -- ^ Get the value multiplied by @2^n@.
   } deriving stock (Show, Eq, Generic, Functor)
-    deriving newtype (IsoValue, HasAnnotation, Num, Integral, Enum, Ord, Real, Ix)
+    deriving newtype (IsoValue, HasAnnotation, Integral, Enum, Ord, Real, Ix)
+
+instance (Num a, KnownNat n) => Num (X n a) where
+  X a + X b = X (a + b)
+  X a - X b = X (a - b)
+  X _ * X _ = error "multiplication on X type is not defined"
+  fromInteger i = X $ fromIntegral $ i * 2 ^ (natVal (Proxy @n))
+  abs (X a) = X (abs a)
+  signum (X a) = X (signum a)
 
 instance (Buildable a, KnownNat n, Integral a) => Buildable (X n a) where
   build x =
@@ -208,7 +217,9 @@ data CumulativesInsideSnapshot = CumulativesInsideSnapshot
   { cisTickCumulativeInside :: Integer
   , cisSecondsPerLiquidityInside :: X 128 Integer
   , cisSecondsInside :: Integer
-  }
+  } deriving stock (Eq)
+
+type instance AsRPC CumulativesInsideSnapshot = CumulativesInsideSnapshot
 
 subCumulativesInsideSnapshot
   :: CumulativesInsideSnapshot
@@ -292,7 +303,7 @@ instance Num a => Num (PerToken a) where
 type instance AsRPC (PerToken a) = PerToken a
 
 -- | Tick types, representing pieces of the curve offered between different tick segments.
-newtype TickIndex = TickIndex Integer
+newtype TickIndex = TickIndex { unTickIndex :: Integer }
   deriving stock (Generic, Show)
   deriving newtype (Enum, Ord, Eq, Num, Real, Integral, Buildable, Ix)
   deriving anyclass IsoValue
@@ -513,6 +524,7 @@ instance HasAnnotation XToXPrimeParam where
 
 customGeneric "SetPositionParam" ligoLayout
 deriving via (GenericBuildable SetPositionParam) instance Buildable SetPositionParam
+instance Show SetPositionParam where show = pretty
 deriving anyclass instance IsoValue SetPositionParam
 instance HasAnnotation SetPositionParam where
   annOptions = segCfmmAnnOptions

@@ -192,6 +192,7 @@ test-suite segmented-cfmm-test
       Test.Math
       Test.Mining
       Test.Position
+      Test.RangeOracles
       Test.SegCFMM.Contract
       Test.SegCFMM.Storage
       Test.SegCFMM.Types

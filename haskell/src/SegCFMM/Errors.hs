@@ -58,7 +58,7 @@ observeOutdatedTimestampErr = 109
 observeFutureTimestampErr :: Natural
 observeFutureTimestampErr = 110
 
--- | When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`.
+-- | When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. When observing cumulative values at range, `upper_tick_index` must be greater or equal than `lower_tick_index`.
 tickOrderErr :: Natural
 tickOrderErr = 111
 

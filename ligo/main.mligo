@@ -338,7 +338,11 @@ let update_position (s : storage) (p : update_position_param) : result =
 // of time.
 //
 // This works only for initialized indexes.
-let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_param) =
+let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_param) : result =
+    // Since we promise to return `nat` values,
+    // it is important to check that the requested range is not negative.
+    let _: unit = if p.lower_tick_index > p.upper_tick_index then failwith tick_order_err else unit in
+
     let sums = get_last_cumulatives s.cumulatives_buffer in
     let cums_total =
             { tick = sums.tick.sum
@@ -393,7 +397,6 @@ let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_pa
                     - cums_below_lower.seconds_per_liquidity.x128
                     - cums_above_upper.seconds_per_liquidity.x128
                 }
-            ; tick_cumulative_inside = 0
             }
 
     in ([Tezos.transaction res 0mutez p.callback], s)

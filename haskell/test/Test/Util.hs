@@ -18,6 +18,8 @@ module Test.Util
   , observe
   , setPositionParamSimple
   , updatePositionParamSimple
+  , gettingCumulativesInsideDiff
+  , convertTokens
   , mkDeadline
   , advanceSecs
   , mapToList
@@ -38,7 +40,6 @@ module Test.Util
   , isInRange
   , isInRangeNat
   , groupAdjacent
-  , timestampsDiff
   , isMonothonic
   ) where
 
@@ -57,7 +58,7 @@ import Lorentz.Test (contractConsumer)
 import Morley.Nettest
 import Morley.Nettest.Pure (PureM, runEmulated)
 import Tezos.Address (ta)
-import Tezos.Core (timestampPlusSeconds, timestampToSeconds)
+import Tezos.Core (timestampPlusSeconds)
 import Time (sec)
 
 import FA2.Types
@@ -189,6 +190,54 @@ updatePositionParamSimple uppPositionId uppLiquidityDelta =
   where
     receiver = [ta|tz1QCtwyKA4S8USgYRJRghDNYLHkkQ3S1yAU|]
 
+-- | Get the diff of cumulatives_inside at given ticks range between two given
+-- timestamps.
+gettingCumulativesInsideDiff
+  :: (MonadEmulated caps base m, HasCallStack)
+  => ContractHandler Parameter Storage
+  -> (TickIndex, TickIndex)
+  -> m ()
+  -> m CumulativesInsideSnapshot
+gettingCumulativesInsideDiff cfmm (loTick, hiTick) action = do
+  consumer <- originateSimple "consumer" [] contractConsumer
+
+  call cfmm (Call @"Snapshot_cumulatives_inside") $
+    SnapshotCumulativesInsideParam loTick hiTick (toContractRef consumer)
+  action
+  call cfmm (Call @"Snapshot_cumulatives_inside") $
+    SnapshotCumulativesInsideParam loTick hiTick (toContractRef consumer)
+
+  getFullStorage consumer >>= \case
+    [s2, s1] -> return (subCumulativesInsideSnapshot s2 s1)
+    _ -> failure "Expected exactly 2 elements"
+
+-- | Convert given amount of X or Y tokens
+--
+-- Positive value will increase the current tick index, and negative value will
+-- decrease it.
+convertTokens
+  :: (MonadEmulated caps base m, HasCallStack)
+  => ContractHandler Parameter Storage
+  -> Integer
+  -> m ()
+convertTokens cfmm tokens =
+  case tokens `Prelude.compare` 0 of
+    EQ -> pass
+    GT -> call cfmm (Call @"Y_to_x") YToXParam
+      { ypDy = 2
+      , ypDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
+      , ypMinDx = 0
+      , ypToDx = receiver
+      }
+    LT -> call cfmm (Call @"X_to_y") XToYParam
+      { xpDx = 2
+      , xpDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
+      , xpMinDy = 0
+      , xpToDy = receiver
+      }
+  where
+    receiver = [ta|tz1QCtwyKA4S8USgYRJRghDNYLHkkQ3S1yAU|]
+
 -- | Create a valid deadline
 mkDeadline :: MonadNettest caps base m => m Timestamp
 mkDeadline = do
@@ -282,6 +331,42 @@ lastRecordedCumulatives
 lastRecordedCumulatives s = do
   let buffer = sCumulativesBufferRPC s
   getBigMapValue (cbMapRPC buffer) (cbLastRPC buffer)
+
+-- | Check two values with sufficiently large precision are approximately equal.
+infix 1 @~=
+(@~=)
+    :: (HasCallStack, Integral a, Buildable a, KnownNat n, MonadNettest caps base m)
+    => X n a -> X n a -> m ()
+actual @~= expected = do
+  let X a = adjustScale @30 actual
+  let X b = adjustScale @30 expected
+  assert (a - 1 <= b && b <= a + 1) $
+    unlinesF
+      [ "Failed approximate comparison"
+      , "━━ Expected (rhs) ━━"
+      , build expected
+      , "━━ Got (lhs) ━━"
+      , build actual
+      ]
+
+-- | Check that value lies in the given range, with a small margin of error.
+inApproxXRange
+    :: (HasCallStack, Integral a, Buildable a, KnownNat n, MonadNettest caps base m)
+    => X n a -> (X n a, X n a) -> m ()
+inApproxXRange ax (lx, rx)
+  | lx > rx = error "Negative range"
+  | otherwise = do
+    let X l = adjustScale @30 lx
+    let X r = adjustScale @30 rx
+    let X a = adjustScale @30 ax
+    assert (l - 1 <= a && a <= r + 1) $
+      unlinesF
+        [ "Failed approximate in-range check"
+        , "━━ Range (rhs) ━━"
+        , build (lx, rx)
+        , "━━ Got value (lhs) ━━"
+        , build ax
+        ]
 
 ----------------------------------------------------------------------------
 -- FA2 helpers
@@ -401,9 +486,6 @@ isInRangeNat (coerce -> x) (coerce -> y) (marginDown, marginUp) = do
 
 groupAdjacent :: [a] -> [(a, a)]
 groupAdjacent l = [ (a1, a2) | a1 : a2 : _ <- List.tails l ]
-
-timestampsDiff :: Timestamp -> Timestamp -> Integer
-timestampsDiff = (-) `on` timestampToSeconds
 
 -- | Check that values grow monothonically (non-strictly).
 isMonothonic

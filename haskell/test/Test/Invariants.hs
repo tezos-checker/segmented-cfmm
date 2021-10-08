@@ -57,8 +57,8 @@ checkAccumulatorsInvariants cfmm st = do
         Accumulators
           { aSeconds = timestampToSeconds now
           , aTickCumulative = cvTickCumulative
-          , aFeeGrowth = fromIntegral <$> sFeeGrowth st
-          , aSecondsPerLiquidity = fromIntegral cvSecondsPerLiquidityCumulative
+          , aFeeGrowth = fmap toInteger <$> sFeeGrowth st
+          , aSecondsPerLiquidity = toInteger <$> cvSecondsPerLiquidityCumulative
           }
 
   globalAccumulators @== sumInsideAccumulators
