@@ -7,6 +7,7 @@ import {Set_position} from  './Set_position';
 import {Snapshot_cumulatives_inside} from  './Snapshot_cumulatives_inside';
 import {Transfer} from  './Transfer';
 import {Update_operators} from  './Update_operators';
+import {Update_position} from  './Update_position';
 import {X_to_x_prime} from  './X_to_x_prime';
 import {X_to_y} from  './X_to_y';
 import {Y_to_x} from  './Y_to_x';
@@ -20,6 +21,7 @@ export type Parameter =
   | Snapshot_cumulatives_inside
   | Transfer
   | Update_operators
+  | Update_position
   | X_to_x_prime
   | X_to_y
   | Y_to_x

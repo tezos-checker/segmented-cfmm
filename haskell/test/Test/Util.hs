@@ -213,19 +213,16 @@ collectAllFees :: (HasCallStack, MonadEmulated caps base m) => ContractHandler P
 collectAllFees cfmm receiver = do
   st <- getFullStorage cfmm
   deadline <- mkDeadline
-  for_ (Map.keys $ bmMap $ sPositions st) \idx -> do
-    withSender (piOwner idx) do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = piLowerTickIndex idx
-          , sppUpperTickIndex = piUpperTickIndex idx
-          , sppLowerTickWitness = piLowerTickIndex idx
-          , sppUpperTickWitness = piUpperTickIndex idx
-          , sppLiquidityDelta = 0
-          , sppToX = receiver
-          , sppToY = receiver
-          , sppDeadline = deadline
-          , sppMaximumTokensContributed = PerToken 0 0
+  for_ (toPairs $ bmMap $ sPositions st) \(posId, pos) -> do
+    withSender (psOwner pos) do
+      call cfmm (Call @"Update_position")
+        UpdatePositionParam
+          { uppPositionId = posId
+          , uppLiquidityDelta = 0
+          , uppToX = receiver
+          , uppToY = receiver
+          , uppDeadline = deadline
+          , uppMaximumTokensContributed = PerToken 0 0
           }
 
 ----------------------------------------------------------------------------

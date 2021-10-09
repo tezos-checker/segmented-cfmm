@@ -24,7 +24,7 @@ setSimplePosition
   -> TickIndex
   -> m ()
 setSimplePosition cfmm liquidityProvider lowerTickIndex upperTickIndex = do
-  let liquidityDelta = 10000000
+  let liquidity = 10000000
 
   deadline <- mkDeadline
   withSender liquidityProvider do
@@ -34,9 +34,7 @@ setSimplePosition cfmm liquidityProvider lowerTickIndex upperTickIndex = do
         , sppUpperTickIndex = upperTickIndex
         , sppLowerTickWitness = minTickIndex
         , sppUpperTickWitness = minTickIndex
-        , sppLiquidityDelta = liquidityDelta
-        , sppToX = liquidityProvider
-        , sppToY = liquidityProvider
+        , sppLiquidity = liquidity
         , sppDeadline = deadline
         , sppMaximumTokensContributed = PerToken 1000000 1000000
         }

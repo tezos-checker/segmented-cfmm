@@ -175,11 +175,11 @@ internalErrors = errorsEnumerate 300
   , "internal_non_empty_position_gc_err"
       :? "Attempt to garbade collect a tick with non-zero liquidity net."
 
-  , "internal_position_maps_unsynced_err"
-      :? "`positions` and `position_indexes` maps were not synchronized."
-
   , "internal_flip_seconds_per_liquidity_outside_err"
       :? "Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract)."
+
+  , "internal_unexpected_income_err"
+      :? "Position creation/change unexpectedly transferred tokens to someone"
 
   ]
 

@@ -3,7 +3,7 @@
 
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 
-module Test.SetPosition where
+module Test.Position where
 
 import Prelude
 
@@ -87,9 +87,7 @@ test_equal_ticks =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = 1
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = 1
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
@@ -131,9 +129,7 @@ test_wrong_tick_order =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = 1
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = 1
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
@@ -175,15 +171,13 @@ test_setting_a_position_with_zero_liquidity_is_a_noop =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = 0
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = 0
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
 
-    -- The storage shouldn't have changed (with the exception that the 'new position id' counter has gone up).
-    getFullStorage cfmm @@== initialSt { sNewPositionId = sNewPositionId initialSt + 1}
+    -- The storage shouldn't have changed
+    getFullStorage cfmm @@== initialSt
     (balanceOf xToken xTokenId cfmm <&> fromIntegral @Natural @Integer) @@== 0
     (balanceOf yToken yTokenId cfmm <&> fromIntegral @Natural @Integer) @@== 0
 
@@ -225,23 +219,18 @@ test_deposit_and_withdrawal_is_a_noop =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = -liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
-          , sppDeadline = deadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
+      call cfmm (Call @"Update_position")
+        UpdatePositionParam
+          { uppPositionId = PositionId 0
+          , uppLiquidityDelta = -(toInteger liquidityDelta)
+          , uppToX = liquidityProvider
+          , uppToY = liquidityProvider
+          , uppDeadline = deadline
+          , uppMaximumTokensContributed = PerToken 1000000 1000000
           }
     -- The storage shouldn't have changed (with the exception that the 'new position id' counter has gone up).
     getFullStorage cfmm @@== initialSt { sNewPositionId = sNewPositionId initialSt + 1}
@@ -294,23 +283,18 @@ test_adding_liquidity_twice =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
-      call cfmm1 (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
-          , sppDeadline = deadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
+      call cfmm1 (Call @"Update_position")
+        UpdatePositionParam
+          { uppPositionId = PositionId 0
+          , uppLiquidityDelta = toInteger liquidityDelta
+          , uppToX = liquidityProvider
+          , uppToY = liquidityProvider
+          , uppDeadline = deadline
+          , uppMaximumTokensContributed = PerToken 1000000 1000000
           }
       -- Add twice the liquidity once to cfmm2
       call cfmm2 (Call @"Set_position")
@@ -319,9 +303,7 @@ test_adding_liquidity_twice =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta * 2
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta * 2
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
@@ -377,9 +359,7 @@ test_witnesses_must_be_valid =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex + 1
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
@@ -392,9 +372,7 @@ test_witnesses_must_be_valid =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex + 1
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
@@ -407,9 +385,7 @@ test_witnesses_must_be_valid =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = maxTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
@@ -422,9 +398,7 @@ test_witnesses_must_be_valid =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = maxTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
@@ -469,9 +443,7 @@ test_fails_if_its_past_the_deadline =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta
           , sppDeadline = expiredDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
@@ -484,12 +456,21 @@ test_fails_if_its_past_the_deadline =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta
           , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
+
+      call cfmm (Call @"Update_position")
+        UpdatePositionParam
+          { uppPositionId = PositionId 0
+          , uppLiquidityDelta = toInteger liquidityDelta
+          , uppToX = liquidityProvider
+          , uppToY = liquidityProvider
+          , uppDeadline = expiredDeadline
+          , uppMaximumTokensContributed = PerToken 1000000 1000000
+          }
+          & expectFailedWith pastDeadlineErr
 
 test_cannot_set_position_over_max_tick :: TestTree
 test_cannot_set_position_over_max_tick =
@@ -528,9 +509,7 @@ test_cannot_set_position_over_max_tick =
           , sppUpperTickIndex = maxTickIndex + 1
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
@@ -567,18 +546,38 @@ test_maximum_tokens_contributed =
       call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) yTokenId]
 
     deadline <- mkDeadline
-    withSender liquidityProvider $
+    withSender liquidityProvider $ do
       call cfmm (Call @"Set_position")
         SetPositionParam
           { sppLowerTickIndex = lowerTickIndex
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1 1
+          }
+          & expectFailedWith highTokensErr
+
+      -- Also check "Update_position"
+      call cfmm (Call @"Set_position")
+        SetPositionParam
+          { sppLowerTickIndex = lowerTickIndex
+          , sppUpperTickIndex = upperTickIndex
+          , sppLowerTickWitness = minTickIndex
+          , sppUpperTickWitness = minTickIndex
+          , sppLiquidity = liquidityDelta
+          , sppDeadline = deadline
+          , sppMaximumTokensContributed = PerToken 1000000 1000000
+          }
+      call cfmm (Call @"Update_position")
+        UpdatePositionParam
+          { uppPositionId = PositionId 0
+          , uppLiquidityDelta = toInteger liquidityDelta
+          , uppToX = liquidityProvider
+          , uppToY = liquidityProvider
+          , uppDeadline = deadline
+          , uppMaximumTokensContributed = PerToken 1 1
           }
           & expectFailedWith highTokensErr
 
@@ -620,23 +619,18 @@ test_lowest_and_highest_ticks_cannot_be_garbage_collected =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = -liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
-          , sppDeadline = deadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
+      call cfmm (Call @"Update_position")
+        UpdatePositionParam
+          { uppPositionId = PositionId 0
+          , uppLiquidityDelta = -(toInteger liquidityDelta)
+          , uppToX = liquidityProvider
+          , uppToY = liquidityProvider
+          , uppDeadline = deadline
+          , uppMaximumTokensContributed = PerToken 1000000 1000000
           }
     -- The storage shouldn't have changed (with the exception that the 'new position id' counter has gone up).
     getFullStorage cfmm @@== initialSt { sNewPositionId = sNewPositionId initialSt + 1}
@@ -690,9 +684,7 @@ test_withdrawal_overflow =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
@@ -708,23 +700,18 @@ test_withdrawal_overflow =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidityDelta
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = -liquidityDelta - 1
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
-          , sppDeadline = deadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
+      call cfmm (Call @"Update_position")
+        UpdatePositionParam
+          { uppPositionId = PositionId 1
+          , uppLiquidityDelta = -(toInteger liquidityDelta) - 1
+          , uppToX = liquidityProvider
+          , uppToY = liquidityProvider
+          , uppDeadline = deadline
+          , uppMaximumTokensContributed = PerToken 1000000 1000000
           }
           & expectFailedWith internalLiquidityBelowZeroErr
 
@@ -773,9 +760,7 @@ test_position_initialization =
             , sppUpperTickIndex = upperTickIndex
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
-            , sppLiquidityDelta = liquidityDelta
-            , sppToX = liquidityProvider
-            , sppToY = liquidityProvider
+            , sppLiquidity = liquidityDelta
             , sppDeadline = deadline
             , sppMaximumTokensContributed = PerToken 1000000 1000000
             }
@@ -794,8 +779,8 @@ test_position_initialization =
       (lowerTick & tsSqrtPrice & adjustScale @30) @== sqrtPriceFor lowerTickIndex
       (upperTick & tsSqrtPrice & adjustScale @30) @== sqrtPriceFor upperTickIndex
 
-      (lowerTick & tsLiquidityNet) @== liquidityDelta
-      (upperTick & tsLiquidityNet) @== -liquidityDelta
+      (lowerTick & tsLiquidityNet) @== toInteger liquidityDelta
+      (upperTick & tsLiquidityNet) @== -(toInteger liquidityDelta)
 
       (lowerTick & tsNPositions) @== 1
       (upperTick & tsNPositions) @== 1
@@ -818,17 +803,18 @@ test_position_initialization =
       let positionIsActive = lowerTickIndex <= sCurTickIndex st && sCurTickIndex st < upperTickIndex
 
       if positionIsActive
-        then sLiquidity st @== fromIntegral @Integer @Natural liquidityDelta
+        then sLiquidity st @== liquidityDelta
         else sLiquidity st @== 0
 
-      sNewPositionId st @== sNewPositionId initialSt + 1
+      let positionId = sNewPositionId initialSt
+      sNewPositionId st @== positionId + 1
 
       -- Check position's state
-      let positionIndex = PositionIndex liquidityProvider lowerTickIndex upperTickIndex
-      position <- sPositions st & bmMap & Map.lookup positionIndex & evalJust
+      position <- sPositions st & bmMap & Map.lookup positionId & evalJust
 
-      psLiquidity position @== fromIntegral @Integer @Natural liquidityDelta
-      psPositionId position @== sNewPositionId initialSt
+      psLiquidity position @== liquidityDelta
+      psOwner position @== liquidityProvider
+      (psLowerTickIndex &&& psUpperTickIndex) position @== (lowerTickIndex, upperTickIndex)
 
       -- TODO: do some swaps, otherwise this will always be zero.
       -- The swaps must be within ranges with positive liquidity.
@@ -836,6 +822,59 @@ test_position_initialization =
       psFeeGrowthInsideLast position @== expectedFeeGrowthInside
 
       -- Check FA2 transfers
-      let PerToken x y = liquidityDeltaToTokensDelta liquidityDelta lowerTickIndex upperTickIndex (sCurTickIndex st) (sSqrtPrice st)
+      let PerToken x y = liquidityDeltaToTokensDelta (toInteger liquidityDelta) lowerTickIndex upperTickIndex (sCurTickIndex st) (sSqrtPrice st)
       (balanceOf xToken xTokenId cfmm <&> fromIntegral @Natural @Integer) @@== x
       (balanceOf yToken yTokenId cfmm <&> fromIntegral @Natural @Integer) @@== y
+
+test_updating_nonexisting_position :: TestTree
+test_updating_nonexisting_position =
+  nettestScenarioOnEmulatorCaps "attempt to update a non-existing position properly fails" $ do
+    let liquidityDelta = 10000000
+    let lowerTickIndex = -10
+    let upperTickIndex = 10
+
+    liquidityProvider <- newAddress auto
+    let xTokenId = FA2.TokenId 0
+    let yTokenId = FA2.TokenId 1
+    let xFa2storage = FA2.Storage
+          { sLedger = mkBigMap [ ((liquidityProvider, xTokenId), 100000) ]
+          , sOperators = mempty
+          , sTokenMetadata = mempty
+          }
+    let yFa2storage = FA2.Storage
+          { sLedger = mkBigMap [ ((liquidityProvider, yTokenId), 100000) ]
+          , sOperators = mempty
+          , sTokenMetadata = mempty
+          }
+    xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
+    yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
+
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId
+    cfmm <- originateSegCFMM FA2 FA2 initialSt
+
+    withSender liquidityProvider do
+      call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) xTokenId]
+      call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) yTokenId]
+
+    deadline <- mkDeadline
+    withSender liquidityProvider $ do
+      call cfmm (Call @"Set_position")
+        SetPositionParam
+          { sppLowerTickIndex = lowerTickIndex
+          , sppUpperTickIndex = upperTickIndex
+          , sppLowerTickWitness = minTickIndex
+          , sppUpperTickWitness = minTickIndex
+          , sppLiquidity = liquidityDelta
+          , sppDeadline = deadline
+          , sppMaximumTokensContributed = PerToken 1000000 1000000
+          }
+      call cfmm (Call @"Update_position")
+        UpdatePositionParam
+          { uppPositionId = PositionId 3
+          , uppLiquidityDelta = toInteger liquidityDelta
+          , uppToX = liquidityProvider
+          , uppToY = liquidityProvider
+          , uppDeadline = deadline
+          , uppMaximumTokensContributed = PerToken 1 1
+          }
+          & expectCustomError_ #fA2_TOKEN_UNDEFINED

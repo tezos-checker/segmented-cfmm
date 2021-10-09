@@ -76,20 +76,17 @@ checkBalanceInvariants cfmm st = do
   -- Liquidate all positions and rollback.
   offshoot "contract should have enough liquidity to liquidate all positions" do
     for_ positions \(idx, pstate) -> do
-      let liquidityProvider = piOwner idx
+      let liquidityProvider = psOwner pstate
       deadline <- mkDeadline
       withSender liquidityProvider do
-        call cfmm (Call @"Set_position")
-          SetPositionParam
-            { sppLowerTickIndex = piLowerTickIndex idx
-            , sppUpperTickIndex = piUpperTickIndex idx
-            , sppLowerTickWitness = piLowerTickIndex idx
-            , sppUpperTickWitness = piUpperTickIndex idx
-            , sppLiquidityDelta = - fromIntegral (psLiquidity pstate)
-            , sppToX = liquidityProvider
-            , sppToY = liquidityProvider
-            , sppDeadline = deadline
-            , sppMaximumTokensContributed = PerToken 0 0
+        call cfmm (Call @"Update_position")
+          UpdatePositionParam
+            { uppPositionId = idx
+            , uppLiquidityDelta = - fromIntegral (psLiquidity pstate)
+            , uppToX = liquidityProvider
+            , uppToY = liquidityProvider
+            , uppDeadline = deadline
+            , uppMaximumTokensContributed = PerToken 0 0
             }
 
 -- | Invariants:

@@ -70,7 +70,7 @@ Here is a summary of all the error codes thrown by the contract.
 | 321 | `internal_bad_access_to_observation_buffer` | Failed to access a value in time-weighted i_c cumulative sums buffer. |
 | 322 | `internal_observe_bin_search_failed` | Some issue with binary search in `observe` entrypoint. |
 | 323 | `internal_non_empty_position_gc_err` | Attempt to garbade collect a tick with non-zero liquidity net. |
-| 324 | `internal_position_maps_unsynced_err` | `positions` and `position_indexes` maps were not synchronized. |
-| 325 | `internal_flip_seconds_per_liquidity_outside_err` | Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract). |
+| 324 | `internal_flip_seconds_per_liquidity_outside_err` | Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract). |
+| 325 | `internal_unexpected_income_err` | Position creation/change unexpectedly transferred tokens to someone |
 
 

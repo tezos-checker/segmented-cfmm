@@ -8,11 +8,11 @@
 // -----------------------------------------------------------------
 
 [@inline]
-let get_position_index (position_id, store : position_id * storage) : position_index =
-  match (Big_map.find_opt position_id store.position_indexes) with
-    | Some position_index -> position_index
-    | None -> ([%Michelson ({| { FAILWITH } |} : string * unit -> position_index)]
-          ("FA2_TOKEN_UNDEFINED", ()) : position_index)
+let get_position (position_id, store : position_id * storage) : position_state =
+  match (Big_map.find_opt position_id store.positions) with
+    | Some position -> position
+    | None -> ([%Michelson ({| { FAILWITH } |} : string * unit -> position_state)]
+          ("FA2_TOKEN_UNDEFINED", ()) : position_state)
 
 [@inline]
 let check_sender (from_ , token_id, store : address * token_id * storage): address =
@@ -31,29 +31,19 @@ let change_position_owner (from_, tx, store: address * transfer_destination * st
   if tx.amount = 0n then
     store // We allow 0 transfer
   else
-    let pos_index = get_position_index(tx.token_id, store) in
+    let position = get_position(tx.token_id, store) in
+
     // Ensure `from_` is the owner of the position.
-    let owned_amount = if pos_index.owner = from_ then 1n else 0n in
-    let old_pos_index =
-        if (owned_amount = 1n && tx.amount = 1n) then pos_index
+    let owned_amount = if position.owner = from_ then 1n else 0n in
+    let _ : unit =
+        if (owned_amount = 1n && tx.amount = 1n) then unit
         else
-          ([%Michelson ({| { FAILWITH } |} : string * (nat * nat) -> position_index)]
-            ("FA2_INSUFFICIENT_BALANCE", (tx.amount, owned_amount)) : position_index) in
+          ([%Michelson ({| { FAILWITH } |} : string * (nat * nat) -> unit)]
+            ("FA2_INSUFFICIENT_BALANCE", (tx.amount, owned_amount))) in
 
-    // Update `store.position_indexes` and `store.positions`
-    let position =
-      match Big_map.find_opt pos_index store.positions with
-      | None -> (failwith internal_position_maps_unsynced_err : position_state)
-      | Some v -> { v with position_id = tx.token_id } in
-
-    let new_pos_index = { old_pos_index with owner = tx.to_ } in
-
-    let position_indexes = Big_map.add tx.token_id new_pos_index store.position_indexes in
-    let positions = Big_map.remove pos_index store.positions in
-    let positions = Big_map.add new_pos_index position positions
-    in { store with
-            position_indexes = position_indexes;
-            positions = positions }
+    let new_position = { position with owner = tx.to_ } in
+    let positions = Big_map.add tx.token_id new_position store.positions in
+    { store with positions = positions }
 
 
 // -----------------------------------------------------------------
@@ -77,9 +67,9 @@ let transfer (params, store : transfer_params * storage): result =
 
 let balance_of (params, store : balance_request_params * storage): result =
   let check_one (req : balance_request_item): balance_response_item =
-    let pos_index = get_position_index(req.token_id, store) in
-    let bal = if (req.owner = pos_index.owner) then 1n else 0n in
-    { request = req; balance = bal} in
+    let pos_index = get_position(req.token_id, store) in
+    let bal = if req.owner = pos_index.owner then 1n else 0n in
+    { request = req; balance = bal } in
   let result = List.map check_one params.requests in
   let transfer_operation = Tezos.transaction result 0mutez params.callback in
   (([transfer_operation] : operation list), store)

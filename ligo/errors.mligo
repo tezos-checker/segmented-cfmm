@@ -140,11 +140,11 @@
 (* Attempt to garbade collect a tick with non-zero liquidity net. *)
 [@inline] let internal_non_empty_position_gc_err = 323n
 
-(* `positions` and `position_indexes` maps were not synchronized. *)
-[@inline] let internal_position_maps_unsynced_err = 324n
-
 (* Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract). *)
-[@inline] let internal_flip_seconds_per_liquidity_outside_err = 325n
+[@inline] let internal_flip_seconds_per_liquidity_outside_err = 324n
+
+(* Position creation/change unexpectedly transferred tokens to someone *)
+[@inline] let internal_unexpected_income_err = 325n
 
 
 
