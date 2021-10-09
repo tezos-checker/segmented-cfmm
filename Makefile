@@ -41,6 +41,7 @@ every: \
 	$(OUT)/segmented_cfmm_FA12.tz \
 	$(OUT)/segmented_cfmm_FA2_FA12.tz \
 	$(OUT)/storage_default.tz \
+	$(OUT)/storage_increased_buffer_10.tz \
 	$(OUT)/liquidity_mining.tz
 
 # Targets whose filenames matches the chosen token types pair
@@ -79,14 +80,14 @@ $(OUT)/segmented_cfmm_%.tz: $(shell find ligo -name '*.mligo')
 	$(MEASURE) $(TOTAL_FILE) main
 	$(if $(debug),, rm $(TOTAL_FILE))
 
-$(OUT)/storage_default.tz : fee_bps = 10
-$(OUT)/storage_default.tz : ctez_burn_fee_bps = 5
-$(OUT)/storage_default.tz : x_token_id = 0
-$(OUT)/storage_default.tz : y_token_id = 0
-$(OUT)/storage_default.tz : x_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
-$(OUT)/storage_default.tz : y_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
-$(OUT)/storage_default.tz : init_cumulatives_buffer_extra_slots = 0
-$(OUT)/storage_default.tz: $(shell find ligo -name '*.mligo')
+$(OUT)/storage_%.tz : fee_bps = 10
+$(OUT)/storage_%.tz : ctez_burn_fee_bps = 5
+$(OUT)/storage_%.tz : x_token_id = 0
+$(OUT)/storage_%.tz : y_token_id = 0
+$(OUT)/storage_%.tz : x_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
+$(OUT)/storage_%.tz : y_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
+$(OUT)/storage_%.tz : init_cumulatives_buffer_extra_slots = 0
+$(OUT)/storage_%.tz: $(shell find ligo -name '*.mligo')
 	# ============== Compiling default LIGO storage ============== #
 	$(BUILD_STORAGE) ligo/defaults.mligo entrypoint "default_storage( \
 	    { fee_bps = $(fee_bps)n \
@@ -96,7 +97,9 @@ $(OUT)/storage_default.tz: $(shell find ligo -name '*.mligo')
 			; x_token_address = (\"$(x_token_address)\" : address) \
 			; y_token_address = (\"$(y_token_address)\" : address) \
 	    }) ($(init_cumulatives_buffer_extra_slots)n)" \
-        --output-file $(OUT)/storage_default.tz
+        --output-file $@
+
+$(OUT)/storage_increased_buffer_10.tz: init_cumulatives_buffer_extra_slots = 10
 
 $(OUT)/liquidity_mining.tz: ligo/liquidity_mining.mligo ligo/types.mligo
 	$(BUILD) ligo/liquidity_mining.mligo main --output-file $@

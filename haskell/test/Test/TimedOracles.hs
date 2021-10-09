@@ -8,26 +8,33 @@ module Test.TimedOracles
 import Prelude
 
 import qualified Data.List as List
-import Fmt (pretty, (+|), (|+))
+import Fmt ((+|), (|+))
 import Lorentz.Macro hiding (assert)
 import Lorentz.Test (contractConsumer, sec)
 import Lorentz.Value
 import Morley.Nettest
 import Morley.Nettest.Tasty
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.HUnit (testCase, (@?=))
 import Tezos.Core (timestampPlusSeconds)
 
 import SegCFMM.Errors
 import SegCFMM.Types
 import Test.Invariants
-import Test.SegCFMM.Storage (defaultStorage)
+import Test.SegCFMM.Storage
 import Test.Util
 
 test_BufferInitialization :: TestTree
 test_BufferInitialization =
-  testCase "Our initial buffer matches the ligo's one for buffer size = 1" $
-    pretty @_ @Text (initCumulativesBuffer 0) @?= pretty (sCumulativesBuffer defaultStorage)
+  testGroup "Our initial buffer matches the ligo's one"
+  [ nettestScenarioOnEmulatorCaps "Default buffer" do
+      initCumulativesBuffer 0
+        @== sCumulativesBuffer defaultStorage
+
+  , nettestScenarioOnEmulatorCaps "Extra buffer slots = 10" do
+      initCumulativesBuffer 10
+        @== sCumulativesBuffer storageWithIncreasedBuffer10
+
+  ]
 
 test_Continuity :: TestTree
 test_Continuity =
