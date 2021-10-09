@@ -82,8 +82,9 @@ let default_ladder : ladder = Big_map.literal
   ]
 
 
-let default_storage (constants : constants) : storage =
-
+let default_storage
+    (constants : constants)
+    (init_cumulatives_buffer_extra_slots : nat) : storage =
   let min_tick_state =
     { prev = { i = -impossible_tick }
     ; next = { i = int(const_max_tick) }
@@ -120,7 +121,7 @@ let default_storage (constants : constants) : storage =
   ; fee_growth = { x = { x128 = 0n }; y = { x128 = 0n } }
   ; ticks = ticks
   ; positions = (Big_map.empty : position_map)
-  ; cumulatives_buffer = init_cumulatives_buffer 0n
+  ; cumulatives_buffer = init_cumulatives_buffer init_cumulatives_buffer_extra_slots
   ; metadata = (Big_map.empty : metadata_map)
   ; new_position_id = 0n
   ; operators = (Big_map.empty : operators)

@@ -85,6 +85,7 @@ $(OUT)/storage_default.tz : x_token_id = 0
 $(OUT)/storage_default.tz : y_token_id = 0
 $(OUT)/storage_default.tz : x_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
 $(OUT)/storage_default.tz : y_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
+$(OUT)/storage_default.tz : init_cumulatives_buffer_extra_slots = 0
 $(OUT)/storage_default.tz: $(shell find ligo -name '*.mligo')
 	# ============== Compiling default LIGO storage ============== #
 	$(BUILD_STORAGE) ligo/defaults.mligo entrypoint "default_storage( \
@@ -94,7 +95,8 @@ $(OUT)/storage_default.tz: $(shell find ligo -name '*.mligo')
 			; y_token_id = $(y_token_id)n \
 			; x_token_address = (\"$(x_token_address)\" : address) \
 			; y_token_address = (\"$(y_token_address)\" : address) \
-	    })" --output-file $(OUT)/storage_default.tz
+	    }) ($(init_cumulatives_buffer_extra_slots)n)" \
+        --output-file $(OUT)/storage_default.tz
 
 $(OUT)/liquidity_mining.tz: ligo/liquidity_mining.mligo ligo/types.mligo
 	$(BUILD) ligo/liquidity_mining.mligo main --output-file $@
