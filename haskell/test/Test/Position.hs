@@ -713,7 +713,7 @@ test_withdrawal_overflow =
           , uppDeadline = deadline
           , uppMaximumTokensContributed = PerToken 1000000 1000000
           }
-          & expectFailedWith internalLiquidityBelowZeroErr
+          & expectFailedWith positionLiquidityBelowZeroErr
 
 test_position_initialization :: TestTree
 test_position_initialization =

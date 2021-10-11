@@ -50,6 +50,9 @@
 (* When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. *)
 [@inline] let tick_order_err = 111n
 
+(* Liquidity of a position went below zero. *)
+[@inline] let position_liquidity_below_zero_err = 112n
+
 
 
 // ---------------------------------------------------------------------------
@@ -95,8 +98,8 @@
 (* Thrown when `(p.dx - dx_consumed)` or `(p.dy - dy_consumed)` is not nat. *)
 [@inline] let internal_307 = 307n
 
-(* Liquidity went below zero. *)
-[@inline] let internal_liquidity_below_zero_err = 308n
+(* Liquidity of a tick went below zero. *)
+[@inline] let internal_tick_liquidity_below_zero_err = 308n
 
 (* Thrown when `(p.dx - r.dx)` is not nat. *)
 [@inline] let internal_309 = 309n

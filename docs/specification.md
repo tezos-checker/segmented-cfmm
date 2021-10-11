@@ -485,6 +485,8 @@ Updates an existing [position](#positions).
 - If the amount of tokens that needs to be `transfer`red to the contract
   (after taking accrued fees into account) is higher than `maximum_tokens_contributed`,
   fails with `high_tokens_err` error code.
+- If the resulting liquidity in the position becomes less than zero,
+  fails with `position_liquidity_below_zero_err` error code.
 - A user can set `liquidity_delta` to `0` on an existing position to simply retrieve
   any uncollected fees.
 

@@ -175,7 +175,7 @@ let update_balances_after_position_change
     else if lower_tick_index.i <= s.cur_tick_index.i && s.cur_tick_index.i < upper_tick_index.i then
         (* update interval we are in, if need be ... *)
         let s = { s with
-                    liquidity = assert_nat (s.liquidity + liquidity_delta, internal_liquidity_below_zero_err)
+                    liquidity = assert_nat (s.liquidity + liquidity_delta, position_liquidity_below_zero_err)
                 } in
         (s, {
             x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - s.sqrt_price.x80, internal_sqrt_price_grow_err_2)) 80n))) (int (s.sqrt_price.x80 * srp_u.x80)) ;
@@ -308,8 +308,7 @@ let update_position (s : storage) (p : update_position_param) : result =
     let s, fees, position = collect_fees s p.position_id position in
 
     (* Update liquidity of position. *)
-    // TODO: the error should not be internal
-    let liquidity_new = assert_nat (position.liquidity + p.liquidity_delta, internal_liquidity_below_zero_err) in
+    let liquidity_new = assert_nat (position.liquidity + p.liquidity_delta, position_liquidity_below_zero_err) in
     let position = {position with liquidity = liquidity_new} in
 
     (* How number of positions at related ticks changes. *)

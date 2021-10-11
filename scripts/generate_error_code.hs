@@ -83,6 +83,9 @@ invalidInputErrors = errorsEnumerate 100
   , "tick_order_err"
       :? "When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`."
 
+  , "position_liquidity_below_zero_err"
+      :? "Liquidity of a position went below zero."
+
   ]
 
 invalidConfigErrors :: [ErrorItem]
@@ -128,8 +131,8 @@ internalErrors = errorsEnumerate 300
   , "internal_307"
       :? "Thrown when `(p.dx - dx_consumed)` or `(p.dy - dy_consumed)` is not nat."
 
-  , "internal_liquidity_below_zero_err"
-      :? "Liquidity went below zero."
+  , "internal_tick_liquidity_below_zero_err"
+      :? "Liquidity of a tick went below zero."
 
   , "internal_309"
       :? "Thrown when `(p.dx - r.dx)` is not nat."

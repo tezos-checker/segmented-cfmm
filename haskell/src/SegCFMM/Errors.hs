@@ -62,6 +62,10 @@ observeFutureTimestampErr = 110
 tickOrderErr :: Natural
 tickOrderErr = 111
 
+-- | Liquidity of a position went below zero.
+positionLiquidityBelowZeroErr :: Natural
+positionLiquidityBelowZeroErr = 112
+
 
 ----------------------------------------------------------------------------
 -- Contract Configuration Error Codes
@@ -116,9 +120,9 @@ internalFlipFeeGrowthOutsideErr = 306
 internal307 :: Natural
 internal307 = 307
 
--- | Liquidity went below zero.
-internalLiquidityBelowZeroErr :: Natural
-internalLiquidityBelowZeroErr = 308
+-- | Liquidity of a tick went below zero.
+internalTickLiquidityBelowZeroErr :: Natural
+internalTickLiquidityBelowZeroErr = 308
 
 -- | Thrown when `(p.dx - r.dx)` is not nat.
 internal309 :: Natural
