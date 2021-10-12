@@ -242,6 +242,8 @@ type timed_cumulatives_buffer = {
     // 2. Timestamp when this sum was registered.
     //    This allows for bin search by timestamp.
     //
+    // Indices in the map are assigned to values sequentially starting from 0.
+    //
     // Invariants:
     // a. The set of indices that have an associated element with them is continuous;
     // b. Timestamps in values grow strictly monotonically
