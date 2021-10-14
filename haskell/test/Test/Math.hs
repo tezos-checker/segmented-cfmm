@@ -30,10 +30,10 @@ _280 :: Num a => a
 _280 = 2^(80 :: Integer)
 
 data Accumulators = Accumulators
-  { aSeconds :: Natural
+  { aSeconds :: Integer
   , aTickCumulative :: Integer
-  , aFeeGrowth :: PerToken (X 128 Natural)
-  , aSecondsPerLiquidity :: X 128 Natural
+  , aFeeGrowth :: PerToken (X 128 Integer)
+  , aSecondsPerLiquidity :: X 128 Integer
   }
   deriving stock (Eq, Show, Generic)
   deriving Buildable via (GenericBuildable Accumulators)
@@ -65,13 +65,19 @@ tickAccumulatorsInside cfmm st lowerTi upperTi = do
   CumulativesValue {cvTickCumulative, cvSecondsPerLiquidityCumulative} <- observe cfmm
   pure Accumulators
     { aSeconds
-        = tickAccumulatorInside lowerTs upperTs (timestampToSeconds currentTime) tsSecondsOutside
+        = tickAccumulatorInside lowerTs upperTs
+            (fromIntegral @Natural @Integer $ timestampToSeconds currentTime)
+            (fromIntegral @Natural @Integer . tsSecondsOutside)
     , aTickCumulative
         = tickAccumulatorInside lowerTs upperTs cvTickCumulative tsTickCumulativeOutside
     , aFeeGrowth
-        = tickAccumulatorInside lowerTs upperTs (sFeeGrowth st) tsFeeGrowthOutside
+        = tickAccumulatorInside lowerTs upperTs
+            (fmap (fromIntegral @Natural @Integer) <$> sFeeGrowth st)
+            (\ts -> fmap (fromIntegral @Natural @Integer) <$> tsFeeGrowthOutside ts)
     , aSecondsPerLiquidity
-        = tickAccumulatorInside lowerTs upperTs cvSecondsPerLiquidityCumulative tsSecondsPerLiquidityOutside
+        = tickAccumulatorInside lowerTs upperTs
+            (fromIntegral @Natural @Integer <$> cvSecondsPerLiquidityCumulative)
+            (\ts -> fromIntegral @Natural @Integer <$> tsSecondsPerLiquidityOutside ts)
     }
   where
     -- Equation 6.17
@@ -154,8 +160,8 @@ initTickAccumulators cfmm st tickIndex =
       pure Accumulators
         { aSeconds = secondsOutside
         , aTickCumulative = tickCumulative
-        , aFeeGrowth = sFeeGrowth st
-        , aSecondsPerLiquidity = secondsPerLiquidity
+        , aFeeGrowth = fmap (fromIntegral @Natural @Integer) <$> sFeeGrowth st
+        , aSecondsPerLiquidity = fromIntegral @Natural @Integer <$> secondsPerLiquidity
         }
     else do
       -- pure (0, 0, PerToken 0 0, 0)

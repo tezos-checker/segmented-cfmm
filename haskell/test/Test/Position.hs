@@ -788,16 +788,16 @@ test_position_initialization =
       do
         -- TODO: test creating multiple positions, otherwise the secondsPerLiquidityOutside value will always be 0
         Accumulators expectedSecondsOutside expectedTickCumulativeOutside expectedFeeGrowthOutside expectedSecondsPerLiquidityOutside <- initTickAccumulators cfmm st lowerTickIndex
-        (lowerTick & tsSecondsOutside) @== expectedSecondsOutside
+        (lowerTick & tsSecondsOutside & fromIntegral) @== expectedSecondsOutside
         (lowerTick & tsTickCumulativeOutside) @== expectedTickCumulativeOutside
-        (lowerTick & tsFeeGrowthOutside) @== expectedFeeGrowthOutside
-        (lowerTick & tsSecondsPerLiquidityOutside) @== expectedSecondsPerLiquidityOutside
+        (lowerTick & tsFeeGrowthOutside <&> fromIntegral) @== expectedFeeGrowthOutside
+        (lowerTick & tsSecondsPerLiquidityOutside <&> fromIntegral) @== expectedSecondsPerLiquidityOutside
       do
         Accumulators expectedSecondsOutside expectedTickCumulativeOutside expectedFeeGrowthOutside expectedSecondsPerLiquidityOutside <- initTickAccumulators cfmm st upperTickIndex
-        (upperTick & tsSecondsOutside) @== expectedSecondsOutside
-        (lowerTick & tsTickCumulativeOutside) @== expectedTickCumulativeOutside
-        (upperTick & tsFeeGrowthOutside) @== expectedFeeGrowthOutside
-        (upperTick & tsSecondsPerLiquidityOutside) @== expectedSecondsPerLiquidityOutside
+        (upperTick & tsSecondsOutside & fromIntegral) @== expectedSecondsOutside
+        (upperTick & tsTickCumulativeOutside) @== expectedTickCumulativeOutside
+        (upperTick & tsFeeGrowthOutside <&> fromIntegral) @== expectedFeeGrowthOutside
+        (upperTick & tsSecondsPerLiquidityOutside <&> fromIntegral) @== expectedSecondsPerLiquidityOutside
 
       -- Check global state updates
       let positionIsActive = lowerTickIndex <= sCurTickIndex st && sCurTickIndex st < upperTickIndex

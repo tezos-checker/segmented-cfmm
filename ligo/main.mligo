@@ -114,7 +114,7 @@ let garbage_collection (s : storage) (position : position_state) (position_id : 
     let s = garbage_collect_tick s position.upper_tick_index in
     s
 
-let calc_fee_growth_inside (s : storage) (lower_tick_index : tick_index) (upper_tick_index : tick_index) : balance_nat_x128 =
+let calc_fee_growth_inside (s : storage) (lower_tick_index : tick_index) (upper_tick_index : tick_index) : balance_int_x128 =
     let lower_tick = get_tick s.ticks lower_tick_index internal_tick_not_exist_err in
     let upper_tick = get_tick s.ticks upper_tick_index internal_tick_not_exist_err in
 
@@ -135,8 +135,8 @@ let calc_fee_growth_inside (s : storage) (lower_tick_index : tick_index) (upper_
               y = {x128 = assert_nat (s.fee_growth.y.x128 - lower_tick.fee_growth_outside.y.x128, internal_312) };
             } in
     // equation 6.19
-    { x = {x128 = assert_nat (s.fee_growth.x.x128 - fee_above.x.x128 - fee_below.x.x128, internal_314) };
-      y = {x128 = assert_nat (s.fee_growth.y.x128 - fee_above.y.x128 - fee_below.y.x128, internal_315) };
+    { x = {x128 = s.fee_growth.x.x128 - fee_above.x.x128 - fee_below.x.x128 };
+      y = {x128 = s.fee_growth.y.x128 - fee_above.y.x128 - fee_below.y.x128 };
     }
 
 let collect_fees (s : storage) (key : position_id) (position : position_state) : storage * balance_nat * position_state =

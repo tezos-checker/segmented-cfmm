@@ -66,7 +66,7 @@ import Morley.Client (AsRPC, deriveRPCWithStrategy)
 newtype X (n :: Nat) a = X
   { pickX :: a
     -- ^ Get the value multiplied by @2^n@.
-  } deriving stock (Show, Eq, Generic)
+  } deriving stock (Show, Eq, Generic, Functor)
     deriving newtype (IsoValue, HasAnnotation, Num, Integral, Enum, Ord, Real, Ix)
 
 instance (Buildable a, KnownNat n) => Buildable (X n a) where
@@ -341,7 +341,7 @@ data PositionState = PositionState
     -- ^ Amount of virtual liquidity that the position represented the last
     -- time it was touched. This amount does not reflect the fees that have
     -- been accumulated since the contract was last touched.
-  , psFeeGrowthInsideLast :: PerToken (X 128 Natural)
+  , psFeeGrowthInsideLast :: PerToken (X 128 Integer)
     -- ^ Used to calculate uncollected fees.
   }
   deriving stock Eq
