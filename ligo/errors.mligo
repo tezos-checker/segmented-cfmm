@@ -143,6 +143,9 @@
 (* Position creation/change unexpectedly transferred tokens to someone *)
 [@inline] let internal_unexpected_income_err = 325n
 
+(* Price became negative when crossing a tick *)
+[@inline] let internal_negative_price = 326n
+
 
 
 #endif

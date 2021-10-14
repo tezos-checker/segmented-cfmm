@@ -109,7 +109,10 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             (* The tick index below that. *)
             let lo_new = tick.prev in
             (* The cached price corresponding to cur_tick_witness. *)
-            let sqrt_price_new = tick.sqrt_price in
+            (* We've actually crossed `cur_tick_witness` going down, therefore we have to
+                push `sqrt_price` slightly below the price of `cur_tick_witness`.
+             *)
+            let sqrt_price_new = {x80 = assert_nat (tick.sqrt_price.x80 - 1n, internal_negative_price) } in
             (* How much dY will we receive for going all the way to cur_tick_witness. *)
             (* From 6.14 formula. *)
             let dy = Bitwise.shift_right (p.s.liquidity * (assert_nat (p.s.sqrt_price.x80 - sqrt_price_new.x80, internal_bad_sqrt_price_move_x_direction))) 80n in
@@ -143,9 +146,13 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             let ticks_new = Big_map.update p.s.cur_tick_witness (Some tick_new) p.s.ticks  in
             (* Update global state. *)
             let s_new = {p.s with
-                sqrt_price = sqrt_price_new ;
                 cur_tick_witness = lo_new ;
-                cur_tick_index = p.s.cur_tick_witness ;
+                sqrt_price = sqrt_price_new;
+                (*  We've crossed `cur_tick_witness` going down, therefore we have to push `cur_tick_index`
+                    slightly below `cur_tick_witness`.
+                *)
+                cur_tick_index = { i = p.s.cur_tick_witness.i - 1 } ;
+
                 ticks = ticks_new ;
                 fee_growth = fee_growth_new ;
                 (* Update liquidity as we enter new tick region. *)

@@ -71,5 +71,6 @@ Here is a summary of all the error codes thrown by the contract.
 | 323 | `internal_non_empty_position_gc_err` | Attempt to garbade collect a tick with non-zero liquidity net. |
 | 324 | `internal_flip_seconds_per_liquidity_outside_err` | Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract). |
 | 325 | `internal_unexpected_income_err` | Position creation/change unexpectedly transferred tokens to someone |
+| 326 | `internal_negative_price` | Price became negative when crossing a tick |
 
 

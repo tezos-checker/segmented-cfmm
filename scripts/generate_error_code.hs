@@ -182,6 +182,9 @@ internalErrors = errorsEnumerate 300
   , "internal_unexpected_income_err"
       :? "Position creation/change unexpectedly transferred tokens to someone"
 
+  , "internal_negative_price"
+      :? "Price became negative when crossing a tick"
+
   ]
 
 

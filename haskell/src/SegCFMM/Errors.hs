@@ -179,3 +179,7 @@ internalFlipSecondsPerLiquidityOutsideErr = 324
 -- | Position creation/change unexpectedly transferred tokens to someone
 internalUnexpectedIncomeErr :: Natural
 internalUnexpectedIncomeErr = 325
+
+-- | Price became negative when crossing a tick
+internalNegativePrice :: Natural
+internalNegativePrice = 326

@@ -547,3 +547,82 @@ test_fails_if_its_past_the_deadline =
         , xpToDy = swapper
         }
         & expectFailedWith pastDeadlineErr
+
+test_push_cur_tick_index_just_below_witness :: TestTree
+test_push_cur_tick_index_just_below_witness =
+  nettestScenarioOnEmulatorCaps "invariants hold when pushing the cur_tick_index just below cur_tick_witness" do
+      liquidityProvider <- newAddress auto
+      swapper <- newAddress auto
+      let userFA2Balance = 1_e15
+      let accounts = [liquidityProvider, swapper]
+      let xTokenId = FA2.TokenId 0
+      let yTokenId = FA2.TokenId 1
+      let xFa2storage = FA2.Storage
+            { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, xTokenId), userFA2Balance)
+            , sOperators = mempty
+            , sTokenMetadata = mempty
+            }
+      let yFa2storage = FA2.Storage
+            { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, yTokenId), userFA2Balance)
+            , sOperators = mempty
+            , sTokenMetadata = mempty
+            }
+      xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
+      yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
+
+      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId 200
+      checkAllInvariants cfmm
+
+      for_ accounts \account ->
+        withSender account do
+          call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
+          call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) yTokenId]
+
+      deadline <- mkDeadline
+      withSender liquidityProvider do
+        call cfmm (Call @"Set_position")
+          SetPositionParam
+            { sppLowerTickIndex = -100
+            , sppUpperTickIndex = 100
+            , sppLowerTickWitness = minTickIndex
+            , sppUpperTickWitness = minTickIndex
+            , sppLiquidity = 10000
+            , sppDeadline = deadline
+            , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+            }
+        call cfmm (Call @"Set_position")
+          SetPositionParam
+            { sppLowerTickIndex = -200
+            , sppUpperTickIndex = -100
+            , sppLowerTickWitness = minTickIndex
+            , sppUpperTickWitness = minTickIndex
+            , sppLiquidity = 30000
+            , sppDeadline = deadline
+            , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+            }
+
+      withSender swapper do
+        -- Explanation:
+        -- We have 2 positions: one currently in-range with boundaries at [-100, 100],
+        -- and another currently out-of-range with boundaries at [-200, -100].
+        --
+        -- If we deposit 52 X tokens, the cur_tick_index would move to -100 but NOT cross it.
+        --
+        -- If we deposit 53 X tokens, we'll exhaust the first position's liquidity,
+        -- and therefore crossing the tick -100.
+        -- After having crossed the tick, we'll have 1 X token left to swap.
+        -- But since a 1 token fee will be charged, 0 X tokens will be deposited and 0 Y tokens will be withdrawn.
+        --
+        -- We want to make sure invariants are not broken when this edge case occurs.
+        call cfmm (Call @"X_to_y") XToYParam
+          { xpDx = 53
+          , xpDeadline = deadline
+          , xpMinDy = 0
+          , xpToDy = swapper
+          }
+
+        -- sanity check
+        st <- getFullStorage cfmm
+        sCurTickIndex st @== -101
+
+        checkAllInvariants cfmm
