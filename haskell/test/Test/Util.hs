@@ -15,10 +15,12 @@ module Test.Util
   , originateSegCFMM
   , prepareSomeSegCFMM
   , prepareSomeSegCFMM'
+  , observe
   , mkDeadline
   , advanceSecs
   , mapToList
   , mapToListReverse
+  , collectAllFees
   -- * FA2 helpers
   , balanceOf
   , balancesOf
@@ -139,6 +141,15 @@ prepareSomeSegCFMM' liquidityProviders = do
       )
     )
 
+observe :: (HasCallStack, MonadEmulated caps base m) => ContractHandler Parameter st -> m CumulativesValue
+observe cfmm = do
+  currentTime <- getNow
+  consumer <- originateSimple @[CumulativesValue] "consumer" [] contractConsumer
+  call cfmm (Call @"Observe") $ mkView [currentTime] consumer
+  getFullStorage consumer >>= \case
+    [[cv]] -> pure cv
+    _ -> failure "Expected to get exactly 1 CumulativeValue"
+
 -- | Create a valid deadline
 mkDeadline :: MonadNettest caps base m => m Timestamp
 mkDeadline = do
@@ -147,12 +158,12 @@ mkDeadline = do
 
 -- | Advance time by @n@ seconds, while calling some view entrypoint to make sure
 -- the cumulative buffers are filled every second.
-advanceSecs :: MonadNettest caps base m => Int -> ContractHandler Parameter st -> m ()
-advanceSecs n cfmm = do
+advanceSecs :: MonadNettest caps base m => Natural -> [ContractHandler Parameter st] -> m ()
+advanceSecs n cfmms = do
   consumer <- originateSimple @[CumulativesValue] "consumer" [] contractConsumer
   for_ [1..n] \_ -> do
-    call cfmm (Call @"Observe") $ mkView [] consumer
     advanceTime (sec 1)
+    for_ cfmms \cfmm -> call cfmm (Call @"Observe") $ mkView [] consumer
 
 -- | Converts a michelson doubly linked list (encoded as a big_map) to a list.
 -- The linked list is traversed starting from `minTickIndex` and
@@ -197,6 +208,25 @@ mapToListReverse tickMap =
           Just current -> go (current & tsPrev) ((currentIndex, current) : acc) ll
           Nothing -> failure $ "Index " +| currentIndex |+ " does not exist in the linked-list."
 
+-- | Collect fees from all positions.
+collectAllFees :: (HasCallStack, MonadEmulated caps base m) => ContractHandler Parameter Storage -> Address -> m ()
+collectAllFees cfmm receiver = do
+  st <- getFullStorage cfmm
+  deadline <- mkDeadline
+  for_ (Map.keys $ bmMap $ sPositions st) \idx -> do
+    withSender (piOwner idx) do
+      call cfmm (Call @"Set_position")
+        SetPositionParam
+          { sppLowerTickIndex = piLowerTickIndex idx
+          , sppUpperTickIndex = piUpperTickIndex idx
+          , sppLowerTickWitness = piLowerTickIndex idx
+          , sppUpperTickWitness = piUpperTickIndex idx
+          , sppLiquidityDelta = 0
+          , sppToX = receiver
+          , sppToY = receiver
+          , sppDeadline = deadline
+          , sppMaximumTokensContributed = PerToken 0 0
+          }
 
 ----------------------------------------------------------------------------
 -- FA2 helpers

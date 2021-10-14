@@ -109,10 +109,10 @@ internalBadSqrtPriceMoveYDirection :: Natural
 internalBadSqrtPriceMoveYDirection = 305
 
 -- | Flip for `fee_growth_outside` failed. (This is an invariant of the contract).
-flipFeeGrowthOutsideErr :: Natural
-flipFeeGrowthOutsideErr = 306
+internalFlipFeeGrowthOutsideErr :: Natural
+internalFlipFeeGrowthOutsideErr = 306
 
--- | Thrown when `(p.dx - dx_consummed)` or `(p.dy - dy_consummed)` is not nat.
+-- | Thrown when `(p.dx - dx_consumed)` or `(p.dy - dy_consumed)` is not nat.
 internal307 :: Natural
 internal307 = 307
 
@@ -187,3 +187,7 @@ internalSecondsCumulativeErr = 325
 -- | Some problem in cumulative seconds per liquidity computation.
 internalSplCumulativeErr :: Natural
 internalSplCumulativeErr = 326
+
+-- | Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract).
+internalFlipSecondsPerLiquidityOutsideErr :: Natural
+internalFlipSecondsPerLiquidityOutsideErr = 327

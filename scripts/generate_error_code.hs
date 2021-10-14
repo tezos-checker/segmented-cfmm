@@ -122,11 +122,11 @@ internalErrors = errorsEnumerate 300
   , "internal_bad_sqrt_price_move_y_direction"
       :? "Unexpected price direction movement after sqrt_price_move_y."
 
-  , "flip_fee_growth_outside_err"
+  , "internal_flip_fee_growth_outside_err"
       :? "Flip for `fee_growth_outside` failed. (This is an invariant of the contract)."
 
   , "internal_307"
-      :? "Thrown when `(p.dx - dx_consummed)` or `(p.dy - dy_consummed)` is not nat."
+      :? "Thrown when `(p.dx - dx_consumed)` or `(p.dy - dy_consumed)` is not nat."
 
   , "internal_liquidity_below_zero_err"
       :? "Liquidity went below zero."
@@ -183,6 +183,9 @@ internalErrors = errorsEnumerate 300
 
   , "internal_spl_cumulative_err"
       :? "Some problem in cumulative seconds per liquidity computation."
+
+  , "internal_flip_seconds_per_liquidity_outside_err"
+      :? "Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract)."
 
   ]
 

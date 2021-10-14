@@ -55,6 +55,7 @@ default-extensions:
   - NegativeLiterals
   - NoImplicitPrelude
   - NumDecimals
+  - NumericUnderscores
   - OverloadedLabels
   - OverloadedStrings
   - PatternSynonyms
