@@ -123,13 +123,15 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             (* Deduct the fee we will actually be paying. *)
             let fee = assert_nat (dx_consumed - dx_for_dy, internal_impossible_err) in
             let fee_growth_x_new = {x128 = p.s.fee_growth.x.x128 + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity)} in
+            let fee_growth_new = {p.s.fee_growth with x=fee_growth_x_new} in
             (* Flip tick cumulative growth. *)
             let sums = get_last_cumulatives p.s.cumulatives_buffer in
             let tick_cumulative_outside_new = sums.tick.sum - tick.tick_cumulative_outside in
             (* Flip fee growth. *)
-            let fee_growth_outside_new = {tick.fee_growth_outside with
-                x = {x128 = assert_nat (fee_growth_x_new.x128 - tick.fee_growth_outside.x.x128, internal_flip_fee_growth_outside_err)}} in
-            let fee_growth_new = {p.s.fee_growth with x=fee_growth_x_new} in
+            let fee_growth_outside_new = {
+                x = { x128 = assert_nat (fee_growth_new.x.x128 - tick.fee_growth_outside.x.x128, internal_flip_fee_growth_outside_err) };
+                y = { x128 = assert_nat (fee_growth_new.y.x128 - tick.fee_growth_outside.y.x128, internal_flip_fee_growth_outside_err) };
+                } in
             (* Flip time growth. *)
             let seconds_outside_new = assert_nat ((Tezos.now - epoch_time) - tick.seconds_outside, internal_negative_seconds_outside_err) in
             (* Flip seconds_per_liquidity_outside *)
@@ -205,13 +207,15 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
             (* Deduct the fee we will actually be paying. *)
             let fee = assert_nat (dy_consumed - dy_for_dx, internal_impossible_err) in
             let fee_growth_y_new = {x128 = p.s.fee_growth.y.x128 + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity)} in
+            let fee_growth_new = {p.s.fee_growth with y=fee_growth_y_new} in
             (* Flip tick cumulative growth. *)
             let sums = get_last_cumulatives p.s.cumulatives_buffer in
             let tick_cumulative_outside_new = sums.tick.sum - next_tick.tick_cumulative_outside in
-            (* Flip fee growth. *)
-            let fee_growth_outside_new = {next_tick.fee_growth_outside with
-                y = {x128 = assert_nat (fee_growth_y_new.x128 - next_tick.fee_growth_outside.y.x128, internal_flip_fee_growth_outside_err)}} in
-            let fee_growth_new = {p.s.fee_growth with y=fee_growth_y_new} in
+            (* Flip fee growth outside. *)
+            let fee_growth_outside_new = {
+                x = { x128 = assert_nat (fee_growth_new.x.x128 - next_tick.fee_growth_outside.x.x128, internal_flip_fee_growth_outside_err) };
+                y = { x128 = assert_nat (fee_growth_new.y.x128 - next_tick.fee_growth_outside.y.x128, internal_flip_fee_growth_outside_err) };
+                } in
             (* Flip time growth. *)
             let seconds_outside_new = assert_nat ((Tezos.now - epoch_time) - next_tick.seconds_outside, internal_negative_seconds_outside_err) in
             (* Flip seconds_per_liquidity_outside *)

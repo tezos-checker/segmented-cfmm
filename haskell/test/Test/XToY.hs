@@ -432,6 +432,90 @@ test_crossing_ticks =
       tsTickCumulativeOutside ts @== fromIntegral @TickIndex @Integer (sCurTickIndex initialSt2) * fromIntegral waitTime
       tsFeeGrowthOutside ts @/= 0
 
+test_fee_split :: TestTree
+test_fee_split =
+  nettestScenarioOnEmulatorCaps "fees are correctly assigned to each position" do
+    let feeBps = 5000 -- 50%
+
+    let liquidityDelta = 1_e6
+    let userFA2Balance = 1_e15
+
+    liquidityProvider <- newAddress auto
+    let position1Bounds = (-100, 100)
+    let position2Bounds = (-200, -100)
+
+    swapper <- newAddress auto
+    feeReceiver1 <- newAddress auto
+    feeReceiver2 <- newAddress auto
+    let accounts = [liquidityProvider, swapper]
+    let xTokenId = FA2.TokenId 0
+    let yTokenId = FA2.TokenId 1
+    let xFa2storage = FA2.Storage
+          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, xTokenId), userFA2Balance)
+          , sOperators = mempty
+          , sTokenMetadata = mempty
+          }
+    let yFa2storage = FA2.Storage
+          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, yTokenId), userFA2Balance)
+          , sOperators = mempty
+          , sTokenMetadata = mempty
+          }
+    xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
+    yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
+
+    cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
+
+    for_ accounts \account ->
+      withSender account do
+        call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
+        call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) yTokenId]
+
+    deadline <- mkDeadline
+    withSender liquidityProvider do
+      for_ [position1Bounds, position2Bounds] \(lowerTickIndex, upperTickIndex) -> do
+        call cfmm (Call @"Set_position")
+          SetPositionParam
+            { sppLowerTickIndex = lowerTickIndex
+            , sppUpperTickIndex = upperTickIndex
+            , sppLowerTickWitness = minTickIndex
+            , sppUpperTickWitness = minTickIndex
+            , sppLiquidity = liquidityDelta
+            , sppDeadline = deadline
+            , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+            }
+
+    withSender swapper do
+      -- Place a small y-to-x swap.
+      -- It's small enough to be executed within the [-100, 100] range,
+      -- so the Y fee is paid to position1 only.
+      call cfmm (Call @"Y_to_x") YToXParam
+        { ypDy = 1_000
+        , ypDeadline = deadline
+        , ypMinDx = 0
+        , ypToDx = swapper
+        }
+
+      -- Place a big x-to-y swap.
+      -- It's big enough to cross from the [-100, 100] range into the [-200, -100] range,
+      -- so the X fee is paid to both position1 and position2.
+      call cfmm (Call @"X_to_y") XToYParam
+        { xpDx = 20_000
+        , xpDeadline = deadline
+        , xpMinDy = 0
+        , xpToDy = swapper
+        }
+    checkAllInvariants cfmm
+
+    -- position1 should have earned both X and Y fees.
+    collectFees cfmm feeReceiver1 0 liquidityProvider
+    balanceOf xToken xTokenId feeReceiver1 @@/= 0
+    balanceOf yToken yTokenId feeReceiver1 @@/= 0
+
+    -- position2 should have earned X fees only.
+    collectFees cfmm feeReceiver2 1 liquidityProvider
+    balanceOf xToken xTokenId feeReceiver2 @@/= 0
+    balanceOf yToken yTokenId feeReceiver2 @@== 0
+
 test_must_exceed_min_dy :: TestTree
 test_must_exceed_min_dy =
   nettestScenarioOnEmulatorCaps "swap fails if the user would receiver less than min_dy" do
