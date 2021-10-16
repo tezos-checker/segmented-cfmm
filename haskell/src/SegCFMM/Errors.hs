@@ -180,14 +180,6 @@ internalNonEmptyPositionGcErr = 323
 internalPositionMapsUnsyncedErr :: Natural
 internalPositionMapsUnsyncedErr = 324
 
--- | Some problem in cumulative seconds computation.
-internalSecondsCumulativeErr :: Natural
-internalSecondsCumulativeErr = 325
-
--- | Some problem in cumulative seconds per liquidity computation.
-internalSplCumulativeErr :: Natural
-internalSplCumulativeErr = 326
-
 -- | Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract).
 internalFlipSecondsPerLiquidityOutsideErr :: Natural
-internalFlipSecondsPerLiquidityOutsideErr = 327
+internalFlipSecondsPerLiquidityOutsideErr = 325

@@ -42,7 +42,7 @@ data Deposit = Deposit
   }
 
 data Stake = Stake
-  { dSecondsPerLiquidityInsideInitial :: X 128 Natural
+  { dSecondsPerLiquidityInsideInitial :: X 128 Integer
   , dLiquidity :: Natural
   }
 

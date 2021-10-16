@@ -97,7 +97,7 @@ type deposit = {
 // If a stake is registered for the given deposit, such deposit cannot be removed.
 type stake = {
     // The initial 1/L cumulative value inside the position.
-    seconds_per_liquidity_inside_initial : x128n;
+    seconds_per_liquidity_inside_initial : x128;
 
     // The liquidity amount provided to the stake.
     liquidity : nat;
@@ -211,8 +211,8 @@ let compute_reward_amount
     (start_time : timestamp)
     (end_time : timestamp)
     (liquidity : nat)
-    (seconds_per_liqudity_inside_initial : x128n)
-    (seconds_per_liqudity_inside : x128n)
+    (seconds_per_liqudity_inside_initial : x128)
+    (seconds_per_liqudity_inside : x128)
         : reward_computation_result = begin
     // Follows the solidity impl:
     // https://github.com/Uniswap/v3-staker/blob/eff32b5509f87b3e66734c42ba5fc7c607dc583c/contracts/libraries/RewardMath.sol
