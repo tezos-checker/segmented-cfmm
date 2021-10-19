@@ -181,9 +181,9 @@ type parameter =
     | Withdraw_deposit of position_id * destination_address
     | Stake_token of incentive_id * position_id
     | Stake_token_on_position_info of position_info
-    | Stake_token_on_cum_info of cumulatives_inside_snapshot
+    | Stake_token_on_sum_info of cumulatives_inside_snapshot
     | Unstake_token of incentive_id * position_id
-    | Unstake_token_on_cum_info of cumulatives_inside_snapshot
+    | Unstake_token_on_sum_info of cumulatives_inside_snapshot
     | Claim_reward of fa2_token * (destination_address * nat option)
     // Get_reward_info: unlike the solidity impl, not provided, must be computed off-chain.
     // Note for future: The proper contract also needs getters, but for demo we probably don't care
@@ -477,17 +477,17 @@ let stake_token_on_position_info(position_info, s : position_info * storage) : r
         Tezos.transaction
         { lower_tick_index = position_info.index.lower_tick_index
         ; upper_tick_index = position_info.index.upper_tick_index
-        ; callback = (Tezos.self "%stake_token_on_cum_info" : cumulatives_inside_snapshot contract)
+        ; callback = (Tezos.self "%stake_token_on_sum_info" : cumulatives_inside_snapshot contract)
         } 0mutez get_cumulatives_info_ep in
 
     (([get_cumulatives_info_op] : operation list), s)
 end
 
 // The 3-nd phase of stake_token.
-let stake_token_on_cum_info(cumulatives_snapshot, s : cumulatives_inside_snapshot * storage) : return = begin
+let stake_token_on_sum_info(cumulatives_snapshot, s : cumulatives_inside_snapshot * storage) : return = begin
     let ((incentive_id, position_id), position_info) = match s.stake_token_phase with
         | StAskedCumulativesInfo stored_info -> stored_info
-        | _ -> (failwith "Wrong `stake_token_on_cum_info` call" : (incentive_id * position_id) * position_info) in
+        | _ -> (failwith "Wrong `stake_token_on_sum_info` call" : (incentive_id * position_id) * position_info) in
 
     let s = {s with stake_token_phase = StNotStarted} in
 
@@ -550,17 +550,17 @@ let unstake_token(incentive_id, position_id, s : incentive_id * position_id * st
         Tezos.transaction
         { lower_tick_index = lower_tick_index
         ; upper_tick_index = upper_tick_index
-        ; callback = (Tezos.self "%unstake_token_on_cum_info" : cumulatives_inside_snapshot contract)
+        ; callback = (Tezos.self "%unstake_token_on_sum_info" : cumulatives_inside_snapshot contract)
         } 0mutez get_cumulatives_info_ep in
 
     ([get_cumulatives_info_op], s)
 end
 
 // The 2-nd phase of unstake_token.
-let unstake_token_on_cum_info(cumulatives_snapshot, s : cumulatives_inside_snapshot * storage) : return = begin
+let unstake_token_on_sum_info(cumulatives_snapshot, s : cumulatives_inside_snapshot * storage) : return = begin
     let ((incentive_id, position_id), orig_sender) = match s.unstake_token_phase with
         | UstAskedCumulativesInfo stored_info -> stored_info
-        | _ -> (failwith "Wrong `unstake_token_on_cum_info` call" : (incentive_id * position_id) * address) in
+        | _ -> (failwith "Wrong `unstake_token_on_sum_info` call" : (incentive_id * position_id) * address) in
 
     let s = {s with unstake_token_phase = UstNotStarted} in
 
@@ -657,7 +657,7 @@ let main(p, s : parameter * storage) : return =
     | Withdraw_deposit (pid, to_) -> transfer_deposit(pid, to_, s)
     | Stake_token (cid, pid) -> stake_token(cid, pid, s)
     | Stake_token_on_position_info pi -> stake_token_on_position_info(pi, s)
-    | Stake_token_on_cum_info c -> stake_token_on_cum_info(c, s)
+    | Stake_token_on_sum_info c -> stake_token_on_sum_info(c, s)
     | Unstake_token (cid, pid) -> unstake_token(cid, pid, s)
-    | Unstake_token_on_cum_info c -> unstake_token_on_cum_info(c, s)
+    | Unstake_token_on_sum_info c -> unstake_token_on_sum_info(c, s)
     | Claim_reward (rt, (to_, ra)) -> claim_reward(rt, to_, ra, s)

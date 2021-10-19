@@ -95,9 +95,9 @@ data Parameter
   | Withdraw_deposit (PositionId, DestinationAddress)
   | Stake_token (IncentiveId, PositionId)
   | Stake_token_on_position_info CFMM.PositionInfo
-  | Stake_token_on_cum_info CFMM.CumulativesInsideSnapshot
+  | Stake_token_on_sum_info CFMM.CumulativesInsideSnapshot
   | Unstake_token (IncentiveId, PositionId)
-  | Unstake_token_on_cum_info CFMM.CumulativesInsideSnapshot
+  | Unstake_token_on_sum_info CFMM.CumulativesInsideSnapshot
   | Claim_reward (FA2Token, DestinationAddress, Maybe Natural)
 
 -----------------------------------------------------------------
