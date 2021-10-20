@@ -83,6 +83,9 @@ invalidInputErrors = errorsEnumerate 100
   , "tick_order_err"
       :? "When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`."
 
+  , "position_liquidity_below_zero_err"
+      :? "Liquidity of a position went below zero."
+
   ]
 
 invalidConfigErrors :: [ErrorItem]
@@ -128,8 +131,8 @@ internalErrors = errorsEnumerate 300
   , "internal_307"
       :? "Thrown when `(p.dx - dx_consumed)` or `(p.dy - dy_consumed)` is not nat."
 
-  , "internal_liquidity_below_zero_err"
-      :? "Liquidity went below zero."
+  , "internal_tick_liquidity_below_zero_err"
+      :? "Liquidity of a tick went below zero."
 
   , "internal_309"
       :? "Thrown when `(p.dx - r.dx)` is not nat."
@@ -175,11 +178,11 @@ internalErrors = errorsEnumerate 300
   , "internal_non_empty_position_gc_err"
       :? "Attempt to garbade collect a tick with non-zero liquidity net."
 
-  , "internal_position_maps_unsynced_err"
-      :? "`positions` and `position_indexes` maps were not synchronized."
-
   , "internal_flip_seconds_per_liquidity_outside_err"
       :? "Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract)."
+
+  , "internal_unexpected_income_err"
+      :? "Position creation/change unexpectedly transferred tokens to someone"
 
   ]
 

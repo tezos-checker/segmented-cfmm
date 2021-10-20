@@ -82,9 +82,7 @@ test_BasicWorkflow =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = CFMM.minTickIndex
           , sppUpperTickWitness = CFMM.minTickIndex
-          , sppLiquidityDelta = 10
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = 10
           , sppDeadline = now `timestampPlusSeconds` 100000
           , sppMaximumTokensContributed = 99999999
           }

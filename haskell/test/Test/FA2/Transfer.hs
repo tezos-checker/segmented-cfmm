@@ -5,6 +5,7 @@ module Test.FA2.Transfer
   ( test_zero_transfers
   , test_unknown_position
   , test_removed_position
+  , test_getting_position_back
   , test_not_owner
   , test_not_operator
   , test_fungible_amount
@@ -18,6 +19,8 @@ import Universum
 import Test.Tasty (TestTree)
 
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
+import Lorentz.Macro
+import Lorentz.Test (contractConsumer)
 import Morley.Nettest
 import Morley.Nettest.Tasty
 import Util.Named
@@ -72,28 +75,66 @@ test_removed_position =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = owner
-          , sppToY = owner
+          , sppLiquidity = liquidityDelta
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
+      call cfmm (Call @"Update_position")
+        UpdatePositionParam
+          { uppPositionId = PositionId 0
+          , uppLiquidityDelta = -(toInteger liquidityDelta)
+          , uppToX = owner
+          , uppToY = owner
+          , uppDeadline = deadline
+          , uppMaximumTokensContributed = PerToken 1000000 1000000
+          }
+
+    -- the token is once again undefined because the position was removed
+    expectCustomError_ #fA2_TOKEN_UNDEFINED $
+      withSender owner $ transferToken' cfmm owner receiver (FA2.TokenId 0)
+
+test_getting_position_back :: TestTree
+test_getting_position_back =
+  nettestScenarioOnEmulatorCaps
+  "transferring position, creating a similar one and transferring the old one back is fine" $ do
+    let lowerTickIndex = -10
+    let upperTickIndex = 10
+
+    owner <- newAddress auto
+    foreigner <- newAddress "foreigner"
+    cfmm <- fst <$> prepareSomeSegCFMM owner
+
+    deadline <- mkDeadline
+    withSender owner $ do
       call cfmm (Call @"Set_position")
         SetPositionParam
           { sppLowerTickIndex = lowerTickIndex
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = -liquidityDelta
-          , sppToX = owner
-          , sppToY = owner
+          , sppLiquidity = 1000
+          , sppDeadline = deadline
+          , sppMaximumTokensContributed = PerToken 1000000 1000000
+          }
+      transferToken' cfmm owner foreigner (FA2.TokenId 0)
+
+      call cfmm (Call @"Set_position")
+        SetPositionParam
+          { sppLowerTickIndex = lowerTickIndex
+          , sppUpperTickIndex = upperTickIndex
+          , sppLowerTickWitness = minTickIndex
+          , sppUpperTickWitness = minTickIndex
+          , sppLiquidity = 5
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
 
-    -- the token is once again undefined because the position was removed
-    expectCustomError_ #fA2_TOKEN_UNDEFINED $
-      withSender owner $ transferToken' cfmm owner receiver (FA2.TokenId 0)
+    withSender foreigner do
+      transferToken' cfmm foreigner owner (FA2.TokenId 0)
+
+    consumer <- originateSimple "consumer" [] contractConsumer
+    mapM_ (call cfmm (Call @"Get_position_info") . flip mkView consumer . PositionId) [0, 1]
+    (getFullStorage consumer <&> fmap piLiquidity <&> reverse) @@== [1000, 5]
 
 
 test_not_owner :: TestTree

@@ -76,7 +76,8 @@ For any integer `i` (the _tick index_), there is a tick at the price `p(i) = exp
 
 LPs can open a _position_ (that is, allocate their liquidity inbetween any two ticks)
 by calling the [`set_position`](#set_position) entrypoint.
-This same entrypoint can also be used to close or update a position.
+Later [`update_position`](#update_position) entrypoint can be used to close or update a position.
+If necessary, multiple positions in the same range can be created.
 
 When the spot price is within a position's range, that position is said to be _active_.
 The LP will earn fees taken from every swap that occurs while their position is active.
@@ -438,7 +439,7 @@ type x_to_x_prime_param = {
 
 ### **set_position**
 
-Updates or creates a new [position](#positions) in the given range.
+Creates a new [position](#positions) in the given range.
 
 - `lower_tick_index` determines the lowest tick index in which this position will be active.
 - `upper_tick_index` determines the highest tick index in which this position will be active.
@@ -446,19 +447,12 @@ Updates or creates a new [position](#positions) in the given range.
   It should be as close as possible to `lower_tick_index`, for efficiency.
 - `upper_tick_witness` is a witness (already initialized tick) index lower than `upper_tick_index`.
   It should be as close as possible to `upper_tick_index`, for efficiency.
-- The liquidity of the `SENDER` will be updated by `delta_liquidity`, increased
+- The liquidity of the `SENDER` will be set to `liquidity`, increased
   or decreased depending on the sign, for both tokens of the pair.
-- In case, after adding eventual accrued fees, the `delta_liquidity` is:
-  * positive in `x` and/or `y`: this amount will be `transfer`red **from** the `SENDER`
-  * negative in `x`: this amount will be `transfer`red **to** `to_x`
-  * negative in `y`: this amount will be `transfer`red **to** `to_y`
 - If the position update is no longer acceptable because the `deadline` was not
   met, fails with `past_deadline_err` error code
-- If the amount of tokens that needs to be `transfer`red to the contract
-  (after taking accrued fees into account) is higher than `maximum_tokens_contributed`,
-  fails with `high_tokens_err` error code.
-- A user can set `delta_liquidity` to `0` on an existing position to simply retrieve
-  any uncollected fees.
+- If the amount of tokens that needs to be `transfer`red to the contract is higher than
+  `maximum_tokens_contributed`, fails with `high_tokens_err` error code.
 - This fails when a tick index out of the `[-1048575; 1048575]` range is provided.
 
 ```ocaml
@@ -467,7 +461,39 @@ type set_position_param = {
     upper_tick_index : tick_index ;
     lower_tick_witness : tick_index ;
     upper_tick_witness : tick_index ;
-    delta_liquidity : int ;
+    liquidity : nat ;
+    deadline : timestamp ;
+    maximum_tokens_contributed : balance_nat ;
+}
+
+type balance_nat = {x : nat ; y : nat}
+```
+
+
+### **update_position**
+
+Updates an existing [position](#positions).
+
+- The liquidity of the `SENDER` will be updated by `liquidity_delta`, increased
+  or decreased depending on the sign, for both tokens of the pair.
+- In case, after adding eventual accrued fees, the `liquidity_delta` is:
+  * positive in `x` and/or `y`: this amount will be `transfer`red **from** the `SENDER`
+  * negative in `x`: this amount will be `transfer`red **to** `to_x`
+  * negative in `y`: this amount will be `transfer`red **to** `to_y`
+- If the position update is no longer acceptable because the `deadline` was not
+  met, fails with `past_deadline_err` error code
+- If the amount of tokens that needs to be `transfer`red to the contract
+  (after taking accrued fees into account) is higher than `maximum_tokens_contributed`,
+  fails with `high_tokens_err` error code.
+- If the resulting liquidity in the position becomes less than zero,
+  fails with `position_liquidity_below_zero_err` error code.
+- A user can set `liquidity_delta` to `0` on an existing position to simply retrieve
+  any uncollected fees.
+
+```ocaml
+type update_position_param = {
+    position_id : position_id ;
+    liquidity_delta : int ;
     to_x : address ;
     to_y : address ;
     deadline : timestamp ;

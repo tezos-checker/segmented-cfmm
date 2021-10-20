@@ -31,6 +31,7 @@ Here is a summary of all the error codes thrown by the contract.
 | 109 | `observe_outdated_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are too far back in the past. |
 | 110 | `observe_future_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are yet in the future. |
 | 111 | `tick_order_err` | When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. |
+| 112 | `position_liquidity_below_zero_err` | Liquidity of a position went below zero. |
 
 
 #### Contract Configuration Error Codes
@@ -55,7 +56,7 @@ Here is a summary of all the error codes thrown by the contract.
 | 305 | `internal_bad_sqrt_price_move_y_direction` | Unexpected price direction movement after sqrt_price_move_y. |
 | 306 | `internal_flip_fee_growth_outside_err` | Flip for `fee_growth_outside` failed. (This is an invariant of the contract). |
 | 307 | `internal_307` | Thrown when `(p.dx - dx_consumed)` or `(p.dy - dy_consumed)` is not nat. |
-| 308 | `internal_liquidity_below_zero_err` | Liquidity went below zero. |
+| 308 | `internal_tick_liquidity_below_zero_err` | Liquidity of a tick went below zero. |
 | 309 | `internal_309` | Thrown when `(p.dx - r.dx)` is not nat. |
 | 311 | `internal_311` | Thrown when `s.cur_tick_index.i >= upper_tick_index.i` and `(s.fee_growth.x - upper_tick.fee_growth_outside.x)` (or `y`) is not nat. |
 | 312 | `internal_312` | Thrown when `s.cur_tick_index.i < lower_tick_index.i` and `(s.fee_growth.x - lower_tick.fee_growth_outside.x)` (or `y`) is not nat. |
@@ -70,7 +71,7 @@ Here is a summary of all the error codes thrown by the contract.
 | 321 | `internal_bad_access_to_observation_buffer` | Failed to access a value in time-weighted i_c cumulative sums buffer. |
 | 322 | `internal_observe_bin_search_failed` | Some issue with binary search in `observe` entrypoint. |
 | 323 | `internal_non_empty_position_gc_err` | Attempt to garbade collect a tick with non-zero liquidity net. |
-| 324 | `internal_position_maps_unsynced_err` | `positions` and `position_indexes` maps were not synchronized. |
-| 325 | `internal_flip_seconds_per_liquidity_outside_err` | Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract). |
+| 324 | `internal_flip_seconds_per_liquidity_outside_err` | Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract). |
+| 325 | `internal_unexpected_income_err` | Position creation/change unexpectedly transferred tokens to someone |
 
 

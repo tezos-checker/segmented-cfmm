@@ -48,7 +48,7 @@ mkStorage xToken xTokenId yToken yTokenId feeBps =
 test_swapping_within_a_single_tick_range :: TestTree
 test_swapping_within_a_single_tick_range =
   testProperty "swapping within a single tick range" $ property do
-    let liquidityDelta = 1_e7
+    let liquidity = 1_e7
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
     let userFA2Balance = 1_e15
@@ -100,9 +100,7 @@ test_swapping_within_a_single_tick_range =
             , sppUpperTickIndex = upperTickIndex
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
-            , sppLiquidityDelta = liquidityDelta
-            , sppToX = liquidityProvider
-            , sppToY = liquidityProvider
+            , sppLiquidity = liquidity
             , sppDeadline = deadline
             , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
             }
@@ -137,7 +135,7 @@ test_swapping_within_a_single_tick_range =
         -- Check fee growth
         let expectedFeeGrowth =
               sFeeGrowth initialSt +
-                PerToken 0 (mkX @Natural @128 expectedFee `div` X (fromIntegral @Integer @Natural liquidityDelta))
+                PerToken 0 (mkX @Natural @128 expectedFee `div` X liquidity)
         sFeeGrowth finalSt @== expectedFeeGrowth
 
         -- The right amount of tokens was subtracted from the `swapper`'s balance
@@ -171,7 +169,7 @@ test_many_small_swaps =
     -- making a big difference.
     let feeBps = 0
 
-    let liquidityDelta = 1_e7
+    let liquidity = 1_e7
     let userFA2Balance = 1_e15
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
@@ -217,9 +215,7 @@ test_many_small_swaps =
             , sppUpperTickIndex = upperTickIndex
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
-            , sppLiquidityDelta = liquidityDelta
-            , sppToX = liquidityProvider
-            , sppToY = liquidityProvider
+            , sppLiquidity = liquidity
             , sppDeadline = deadline
             , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
             }
@@ -280,7 +276,7 @@ test_crossing_ticks =
     -- The number of seconds to wait before executing the swap
     let waitTime = 3
 
-    let liquidityDelta = 1_e6
+    let liquidity = 1_e6
     let userFA2Balance = 1_e15
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
@@ -325,9 +321,7 @@ test_crossing_ticks =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidity
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
           }
@@ -341,9 +335,7 @@ test_crossing_ticks =
             , sppUpperTickIndex = lowerTickIndex' + positionSize
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
-            , sppLiquidityDelta = liquidityDelta
-            , sppToX = liquidityProvider
-            , sppToY = liquidityProvider
+            , sppLiquidity = liquidity
             , sppDeadline = deadline
             , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
             }
@@ -402,7 +394,7 @@ test_crossing_ticks =
     let PerToken feeGrowthX2 feeGrowthY2 = sFeeGrowth st2
     feeGrowthX1 @== 0
     feeGrowthX2 @== 0
-    let marginOfError = mkX 10 `div` fromIntegral liquidityDelta
+    let marginOfError = mkX 10 `div` fromIntegral liquidity
     checkCompares (feeGrowthY1, feeGrowthY1 + marginOfError) inRange feeGrowthY2
 
 
@@ -435,7 +427,7 @@ test_crossing_ticks =
         -- Check that the ticks' states were updated correctly after being crossed.
     let crossedTicks = [100, 200 .. 900] <&> \idx -> bmMap (sTicks st2) ! idx
     for_ crossedTicks \ts -> do
-      tsSecondsPerLiquidityOutside ts @== mkX waitTime `div` X (fromIntegral liquidityDelta)
+      tsSecondsPerLiquidityOutside ts @== mkX waitTime `div` X liquidity
       tsSecondsOutside ts @== timestampToSeconds finalTime
       tsTickCumulativeOutside ts @== fromIntegral @TickIndex @Integer (sCurTickIndex initialSt2) * fromIntegral waitTime
       tsFeeGrowthOutside ts @/= 0
@@ -443,7 +435,7 @@ test_crossing_ticks =
 test_must_exceed_min_dx :: TestTree
 test_must_exceed_min_dx =
   nettestScenarioOnEmulatorCaps "swap fails if the user would receiver less than min_dx" do
-    let liquidityDelta = 1_e7
+    let liquidity = 1_e7
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
     let userFA2Balance = 1_e15
@@ -483,9 +475,7 @@ test_must_exceed_min_dx =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidity
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
           }
@@ -502,7 +492,7 @@ test_must_exceed_min_dx =
 test_fails_if_its_past_the_deadline :: TestTree
 test_fails_if_its_past_the_deadline =
   nettestScenarioOnEmulatorCaps "swap fails if it's past the deadline" do
-    let liquidityDelta = 1_e7
+    let liquidity = 1_e7
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
     let userFA2Balance = 1_e15
@@ -542,9 +532,7 @@ test_fails_if_its_past_the_deadline =
           , sppUpperTickIndex = upperTickIndex
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidityDelta = liquidityDelta
-          , sppToX = liquidityProvider
-          , sppToY = liquidityProvider
+          , sppLiquidity = liquidity
           , sppDeadline = deadline
           , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
           }

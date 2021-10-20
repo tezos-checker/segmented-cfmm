@@ -178,32 +178,25 @@ type cumulatives_data = {
 
 type tick_map = (tick_index, tick_state) big_map
 
-(* Position types, representing LP positions. *)
-type position_index = {
-    owner : address ;
-    lower_tick_index : tick_index ;
-    upper_tick_index : tick_index
-}
-
 type position_state = {
+    (* Position edge tick indices *)
+    lower_tick_index : tick_index ;
+    upper_tick_index : tick_index ;
+    (* The position's owner.
+        By default - position's creator, but ownership can be transferred later.
+    *)
+    owner : address ;
     (* Position's liquidity. *)
     liquidity : nat ;
     (* Total fees earned by the position at the moment of last fees collection for this position.
         This helps to evaluate the next portion of fees to collect.
     *)
     fee_growth_inside_last : balance_nat_x128 ;
-    (* When deleting a position_state, we also need to delete `position_index` in `store.position_indexes`. Storing `position_id` here allows us to delete that. *)
-    position_id : position_id ;
 }
 
 
-
-(* Map containing Liquidity providers. Indexed by `position_index`. *)
-type position_map = (position_index, position_state) big_map
-
-(* One-to-one relation from `position_id` to `position_index`.
-Used for querying `position_state` with just a `position_id`. *)
-type position_index_map = (position_id, position_index) big_map
+(* Map containing Liquidity providers. *)
+type position_map = (position_id, position_state) big_map
 
 // What we return when someone requests for the values of cumulatives.
 type cumulatives_value =
@@ -333,9 +326,6 @@ type storage = {
     (* States of positions (with non-zero liquidity). *)
     positions : position_map ;
 
-    (* One-to-one relation from `postion_id` to `position_index`. *)
-    position_indexes : position_index_map ;
-
     (* Cumulative values stored for the recent timestamps. *)
     cumulatives_buffer : timed_cumulatives_buffer ;
 
@@ -370,9 +360,20 @@ type set_position_param = {
     lower_tick_witness : tick_index ;
     (* Upper tick's witness calculated offchain. *)
     upper_tick_witness : tick_index ;
+    (* The liquidity of the new position. *)
+    liquidity : nat ;
+    (* The transaction won't be executed past this point. *)
+    deadline : timestamp ;
+    (* The maximum number of tokens to contribute.
+        If a higher amount is required, the entrypoint fails.
+    *)
+    maximum_tokens_contributed : balance_nat;
+}
+
+type update_position_param = {
+    (* Position id. *)
+    position_id : position_id ;
     (* How to change the liquidity of the existing position.
-        The contract behaves like if any possible position was already there,
-        but most of them had 0 liquidity.
 
         If adding a delta (that can be negative) would result in a negative liquidity value,
         the call will abort.
@@ -437,7 +438,9 @@ type increase_observation_count_param = {
 
 type position_info = {
     liquidity : nat;
-    index : position_index;
+    owner : address;
+    lower_tick_index : tick_index;
+    upper_tick_index : tick_index;
 }
 
 
@@ -472,7 +475,8 @@ type parameter =
   | X_to_y of x_to_y_param
   | Y_to_x of y_to_x_param
   | X_to_x_prime of x_to_x_prime_param (* equivalent to token_to_token *)
-  | Set_position of set_position_param (* TODO add deadline, maximum tokens contributed, and maximum liquidity present *)
+  | Set_position of set_position_param
+  | Update_position of update_position_param
   | Get_position_info of get_position_info_param
   | Call_fa2 of fa2_parameter
   | Snapshot_cumulatives_inside of snapshot_cumulatives_inside_param

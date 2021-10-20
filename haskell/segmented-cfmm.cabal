@@ -190,10 +190,10 @@ test-suite segmented-cfmm-test
       Test.LiquidityMining.Contract
       Test.Math
       Test.Mining
+      Test.Position
       Test.SegCFMM.Contract
       Test.SegCFMM.Storage
       Test.SegCFMM.Types
-      Test.SetPosition
       Test.Util
       Test.XToY
       Test.YToX

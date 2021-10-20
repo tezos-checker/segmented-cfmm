@@ -475,8 +475,8 @@ let stake_token_on_position_info(position_info, s : position_info * storage) : r
         | Some contract -> contract in
     let get_cumulatives_info_op =
         Tezos.transaction
-        { lower_tick_index = position_info.index.lower_tick_index
-        ; upper_tick_index = position_info.index.upper_tick_index
+        { lower_tick_index = position_info.lower_tick_index
+        ; upper_tick_index = position_info.upper_tick_index
         ; callback = (Tezos.self "%stake_token_on_sum_info" : cumulatives_inside_snapshot contract)
         } 0mutez get_cumulatives_info_ep in
 
@@ -503,8 +503,8 @@ let stake_token_on_sum_info(cumulatives_snapshot, s : cumulatives_inside_snapsho
 
     let deposit = {deposit with
         tick_index_range = Some
-            ( position_info.index.lower_tick_index
-            , position_info.index.upper_tick_index
+            ( position_info.lower_tick_index
+            , position_info.upper_tick_index
             );
         number_of_stakes = deposit.number_of_stakes + 1n;
     } in

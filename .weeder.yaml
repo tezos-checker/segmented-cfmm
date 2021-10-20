@@ -16,7 +16,7 @@
       - ingredients
       - main
   - module:
-    - name: Test.SetPosition
+    - name: Test.Position
   - module:
     - name: Test.XToY
   - module:

@@ -16,6 +16,7 @@ module SegCFMM.Types
   , YToXParam(..)
   , XToXPrimeParam(..)
   , SetPositionParam(..)
+  , UpdatePositionParam(..)
   , ObserveParam
   , PositionInfo(..)
   , CumulativesInsideSnapshot(..)
@@ -30,11 +31,9 @@ module SegCFMM.Types
   , maxTickIndex
   , TickState(..)
   , TickMap
-  , PositionIndex(..)
   , PositionState(..)
   , PositionId(..)
   , PositionMap
-  , PositionIndexMap
   , CumulativesValue(..)
   , CumulativesValueRPC(..)
   , TickCumulative(..)
@@ -101,7 +100,9 @@ data Parameter
   | X_to_x_prime XToXPrimeParam
     -- ^ Equivalent to token_to_token
   | Set_position SetPositionParam
-    -- ^ Updates or creates a new position in the given range.
+    -- ^ Creates a new position in the given range.
+  | Update_position UpdatePositionParam
+    -- ^ Updates an existing position.
   | Get_position_info GetPositionInfoParam
     -- ^ Get information about position
   | Call_fa2 FA2.Parameter
@@ -160,15 +161,27 @@ data SetPositionParam = SetPositionParam
     -- ^ Index of an initialized lower tick lower than `sppIL` (to find it easily in the linked list).
   , sppUpperTickWitness :: TickIndex
     -- ^ Index of an initialized upper tick lower than `sppIU` (to find it easily in the linked list).
-  , sppLiquidityDelta :: Integer
-    -- ^ How to change liquidity of the position (if not yet exists, assumed to have 0 liquidity).
-  , sppToX :: Address
-    -- ^ Where to send freed X tokens, if any.
-  , sppToY :: Address
-    -- ^ Where to send freed Y tokens, if any.
+  , sppLiquidity :: Natural
+    -- ^ Liquidity of the position.
   , sppDeadline :: Timestamp
     -- ^ The deadline for the request to be executed.
   , sppMaximumTokensContributed :: PerToken Natural
+    -- ^ The maximum number of tokens to contribute.
+    -- If a higher amount is required, the entrypoint fails.
+  }
+
+data UpdatePositionParam = UpdatePositionParam
+  { uppPositionId :: PositionId
+    -- ^ Position identifier
+  , uppLiquidityDelta :: Integer
+    -- ^ How to change liquidity of the position.
+  , uppToX :: Address
+    -- ^ Where to send freed X tokens, if any.
+  , uppToY :: Address
+    -- ^ Where to send freed Y tokens, if any.
+  , uppDeadline :: Timestamp
+    -- ^ The deadline for the request to be executed.
+  , uppMaximumTokensContributed :: PerToken Natural
     -- ^ The maximum number of tokens to contribute.
     -- If a higher amount is required, the entrypoint fails.
   }
@@ -177,7 +190,9 @@ type ObserveParam = View [Timestamp] [CumulativesValue]
 
 data PositionInfo = PositionInfo
   { piLiquidity :: Natural
-  , piIndex :: PositionIndex
+  , piOwner :: Address
+  , piLowerTickIndex :: TickIndex
+  , piUpperTickIndex :: TickIndex
   }
 
 data CumulativesInsideSnapshot = CumulativesInsideSnapshot
@@ -228,7 +243,6 @@ data Storage = Storage
     -- ^ Ticks' states.
   , sPositions :: PositionMap
     -- ^ Positions' states.
-  , sPositionIndexes :: PositionIndexMap
   , sCumulativesBuffer :: CumulativesBuffer
     -- ^ Stored cumulative time-weighted values.
 
@@ -316,25 +330,19 @@ data TickState = TickState
 
 type TickMap = BigMap TickIndex TickState
 
--- | Position types, representing LP positions.
-data PositionIndex = PositionIndex
-  { piOwner :: Address
-  , piLowerTickIndex :: TickIndex
-    -- ^ Lower bound.
-  , piUpperTickIndex :: TickIndex
-    -- ^ Upper bound.
-  } deriving stock (Ord, Eq)
-
 data PositionState = PositionState
-  { psLiquidity :: Natural
+  { psLowerTickIndex :: TickIndex
+    -- ^ Lower bound tick index of this position.
+  , psUpperTickIndex :: TickIndex
+    -- ^ Upper bound tick index of this position.
+  , psOwner :: Address
+    -- ^ Position's current owner.
+  , psLiquidity :: Natural
     -- ^ Amount of virtual liquidity that the position represented the last
     -- time it was touched. This amount does not reflect the fees that have
     -- been accumulated since the contract was last touched.
   , psFeeGrowthInsideLast :: PerToken (X 128 Natural)
     -- ^ Used to calculate uncollected fees.
-  , psPositionId :: PositionId
-    -- ^ When deleting a position_state, we also need to delete `position_index`
-    -- in `store.position_indexes`. Storing `position_id` here allows us to delete that.
   }
   deriving stock Eq
 
@@ -353,12 +361,7 @@ instance PositionId `CanCastTo` FA2.TokenId
 instance FA2.TokenId `CanCastTo` PositionId
 
 -- | Map containing Liquidity providers.
-type PositionMap = BigMap PositionIndex PositionState
-
--- | One-to-one relation from `postion_id` to `position_index`.
--- Used for querying `position_state` with just a `position_id`.
-type PositionIndexMap = BigMap PositionId PositionIndex
-
+type PositionMap = BigMap PositionId PositionState
 
 -- | Return value of observation entrypoint.
 data CumulativesValue = CumulativesValue
@@ -479,6 +482,12 @@ deriving anyclass instance IsoValue SetPositionParam
 instance HasAnnotation SetPositionParam where
   annOptions = segCfmmAnnOptions
 
+customGeneric "UpdatePositionParam" ligoLayout
+deriving via (GenericBuildable UpdatePositionParam) instance Buildable UpdatePositionParam
+deriving anyclass instance IsoValue UpdatePositionParam
+instance HasAnnotation UpdatePositionParam where
+  annOptions = segCfmmAnnOptions
+
 customGeneric "PositionInfo" ligoLayout
 deriving via (GenericBuildable PositionInfo) instance Buildable PositionInfo
 deriving anyclass instance IsoValue PositionInfo
@@ -515,13 +524,6 @@ customGeneric "TickState" ligoLayout
 deriving via (GenericBuildable TickState) instance Buildable TickState
 deriving anyclass instance IsoValue TickState
 instance HasAnnotation TickState where
-  annOptions = segCfmmAnnOptions
-
-
-customGeneric "PositionIndex" ligoLayout
-deriving via (GenericBuildable PositionIndex) instance Buildable PositionIndex
-deriving anyclass instance IsoValue PositionIndex
-instance HasAnnotation PositionIndex where
   annOptions = segCfmmAnnOptions
 
 customGeneric "PositionState" ligoLayout

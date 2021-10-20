@@ -62,6 +62,10 @@ observeFutureTimestampErr = 110
 tickOrderErr :: Natural
 tickOrderErr = 111
 
+-- | Liquidity of a position went below zero.
+positionLiquidityBelowZeroErr :: Natural
+positionLiquidityBelowZeroErr = 112
+
 
 ----------------------------------------------------------------------------
 -- Contract Configuration Error Codes
@@ -116,9 +120,9 @@ internalFlipFeeGrowthOutsideErr = 306
 internal307 :: Natural
 internal307 = 307
 
--- | Liquidity went below zero.
-internalLiquidityBelowZeroErr :: Natural
-internalLiquidityBelowZeroErr = 308
+-- | Liquidity of a tick went below zero.
+internalTickLiquidityBelowZeroErr :: Natural
+internalTickLiquidityBelowZeroErr = 308
 
 -- | Thrown when `(p.dx - r.dx)` is not nat.
 internal309 :: Natural
@@ -176,10 +180,10 @@ internalObserveBinSearchFailed = 322
 internalNonEmptyPositionGcErr :: Natural
 internalNonEmptyPositionGcErr = 323
 
--- | `positions` and `position_indexes` maps were not synchronized.
-internalPositionMapsUnsyncedErr :: Natural
-internalPositionMapsUnsyncedErr = 324
-
 -- | Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract).
 internalFlipSecondsPerLiquidityOutsideErr :: Natural
-internalFlipSecondsPerLiquidityOutsideErr = 325
+internalFlipSecondsPerLiquidityOutsideErr = 324
+
+-- | Position creation/change unexpectedly transferred tokens to someone
+internalUnexpectedIncomeErr :: Natural
+internalUnexpectedIncomeErr = 325
