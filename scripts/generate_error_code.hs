@@ -178,12 +178,6 @@ internalErrors = errorsEnumerate 300
   , "internal_position_maps_unsynced_err"
       :? "`positions` and `position_indexes` maps were not synchronized."
 
-  , "internal_seconds_cumulative_err"
-      :? "Some problem in cumulative seconds computation."
-
-  , "internal_spl_cumulative_err"
-      :? "Some problem in cumulative seconds per liquidity computation."
-
   , "internal_flip_seconds_per_liquidity_outside_err"
       :? "Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract)."
 

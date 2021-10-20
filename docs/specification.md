@@ -525,12 +525,19 @@ seconds inside the given range.
 - This entrypoint accepts only indices of [initialized](#initialized-tick-definition)
   ticks; in case invalid tick index is provided, the call will fail with
   `tick_not_exist_err` error code.
+- **Note** that returned values are _relative_. For instance, `seconds_inside`
+  is not necessarily 0 for unvisited ranges, but can be also positive or even negative.
+- The only guarantee provided by this entrypoint:
+  `snapshot_cumulatives_inside(tick_index_range, t2) - snapshot_cumulatives_inside(tick_index_range, t1)`
+  will contain exactly the difference of cumulative values between the two given timestamps _if_
+  those ticks remained initialized between `t1` and `t2` timestamps.
+  This perfectly fits for calculating seconds-weighted sums for a certain position over given time period.
 
 ```ocaml
 type cumulatives_inside_snapshot = {
     tick_cumulative_inside : int ;
-    seconds_per_liquidity_inside : nat ;
-    seconds_inside : nat ;
+    seconds_per_liquidity_inside : int ;
+    seconds_inside : int ;
 }
 
 type cumulatives_inside_snapshot_param = {

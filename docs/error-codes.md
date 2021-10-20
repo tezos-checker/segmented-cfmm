@@ -71,8 +71,6 @@ Here is a summary of all the error codes thrown by the contract.
 | 322 | `internal_observe_bin_search_failed` | Some issue with binary search in `observe` entrypoint. |
 | 323 | `internal_non_empty_position_gc_err` | Attempt to garbade collect a tick with non-zero liquidity net. |
 | 324 | `internal_position_maps_unsynced_err` | `positions` and `position_indexes` maps were not synchronized. |
-| 325 | `internal_seconds_cumulative_err` | Some problem in cumulative seconds computation. |
-| 326 | `internal_spl_cumulative_err` | Some problem in cumulative seconds per liquidity computation. |
-| 327 | `internal_flip_seconds_per_liquidity_outside_err` | Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract). |
+| 325 | `internal_flip_seconds_per_liquidity_outside_err` | Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract). |
 
 

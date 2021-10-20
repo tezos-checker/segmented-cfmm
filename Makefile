@@ -97,7 +97,7 @@ $(OUT)/storage_default.tz: $(shell find ligo -name '*.mligo')
 			; y_token_address = (\"$(y_token_address)\" : address) \
 	    })" --output-file $(OUT)/storage_default.tz
 
-$(OUT)/liquidity_mining.tz: ligo/liquidity_mining.mligo
+$(OUT)/liquidity_mining.tz: ligo/liquidity_mining.mligo ligo/types.mligo
 	$(BUILD) ligo/liquidity_mining.mligo main --output-file $@
 
 prepare_lib: every

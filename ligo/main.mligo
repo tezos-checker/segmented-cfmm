@@ -318,7 +318,7 @@ let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_pa
     let cums_total =
             { tick = sums.tick.sum
             ; seconds = Tezos.now - epoch_time
-            ; seconds_per_liquidity = sums.spl.sum
+            ; seconds_per_liquidity = {x128 = int sums.spl.sum.x128}
             } in
 
     [@inline]
@@ -329,29 +329,27 @@ let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_pa
             { tick =
                 cums_total.tick - cums_outside.tick
             ; seconds =
-                assert_nat(cums_total.seconds - cums_outside.seconds, internal_seconds_cumulative_err)
+                cums_total.seconds - cums_outside.seconds
             ; seconds_per_liquidity = {x128 =
-                assert_nat(cums_total.seconds_per_liquidity.x128 - cums_outside.seconds_per_liquidity.x128, internal_spl_cumulative_err)
+                cums_total.seconds_per_liquidity.x128 - cums_outside.seconds_per_liquidity.x128
                 }
             }
         else
             cums_outside
         in
 
-    // // TODO: looks like the caller must provide indices of already initialized ticks
-    // // But does it make sense? Should we accept tick witnesses explicitly here too?
     let lower_tick = get_tick s.ticks p.lower_tick_index tick_not_exist_err in
     let upper_tick = get_tick s.ticks p.upper_tick_index tick_not_exist_err in
 
     let lower_cums_outside =
             { tick = lower_tick.tick_cumulative_outside
-            ; seconds = lower_tick.seconds_outside
-            ; seconds_per_liquidity = lower_tick.seconds_per_liquidity_outside
+            ; seconds = int lower_tick.seconds_outside
+            ; seconds_per_liquidity = {x128 = int lower_tick.seconds_per_liquidity_outside.x128}
             } in
     let upper_cums_outside =
             { tick = upper_tick.tick_cumulative_outside
-            ; seconds = upper_tick.seconds_outside
-            ; seconds_per_liquidity = upper_tick.seconds_per_liquidity_outside
+            ; seconds = int upper_tick.seconds_outside
+            ; seconds_per_liquidity = {x128 = int upper_tick.seconds_per_liquidity_outside.x128}
             } in
 
     let cums_below_lower = eval_cums(false, p.lower_tick_index, lower_cums_outside) in
@@ -362,19 +360,14 @@ let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_pa
                     - cums_below_lower.tick
                     - cums_above_upper.tick
             ; seconds_inside =
-                assert_nat
-                ( cums_total.seconds
+                cums_total.seconds
                     - cums_below_lower.seconds
                     - cums_above_upper.seconds
-                , internal_seconds_cumulative_err
-                )
             ; seconds_per_liquidity_inside = {x128 =
-                assert_nat
-                ( cums_total.seconds_per_liquidity.x128
+                cums_total.seconds_per_liquidity.x128
                     - cums_below_lower.seconds_per_liquidity.x128
                     - cums_above_upper.seconds_per_liquidity.x128
-                , internal_spl_cumulative_err
-                )}
+                }
             ; tick_cumulative_inside = 0
             }
 

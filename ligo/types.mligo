@@ -8,6 +8,9 @@
 (* Keeps a positive value with -2^80 precision. *)
 type x80n = { x80 : nat }
 
+(* Keeps a value with -2^128 precision. *)
+type x128 = { x128 : int }
+
 (* Keeps a positive value with -2^128 precision. *)
 type x128n = { x128 : nat }
 
@@ -114,9 +117,12 @@ type tick_state = {
         Here we assume that, during all the time since Unix epoch start till
         the moment of tick initialization, i_c was below this tick
         (see equation 6.25 of the uniswap v3 whitepaper).
+        So we actually track the number of seconds with some additive error Δ,
+        but this Δ remains contant during the lifetime of the tick. Ticks
+        created at different moments of time will have different Δ though.
 
         As example, let's say the tick was initialized at 1628440000 timestamp;
-        then `seconds_outside` will be initialized with the same timestamp.
+        then `seconds_outside` can be initialized with the same timestamp.
         If i_c crossed this tick 5 seconds later, this `seconds_outside` will
         be set respectively to 5.
         If i_c crossed this tick back 3 seconds later, we will get
@@ -153,16 +159,20 @@ type tick_state = {
     sqrt_price : x80n
 }
 
+// Cumulative values at given range.
+//
+// Note that values are relative, e.g. if we never was at given range this
+// does not mean that `seconds_inside` will be 0, it can be an arbitrary value.
 type cumulatives_inside_snapshot = {
     tick_cumulative_inside : int ;
-    seconds_per_liquidity_inside : x128n ;
-    seconds_inside : nat ;
+    seconds_per_liquidity_inside : x128 ;
+    seconds_inside : int ;
 }
 
 // Data for storing intermediate results of computations over cumulatives.
 type cumulatives_data = {
-    seconds_per_liquidity : x128n ;
-    seconds : nat ;
+    seconds_per_liquidity : x128 ;
+    seconds : int ;
     tick : int ;
 }
 

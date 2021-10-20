@@ -19,6 +19,7 @@ module SegCFMM.Types
   , ObserveParam
   , PositionInfo(..)
   , CumulativesInsideSnapshot(..)
+  , subCumulativesInsideSnapshot
   , SnapshotCumulativesInsideParam(..)
   , GetPositionInfoParam
   -- * Storage
@@ -181,8 +182,21 @@ data PositionInfo = PositionInfo
 
 data CumulativesInsideSnapshot = CumulativesInsideSnapshot
   { cisTickCumulativeInside :: Integer
-  , cisSecondsPerLiquidityInside :: X 128 Natural
-  , cisSecondsInside :: Natural
+  , cisSecondsPerLiquidityInside :: X 128 Integer
+  , cisSecondsInside :: Integer
+  }
+
+subCumulativesInsideSnapshot
+  :: CumulativesInsideSnapshot
+  -> CumulativesInsideSnapshot
+  -> CumulativesInsideSnapshot
+subCumulativesInsideSnapshot cs1 cs2 =
+  let subOn :: Num a => (CumulativesInsideSnapshot -> a) -> a
+      subOn getter = getter cs1 - getter cs2 in
+  CumulativesInsideSnapshot
+  { cisTickCumulativeInside = subOn cisTickCumulativeInside
+  , cisSecondsPerLiquidityInside = subOn cisSecondsPerLiquidityInside
+  , cisSecondsInside = subOn cisSecondsInside
   }
 
 data SnapshotCumulativesInsideParam = SnapshotCumulativesInsideParam

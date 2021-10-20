@@ -143,14 +143,8 @@
 (* `positions` and `position_indexes` maps were not synchronized. *)
 [@inline] let internal_position_maps_unsynced_err = 324n
 
-(* Some problem in cumulative seconds computation. *)
-[@inline] let internal_seconds_cumulative_err = 325n
-
-(* Some problem in cumulative seconds per liquidity computation. *)
-[@inline] let internal_spl_cumulative_err = 326n
-
 (* Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract). *)
-[@inline] let internal_flip_seconds_per_liquidity_outside_err = 327n
+[@inline] let internal_flip_seconds_per_liquidity_outside_err = 325n
 
 
 
