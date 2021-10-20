@@ -24,6 +24,8 @@
 
 [@inline] let epoch_time = (0 : timestamp)
 
+// 2^80
+[@inline] let pow_2_80n = 1208925819614629174706176n
 
 (* Not quite constants, but effectively so.
  * Both of these require that their respective inverse is smaller than 10000,

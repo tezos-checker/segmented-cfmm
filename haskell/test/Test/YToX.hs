@@ -405,9 +405,11 @@ test_crossing_ticks =
     cfmm2BalanceDeltaY <- balanceOf yToken yTokenId cfmm2 <&> calcBalanceDelta cfmm2InitialBalanceY
     -- The two contract should have received the exact same amount of Y tokens
     cfmm1BalanceDeltaY @== cfmm2BalanceDeltaY
-    -- The 2nd contract may have given out fewer X tokens (due to the potential increase in fees)
-    checkCompares (cfmm1BalanceDeltaX, cfmm1BalanceDeltaX + 10) inRange cfmm2BalanceDeltaX
-
+    -- The 2nd contract may have given out fewer X tokens for two reasons:
+    --   1. due to the potential increase in fees explained above
+    --   2. due to the rounding up of `dy` when crossing a tick
+    -- We had a margin error of 10 for each possible cause.
+    checkCompares (cfmm1BalanceDeltaX, cfmm1BalanceDeltaX + 10 + 10) inRange cfmm2BalanceDeltaX
 
     -- Collected fees should be fairly similar.
     -- As explained above, the contract may charge up to 10 extra tokens.

@@ -24,6 +24,8 @@ A user could simply trade in 1 Y token, and receive 0.05 X tokens.
 0.05 would be rounded up to 1, and the user would make an easy 1900% profit.
 
 To prevent this, we must round it down.
+
+For similar reasons, we also round up the amount of tokens deposited in the pool
 *)
 
 (* Calculates the new `cur_tick_index` after a given price change. *)
@@ -117,6 +119,9 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
             (* From 6.14 formula. *)
             let dy = Bitwise.shift_right (p.s.liquidity * (assert_nat (p.s.sqrt_price.x80 - sqrt_price_new.x80, internal_bad_sqrt_price_move_x_direction))) 80n in
             (* How much dX does that correspond to. *)
+            (* We want to overestimate how many tokens the user is putting into the pool (see Note [Rounding the swap result]),
+                so we use `ceildiv`.
+             *)
             let dx_for_dy = ceildiv (Bitwise.shift_left dy 160n) (p.s.sqrt_price.x80 * sqrt_price_new.x80) in
             (* We will have to consume more dx than that because a fee will be applied. *)
             let dx_consumed = ceildiv (dx_for_dy * 10000n) (one_minus_fee_bps(p.s.constants)) in
@@ -199,8 +204,13 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
                              (sqrt_price_new.x80 * p.s.sqrt_price.x80) in
             (* How much dy does that correspond to. *)
             (* From 6.14 formula. *)
-            let dy_for_dx = Bitwise.shift_right (p.s.liquidity * (assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_bad_sqrt_price_move_x_direction))) 80n in
-
+            (* We want to overestimate how many tokens the user is putting into the pool (see Note [Rounding the swap result]),
+                so we use `ceildiv k 2^80` instead of `Bitwise.shift_right k 80`
+             *)
+            let dy_for_dx =
+                    ceildiv
+                        (p.s.liquidity * (assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_bad_sqrt_price_move_x_direction)))
+                        pow_2_80n in
 
             (* We will have to consume more dy than that because a fee will be applied. *)
             let dy_consumed = ceildiv (dy_for_dx * 10000n) (one_minus_fee_bps(p.s.constants)) in
