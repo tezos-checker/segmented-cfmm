@@ -26,6 +26,7 @@
 
 // 2^80
 [@inline] let pow_2_80n = 1208925819614629174706176n
+[@inline] let pow_2_80  = 1208925819614629174706176
 
 (* Not quite constants, but effectively so.
  * Both of these require that their respective inverse is smaller than 10000,

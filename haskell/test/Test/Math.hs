@@ -117,9 +117,9 @@ liquidityDeltaToTokensDelta liquidityDelta lowerTickIndex upperTickIndex current
               Using the distributive property of division:
                 liquidityDelta * (sqrtPrice - sqrtPriceLower) / 2^80
             -}
-            liquidityDelta * (sqrtPrice - sqrtPriceLower) `div` _280
+            liquidityDelta * (sqrtPrice - sqrtPriceLower) `divUp` _280
         | otherwise =
-            liquidityDelta * (sqrtPriceUpper - sqrtPriceLower) `div` _280
+            liquidityDelta * (sqrtPriceUpper - sqrtPriceLower) `divUp` _280
 
       -- Equation 6.30
       deltaX

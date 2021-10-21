@@ -179,10 +179,10 @@ let update_balances_after_position_change
                 } in
         (s, {
             x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - s.sqrt_price.x80, internal_sqrt_price_grow_err_2)) 80n))) (int (s.sqrt_price.x80 * srp_u.x80)) ;
-            y = shift_int (liquidity_delta * (s.sqrt_price.x80 - srp_l.x80)) (-80)
+            y = ceildiv_int (liquidity_delta * (s.sqrt_price.x80 - srp_l.x80)) pow_2_80
             })
     else (* cur_tick_index >= p.upper_tick_index *)
-        (s, {x = 0 ; y = shift_int (liquidity_delta * (srp_u.x80 - srp_l.x80)) (-80) }) in
+        (s, {x = 0 ; y = ceildiv_int (liquidity_delta * (srp_u.x80 - srp_l.x80)) pow_2_80 }) in
 
     (* Collect fees to increase withdrawal or reduce required deposit. *)
     let delta = {x = delta.x - fees.x ; y = delta.y - fees.y} in
