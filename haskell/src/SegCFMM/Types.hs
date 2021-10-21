@@ -344,7 +344,7 @@ data PositionState = PositionState
   , psFeeGrowthInsideLast :: PerToken (X 128 Integer)
     -- ^ Used to calculate uncollected fees.
   }
-  deriving stock Eq
+  deriving stock (Eq, Show)
 
 newtype PositionId = PositionId Natural
   deriving stock (Generic, Show)

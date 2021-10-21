@@ -8,6 +8,7 @@ module Test.Position where
 import Prelude
 
 import Data.Ix (inRange)
+import qualified Data.List as List
 import qualified Data.Map as Map
 import Hedgehog hiding (assert, failure)
 import qualified Hedgehog.Gen as Gen
@@ -15,7 +16,9 @@ import qualified Hedgehog.Range as Range
 import qualified Indigo.Contracts.FA2Sample as FA2
 import Lorentz hiding (assert, not, now, (>>))
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
+import Morley.Micheline (toExpression)
 import Morley.Nettest
+import Morley.Nettest.Abstract (TransferFailure(FailedWith))
 import Morley.Nettest.Tasty
 import Test.Tasty (TestTree)
 import Test.Tasty.Hedgehog (testProperty)
@@ -40,14 +43,16 @@ TODO:
 mkStorage
   :: ContractHandler FA2.FA2SampleParameter FA2.Storage -> FA2.TokenId
   -> ContractHandler FA2.FA2SampleParameter FA2.Storage -> FA2.TokenId
+  -> Natural
   -> Storage
-mkStorage xToken xTokenId yToken yTokenId =
+mkStorage xToken xTokenId yToken yTokenId feeBps =
   defaultStorage
     { sConstants = (sConstants defaultStorage)
       { cXTokenAddress = toAddress xToken
       , cXTokenId = xTokenId
       , cYTokenAddress = toAddress yToken
       , cYTokenId = yTokenId
+      , cFeeBps = feeBps
       }
     }
 
@@ -72,7 +77,7 @@ test_equal_ticks =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -114,7 +119,7 @@ test_wrong_tick_order =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -156,7 +161,7 @@ test_setting_a_position_with_zero_liquidity_is_a_noop =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -204,7 +209,7 @@ test_deposit_and_withdrawal_is_a_noop =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -264,7 +269,7 @@ test_adding_liquidity_twice =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
     cfmm1 <- originateSegCFMM FA2 FA2 initialSt
     cfmm2 <- originateSegCFMM FA2 FA2 initialSt
 
@@ -343,7 +348,7 @@ test_witnesses_must_be_valid =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -427,7 +432,7 @@ test_fails_if_its_past_the_deadline =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -494,7 +499,7 @@ test_cannot_set_position_over_max_tick =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -538,7 +543,7 @@ test_maximum_tokens_contributed =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -604,7 +609,7 @@ test_lowest_and_highest_ticks_cannot_be_garbage_collected =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -665,7 +670,7 @@ test_withdrawal_overflow =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -717,114 +722,157 @@ test_withdrawal_overflow =
 
 test_position_initialization :: TestTree
 test_position_initialization =
-  testProperty "position is initialized correctly" $ property $ do
-    let lowerBound = -10000
-    let upperBound = 10000
+  testProperty "position is initialized correctly" $ property do
+    createPositionData <- forAll genNonOverlappingPositions
+    feeBps <- forAll $ Gen.integral (Range.exponential 0 10_000)
+    swapDirections <- forAll $ replicateM (length createPositionData) genSwapDirection
 
-    liquidityDelta <- forAll $ Gen.integral (Range.linear 1 100000)
-    lowerTickIndex <- forAll $ Gen.integral (Range.linearFrom 0 lowerBound upperBound)
-    upperTickIndex <- forAll $ Gen.integral (Range.linear (lowerTickIndex + 1) (upperBound + 1))
-    waitTime <- forAll $ Gen.integral (Range.linear 0 10)
     clevelandProp do
       liquidityProvider <- newAddress auto
+      swapper <- newAddress auto
+      let userFA2Balance = 1_e15
+      let accounts = [liquidityProvider, swapper]
       let xTokenId = FA2.TokenId 0
       let yTokenId = FA2.TokenId 1
       let xFa2storage = FA2.Storage
-            { sLedger = mkBigMap [ ((liquidityProvider, xTokenId), 100000) ]
+            { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, xTokenId), userFA2Balance)
             , sOperators = mempty
             , sTokenMetadata = mempty
             }
       let yFa2storage = FA2.Storage
-            { sLedger = mkBigMap [ ((liquidityProvider, yTokenId), 100000) ]
+            { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, yTokenId), userFA2Balance)
             , sOperators = mempty
             , sTokenMetadata = mempty
             }
       xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
       yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-      let initialSt = mkStorage xToken xTokenId yToken yTokenId
-      cfmm <- originateSegCFMM FA2 FA2 initialSt
+      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
       checkAllInvariants cfmm
 
-      withSender liquidityProvider do
-        call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) xTokenId]
-        call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) yTokenId]
+      for_ accounts \account ->
+        withSender account do
+          call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
+          call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) yTokenId]
 
-      advanceSecs waitTime [cfmm]
+      for_ (createPositionData `zip` swapDirections) \(cpd, swapDirection) -> do
+        let CreatePositionData lowerTickIndex upperTickIndex liquidityDelta waitTime = cpd
+        deadline <- mkDeadline
 
-      deadline <- mkDeadline
-      withSender liquidityProvider $
-        call cfmm (Call @"Set_position")
-          SetPositionParam
-            { sppLowerTickIndex = lowerTickIndex
-            , sppUpperTickIndex = upperTickIndex
-            , sppLowerTickWitness = minTickIndex
-            , sppUpperTickWitness = minTickIndex
-            , sppLiquidity = liquidityDelta
-            , sppDeadline = deadline
-            , sppMaximumTokensContributed = PerToken 1000000 1000000
-            }
+        -- Perform a swap to move the tick a bit.
+        -- This ensures the global accumulators (like fee_growth) aren't always 0.
+        withSender swapper do
+          case swapDirection of
+            XToY -> do
+              initialBalanceX <- balanceOf xToken xTokenId cfmm
+              let amt = initialBalanceX `div` 2
+              safeSwap amt \amt' ->
+                call cfmm (Call @"X_to_y") XToYParam
+                  { xpDx = amt'
+                  , xpDeadline = deadline
+                  , xpMinDy = 0
+                  , xpToDy = swapper
+                  }
+            YToX -> do
+              initialBalanceY <- balanceOf yToken yTokenId cfmm
+              let amt = initialBalanceY `div` 2
+              safeSwap amt \amt' ->
+                call cfmm (Call @"Y_to_x") YToXParam
+                  { ypDy = amt'
+                  , ypDeadline = deadline
+                  , ypMinDx = 0
+                  , ypToDx = swapper
+                  }
 
-      checkAllInvariants cfmm
+        -- Advance the time a few secs to make sure the buffer is updated to reflect the swaps.
+        advanceSecs waitTime [cfmm]
+        checkAllInvariants cfmm
 
-      st <- getFullStorage cfmm
+        initialSt <- getFullStorage cfmm
+        initialBalanceX <- balanceOf xToken xTokenId cfmm
+        initialBalanceY <- balanceOf yToken yTokenId cfmm
 
-      -- ticks were initialized
-      (st & sTicks & mapToList <&> fmap fst) @@== [minTickIndex, lowerTickIndex, upperTickIndex, maxTickIndex]
+        withSender liquidityProvider $
+          call cfmm (Call @"Set_position")
+            SetPositionParam
+              { sppLowerTickIndex = lowerTickIndex
+              , sppUpperTickIndex = upperTickIndex
+              , sppLowerTickWitness = minTickIndex
+              , sppUpperTickWitness = minTickIndex
+              , sppLiquidity = liquidityDelta
+              , sppDeadline = deadline
+              , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+              }
+        checkAllInvariants cfmm
 
-      -- Ticks' states were correctly initialized.
-      lowerTick <- st & sTicks & bmMap & Map.lookup lowerTickIndex & evalJust
-      upperTick <- st & sTicks & bmMap & Map.lookup upperTickIndex & evalJust
+        st <- getFullStorage cfmm
 
-      (lowerTick & tsSqrtPrice & adjustScale @30) @== sqrtPriceFor lowerTickIndex
-      (upperTick & tsSqrtPrice & adjustScale @30) @== sqrtPriceFor upperTickIndex
+        -- Ticks were initialized
+        let initializedTickIndices = st & sTicks & bmMap & Map.keys
+        checkCompares lowerTickIndex elem initializedTickIndices
+        checkCompares upperTickIndex elem initializedTickIndices
 
-      (lowerTick & tsLiquidityNet) @== toInteger liquidityDelta
-      (upperTick & tsLiquidityNet) @== -(toInteger liquidityDelta)
+        -- Ticks' states were correctly initialized.
+        lowerTick <- st & sTicks & bmMap & Map.lookup lowerTickIndex & evalJust
+        upperTick <- st & sTicks & bmMap & Map.lookup upperTickIndex & evalJust
 
-      (lowerTick & tsNPositions) @== 1
-      (upperTick & tsNPositions) @== 1
+        (lowerTick & tsSqrtPrice & adjustScale @30) @== sqrtPriceFor lowerTickIndex
+        (upperTick & tsSqrtPrice & adjustScale @30) @== sqrtPriceFor upperTickIndex
 
-      do
-        -- TODO: test creating multiple positions, otherwise the secondsPerLiquidityOutside value will always be 0
-        Accumulators expectedSecondsOutside expectedTickCumulativeOutside expectedFeeGrowthOutside expectedSecondsPerLiquidityOutside <- initTickAccumulators cfmm st lowerTickIndex
-        (lowerTick & tsSecondsOutside & fromIntegral) @== expectedSecondsOutside
-        (lowerTick & tsTickCumulativeOutside) @== expectedTickCumulativeOutside
-        (lowerTick & tsFeeGrowthOutside <&> fromIntegral) @== expectedFeeGrowthOutside
-        (lowerTick & tsSecondsPerLiquidityOutside <&> fromIntegral) @== expectedSecondsPerLiquidityOutside
-      do
-        Accumulators expectedSecondsOutside expectedTickCumulativeOutside expectedFeeGrowthOutside expectedSecondsPerLiquidityOutside <- initTickAccumulators cfmm st upperTickIndex
-        (upperTick & tsSecondsOutside & fromIntegral) @== expectedSecondsOutside
-        (upperTick & tsTickCumulativeOutside) @== expectedTickCumulativeOutside
-        (upperTick & tsFeeGrowthOutside <&> fromIntegral) @== expectedFeeGrowthOutside
-        (upperTick & tsSecondsPerLiquidityOutside <&> fromIntegral) @== expectedSecondsPerLiquidityOutside
+        (lowerTick & tsLiquidityNet) @== toInteger liquidityDelta
+        (upperTick & tsLiquidityNet) @== -(toInteger liquidityDelta)
 
-      -- Check global state updates
-      let positionIsActive = lowerTickIndex <= sCurTickIndex st && sCurTickIndex st < upperTickIndex
+        (lowerTick & tsNPositions) @== 1
+        (upperTick & tsNPositions) @== 1
 
-      if positionIsActive
-        then sLiquidity st @== liquidityDelta
-        else sLiquidity st @== 0
+        do
+          Accumulators expectedSecondsOutside expectedTickCumulativeOutside expectedFeeGrowthOutside expectedSecondsPerLiquidityOutside <- initTickAccumulators cfmm st lowerTickIndex
+          (lowerTick & tsSecondsOutside & fromIntegral) @== expectedSecondsOutside
+          (lowerTick & tsTickCumulativeOutside) @== expectedTickCumulativeOutside
+          (lowerTick & tsFeeGrowthOutside <&> fromIntegral) @== expectedFeeGrowthOutside
+          (lowerTick & tsSecondsPerLiquidityOutside <&> fromIntegral) @== expectedSecondsPerLiquidityOutside
+        do
+          Accumulators expectedSecondsOutside expectedTickCumulativeOutside expectedFeeGrowthOutside expectedSecondsPerLiquidityOutside <- initTickAccumulators cfmm st upperTickIndex
+          (upperTick & tsSecondsOutside & fromIntegral) @== expectedSecondsOutside
+          (upperTick & tsTickCumulativeOutside) @== expectedTickCumulativeOutside
+          (upperTick & tsFeeGrowthOutside <&> fromIntegral) @== expectedFeeGrowthOutside
+          (upperTick & tsSecondsPerLiquidityOutside <&> fromIntegral) @== expectedSecondsPerLiquidityOutside
 
-      let positionId = sNewPositionId initialSt
-      sNewPositionId st @== positionId + 1
+        -- Check global state updates
+        let positionIsActive = lowerTickIndex <= sCurTickIndex st && sCurTickIndex st < upperTickIndex
 
-      -- Check position's state
-      position <- sPositions st & bmMap & Map.lookup positionId & evalJust
+        if positionIsActive
+          then sLiquidity st @== sLiquidity initialSt + liquidityDelta
+          else sLiquidity st @== sLiquidity initialSt
 
-      psLiquidity position @== liquidityDelta
-      psOwner position @== liquidityProvider
-      (psLowerTickIndex &&& psUpperTickIndex) position @== (lowerTickIndex, upperTickIndex)
+        let positionId = sNewPositionId initialSt
+        sNewPositionId st @== positionId + 1
 
-      -- TODO: do some swaps, otherwise this will always be zero.
-      -- The swaps must be within ranges with positive liquidity.
-      expectedFeeGrowthInside <- tickAccumulatorsInside cfmm st lowerTickIndex upperTickIndex <&> aFeeGrowth
-      psFeeGrowthInsideLast position @== expectedFeeGrowthInside
+        -- Check position's state
+        position <- sPositions st & bmMap & Map.lookup positionId & evalJust
 
-      -- Check FA2 transfers
-      let PerToken x y = liquidityDeltaToTokensDelta (toInteger liquidityDelta) lowerTickIndex upperTickIndex (sCurTickIndex st) (sSqrtPrice st)
-      (balanceOf xToken xTokenId cfmm <&> fromIntegral @Natural @Integer) @@== x
-      (balanceOf yToken yTokenId cfmm <&> fromIntegral @Natural @Integer) @@== y
+        psLiquidity position @== liquidityDelta
+        psOwner position @== liquidityProvider
+        (psLowerTickIndex &&& psUpperTickIndex) position @== (lowerTickIndex, upperTickIndex)
+
+        expectedFeeGrowthInside <- tickAccumulatorsInside cfmm st lowerTickIndex upperTickIndex <&> aFeeGrowth
+        psFeeGrowthInsideLast position @== expectedFeeGrowthInside
+
+        -- Check FA2 transfers
+        let PerToken x y = liquidityDeltaToTokensDelta (toInteger liquidityDelta) lowerTickIndex upperTickIndex (sCurTickIndex st) (sSqrtPrice st)
+        balanceOf xToken xTokenId cfmm @@== initialBalanceX + fromIntegral @Integer @Natural x
+        balanceOf yToken yTokenId cfmm @@== initialBalanceY + fromIntegral @Integer @Natural y
+  where
+    -- | Attemps to execute a swap.
+    -- If it fails with `tooBigPriceChangeErr`, try again with a smaller amount.
+    safeSwap :: (HasCallStack, MonadNettest caps base m) => Natural -> (Natural -> m ()) -> m ()
+    safeSwap amt doSwap = do
+      attempt @TransferFailure (doSwap amt) >>= \case
+        Right () -> pass
+        Left (FailedWith _ errExpr)
+          | errExpr == toExpression (toVal tooBigPriceChangeErr) -> do
+            safeSwap (amt `div` 3) doSwap
+        Left err -> runIO $ throwM err
 
 test_updating_nonexisting_position :: TestTree
 test_updating_nonexisting_position =
@@ -849,8 +897,7 @@ test_updating_nonexisting_position =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId
-    cfmm <- originateSegCFMM FA2 FA2 initialSt
+    cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId 0
 
     withSender liquidityProvider do
       call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) xTokenId]
@@ -878,3 +925,52 @@ test_updating_nonexisting_position =
           , uppMaximumTokensContributed = PerToken 1 1
           }
           & expectCustomError_ #fA2_TOKEN_UNDEFINED
+
+
+----------------------------------------------------------------------------
+-- Hedgehog generators
+----------------------------------------------------------------------------
+
+data CreatePositionData = CreatePositionData
+  { cpdLowerTickIndex :: TickIndex
+  , cpdUpperTickIndex :: TickIndex
+  , cpdLiquidityDelta :: Natural
+  , cpdWaitTime :: Natural
+  }
+  deriving stock (Show)
+
+genCreatePositionData :: Gen CreatePositionData
+genCreatePositionData = do
+  cpdLiquidityDelta <- Gen.integral (Range.linear 1 100000)
+  cpdLowerTickIndex <- Gen.integral (Range.linearFrom 0 lowerBound upperBound)
+  cpdUpperTickIndex <- Gen.integral (Range.linear (cpdLowerTickIndex + 1) (upperBound + 1))
+  cpdWaitTime <- Gen.integral (Range.linear 0 10)
+  pure CreatePositionData {..}
+  where
+    lowerBound = -10000
+    upperBound = 10000
+
+-- | Generate a series of positions whose boundaries are guaranteed to not overlap.
+genNonOverlappingPositions :: Gen [CreatePositionData]
+genNonOverlappingPositions = do
+  cpds <- Gen.list (Range.linear 1 8) genCreatePositionData
+  pure $ foldl'
+    (\nonOverlapping cpd ->
+      if boundsOverlap cpd nonOverlapping
+        then nonOverlapping
+        else cpd : nonOverlapping
+    )
+    []
+    cpds
+  where
+    -- Checks if this position's bounds overlap with any of the other positions' bounds.
+    boundsOverlap :: CreatePositionData -> [CreatePositionData] -> Bool
+    boundsOverlap thisCpd otherCpds =
+      let allTickIndices = thisCpd : otherCpds >>= \cpd -> [cpdLowerTickIndex cpd, cpdUpperTickIndex cpd]
+      in List.nub allTickIndices /= allTickIndices
+
+data SwapDirection = XToY | YToX
+  deriving stock (Show, Enum, Bounded)
+
+genSwapDirection :: Gen SwapDirection
+genSwapDirection = Gen.enumBounded
