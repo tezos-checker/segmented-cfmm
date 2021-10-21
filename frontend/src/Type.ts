@@ -17,6 +17,7 @@ export type Model = {
   appName: string,
   currentNet: NetworkTypes,
   contract: RemoteData<string, ContractInfo>,
+  storage: RemoteData<string, any>,
   callEntrypointResult: RemoteData<string, TransactionWalletOperation>,
 
   // input
@@ -35,6 +36,7 @@ export type Model = {
   xToYForm: FH.Model,
   yToXForm: FH.Model,
   setPositionForm: FH.Model,
+  updatePositionForm: FH.Model,
   transferForm: FH.Model,
   updateOperatorsForm: FH.Model,
   xToXPrimeForm: FH.Model,
@@ -48,6 +50,7 @@ export type EntrypointTypes
   = { type: 'x_to_y' }
   | { type: 'y_to_x' }
   | { type: 'set_position' }
+  | { type: 'update_position' }
   | { type: 'transfer' }
   | { type: 'update_operators' }
   | { type: 'x_to_x_prime' }

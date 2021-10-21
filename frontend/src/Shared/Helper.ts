@@ -14,6 +14,23 @@ export const toNumber = (value: string | number) => {
   }
 }
 
+export const toNat = (value: string | number) => {
+  const ensurePositive = (val: number) => {
+    if (val >= 0) return O.some(val)
+    else return O.none
+  }
+
+  if (typeof value === 'number') {
+    return ensurePositive(value)
+  }
+  else {
+    let result = parseInt(value, 10)
+    if (!isNaN(result))
+      return ensurePositive(result)
+    else return O.none
+  }
+}
+
 export const getSomeUnsafe = <T>(value: O.Option<T>): T =>
   pipe(
     value,
