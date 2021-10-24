@@ -32,10 +32,14 @@ module Test.Util
   , transferTokens
   -- * Other utils
   , divUp
+  , isInRange
+  , isInRangeNat
   ) where
 
 import Prelude
 
+import Data.Coerce (coerce)
+import Data.Ix (Ix, inRange)
 import qualified Data.Map as Map
 import Fmt (Buildable(build), GenericBuildable(..), indentF, unlinesF, (+|), (|+))
 import Hedgehog hiding (assert, failure)
@@ -334,3 +338,21 @@ transferTokens fa2 transferParams = call fa2 (Call @"Transfer") transferParams
 divUp :: Integer -> Integer -> Integer
 divUp x y = ceiling $ fromIntegral @Integer @Double x / fromIntegral @Integer @Double y
 infixl 7 `divUp`
+
+-- | @x `isInRange` y $ (down, up)@ checks that @x@ is in the range @[y - down, y + up]@.
+isInRange
+  :: (HasCallStack, MonadNettest caps base m, Ix a, Num a, Buildable a)
+  => a -> a -> (a, a) -> m ()
+isInRange x y (marginDown, marginUp) =
+  checkCompares (y - marginDown, y + marginUp) inRange x
+
+-- | Similar to `isInRange`, but checks that the lower bound cannot be less than 0.
+isInRangeNat :: (HasCallStack, MonadNettest caps base m, Coercible nat Natural) => nat -> nat -> (Natural, Natural) -> m ()
+isInRangeNat (coerce -> x) (coerce -> y) (marginDown, marginUp) = do
+  let upperBound = y + marginUp
+  let lowerBound =
+        -- check for underflows.
+        if marginDown <= y
+          then y - marginDown
+          else 0
+  checkCompares (lowerBound, upperBound) inRange x

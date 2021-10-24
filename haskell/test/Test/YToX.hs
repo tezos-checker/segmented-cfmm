@@ -7,7 +7,6 @@ module Test.YToX where
 
 import Prelude
 
-import Data.Ix (inRange)
 import Data.Map ((!))
 import Hedgehog hiding (assert, failure)
 import qualified Hedgehog.Gen as Gen
@@ -153,11 +152,9 @@ test_swapping_within_a_single_tick_range =
             swaps
             <&> (\dy -> calcSwapFee feeBps dy)
             & sum
-      -- The fee might be rounded down, so it's possible 1 Y token is lost.
+      -- `update_position` rounds the fee down, so it's possible 1 X token is lost.
       receivedFee <- balanceOf yToken yTokenId feeReceiver
-      if expectedFees == 0
-        then receivedFee @== 0
-        else checkCompares (expectedFees - 1, expectedFees) inRange receivedFee
+      receivedFee `isInRangeNat` expectedFees $ (1, 0)
 
 test_many_small_swaps :: TestTree
 test_many_small_swaps =
@@ -261,7 +258,7 @@ test_many_small_swaps =
     -- So the 2nd contract may hold up to 1000 more X tokens than the 1st contract.
     cfmm1XBalance <- balanceOf xToken xTokenId cfmm1
     cfmm2XBalance <- balanceOf xToken xTokenId cfmm2
-    checkCompares (cfmm1XBalance, cfmm1XBalance + swapCount) inRange cfmm2XBalance
+    cfmm2XBalance `isInRangeNat` cfmm1XBalance $ (0, swapCount)
 
     -- The two contracts should hold the same exact amount of Y tokens
     cfmm1YBalance <- balanceOf yToken yTokenId cfmm1
@@ -381,7 +378,7 @@ test_crossing_ticks =
 
     -- Sanity check: In order for this test to be meaningful, we need the `curTickIndex`
     -- to have moved close to `upperTickIndex` and have crossed several initialized ticks.
-    checkCompares (upperTickIndex - 50, upperTickIndex) inRange (sCurTickIndex st1)
+    sCurTickIndex st1 `isInRange` upperTickIndex $ (50, 0)
 
     -- Current tick should be the same.
     sCurTickIndex st1 @== sCurTickIndex st2
@@ -394,8 +391,8 @@ test_crossing_ticks =
     let PerToken feeGrowthX2 feeGrowthY2 = sFeeGrowth st2
     feeGrowthX1 @== 0
     feeGrowthX2 @== 0
-    let marginOfError = mkX 10 `div` fromIntegral liquidity
-    checkCompares (feeGrowthY1, feeGrowthY1 + marginOfError) inRange feeGrowthY2
+    let marginOfError = pickX (mkX @_ @128 10) `div` liquidity
+    feeGrowthY2 `isInRangeNat` feeGrowthY1 $ (0, marginOfError)
 
 
     let calcBalanceDelta initial final = fromIntegral @Natural @Integer final - fromIntegral @Natural @Integer initial
@@ -409,7 +406,7 @@ test_crossing_ticks =
     --   1. due to the potential increase in fees explained above
     --   2. due to the rounding up of `dy` when crossing a tick
     -- We had a margin error of 10 for each possible cause.
-    checkCompares (cfmm1BalanceDeltaX, cfmm1BalanceDeltaX + 10 + 10) inRange cfmm2BalanceDeltaX
+    cfmm2BalanceDeltaX `isInRange` cfmm1BalanceDeltaX $ (0, 10 + 10)
 
     -- Collected fees should be fairly similar.
     -- As explained above, the contract may charge up to 10 extra tokens.
@@ -421,7 +418,7 @@ test_crossing_ticks =
     balanceOf xToken xTokenId feeReceiver2 @@== 0
     feeReceiver1BalanceY <- balanceOf yToken yTokenId feeReceiver1
     feeReceiver2BalanceY <- balanceOf yToken yTokenId feeReceiver2
-    checkCompares (feeReceiver1BalanceY - 10, feeReceiver1BalanceY + 10) inRange feeReceiver2BalanceY
+    feeReceiver2BalanceY `isInRangeNat` feeReceiver1BalanceY $ (10, 10)
 
     -- The global accumulators of both contracts should be the same.
     sCumulativesBuffer st1 @== sCumulativesBuffer st2
@@ -633,3 +630,78 @@ test_fails_if_its_past_the_deadline =
         , ypToDx = swapper
         }
         & expectFailedWith pastDeadlineErr
+
+test_swaps_are_noops_when_liquidity_is_zero :: TestTree
+test_swaps_are_noops_when_liquidity_is_zero =
+  nettestScenarioOnEmulatorCaps "After crossing into a 0-liquidity range, swaps are no-ops" do
+    liquidityProvider <- newAddress auto
+    swapper <- newAddress auto
+    let userFA2Balance = 1_e15
+    let accounts = [liquidityProvider, swapper]
+    let xTokenId = FA2.TokenId 0
+    let yTokenId = FA2.TokenId 1
+    let xFa2storage = FA2.Storage
+          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, xTokenId), userFA2Balance)
+          , sOperators = mempty
+          , sTokenMetadata = mempty
+          }
+    let yFa2storage = FA2.Storage
+          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, yTokenId), userFA2Balance)
+          , sOperators = mempty
+          , sTokenMetadata = mempty
+          }
+    xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
+    yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
+
+    cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId 200
+    checkAllInvariants cfmm
+
+    for_ accounts \account ->
+      withSender account do
+        call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
+        call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) yTokenId]
+
+    deadline <- mkDeadline
+    withSender liquidityProvider do
+      call cfmm (Call @"Set_position")
+        SetPositionParam
+          { sppLowerTickIndex = -100
+          , sppUpperTickIndex = 100
+          , sppLowerTickWitness = minTickIndex
+          , sppUpperTickWitness = minTickIndex
+          , sppLiquidity = 10_000
+          , sppDeadline = deadline
+          , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+          }
+
+    withSender swapper do
+      -- Place a swpa big enough to exhaust the position's liquidity
+      call cfmm (Call @"Y_to_x") YToXParam
+        { ypDy = 200
+        , ypDeadline = deadline
+        , ypMinDx = 0
+        , ypToDx = swapper
+        }
+
+      let
+        isNoOp op = do
+          initialSt <- getFullStorage cfmm
+          initialBalanceX <- balanceOf xToken xTokenId cfmm
+          initialBalanceY <- balanceOf yToken yTokenId cfmm
+          op
+          getFullStorage cfmm @@== initialSt
+          balanceOf xToken xTokenId cfmm @@== initialBalanceX
+          balanceOf yToken yTokenId cfmm @@== initialBalanceY
+
+      isNoOp $ call cfmm (Call @"X_to_y") XToYParam
+        { xpDx = 100
+        , xpDeadline = deadline
+        , xpMinDy = 0
+        , xpToDy = swapper
+        }
+      isNoOp $ call cfmm (Call @"Y_to_x") YToXParam
+        { ypDy = 100
+        , ypDeadline = deadline
+        , ypMinDx = 0
+        , ypToDx = swapper
+        }

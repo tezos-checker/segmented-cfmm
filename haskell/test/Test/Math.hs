@@ -98,6 +98,7 @@ tickAccumulatorsInside cfmm st lowerTi upperTi = do
       - tickAccumulatorAbove (upperTi, upperTs) globalAcc tickAccOutside
 
 -- | When adding @liquidity_delta@ to a position, calculate how many tokens will need to be deposited/withdrawn.
+-- Due to the floating-point math used in `sqrtPriceFor`, this function has a certain margin of error.
 liquidityDeltaToTokensDelta :: Integer -> TickIndex -> TickIndex -> TickIndex -> X 80 Natural -> PerToken Integer
 liquidityDeltaToTokensDelta liquidityDelta lowerTickIndex upperTickIndex currentTickIndex sqrtPrice' =
   let
