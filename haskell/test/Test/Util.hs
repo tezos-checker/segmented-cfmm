@@ -27,6 +27,8 @@ module Test.Util
   , collectAllFees
   , collectFees
   , lastRecordedCumulatives
+  , (@~=)
+  , inTicksRange
   -- * FA2 helpers
   , balanceOf
   , balancesOf
@@ -349,24 +351,12 @@ actual @~= expected = do
       , build actual
       ]
 
--- | Check that value lies in the given range, with a small margin of error.
-inApproxXRange
-    :: (HasCallStack, Integral a, Buildable a, KnownNat n, MonadNettest caps base m)
-    => X n a -> (X n a, X n a) -> m ()
-inApproxXRange ax (lx, rx)
-  | lx > rx = error "Negative range"
-  | otherwise = do
-    let X l = adjustScale @30 lx
-    let X r = adjustScale @30 rx
-    let X a = adjustScale @30 ax
-    assert (l - 1 <= a && a <= r + 1) $
-      unlinesF
-        [ "Failed approximate in-range check"
-        , "━━ Range (rhs) ━━"
-        , build (lx, rx)
-        , "━━ Got value (lhs) ━━"
-        , build ax
-        ]
+-- | Check whether given tick index is within the given range.
+--
+-- CFMM contract treats tick ranges as half-open @[lo, hi)@ ranges.
+inTicksRange :: TickIndex -> (TickIndex, TickIndex) -> Bool
+inTicksRange (TickIndex x) (TickIndex l, TickIndex r) =
+  l <= x && x < r
 
 ----------------------------------------------------------------------------
 -- FA2 helpers
