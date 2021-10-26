@@ -88,6 +88,7 @@ $(OUT)/storage_%.tz : x_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
 $(OUT)/storage_%.tz : y_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
 $(OUT)/storage_%.tz : init_cumulatives_buffer_extra_slots = 0
 $(OUT)/storage_%.tz : tick_spacing = 1
+$(OUT)/storage_%.tz : metadata_map = (Big_map.empty : metadata_map)
 $(OUT)/storage_%.tz: $(shell find ligo -name '*.mligo')
 	# ============== Compiling default LIGO storage ============== #
 	$(BUILD_STORAGE) ligo/defaults.mligo entrypoint "default_storage( \
@@ -98,7 +99,7 @@ $(OUT)/storage_%.tz: $(shell find ligo -name '*.mligo')
 			; x_token_address = (\"$(x_token_address)\" : address) \
 			; y_token_address = (\"$(y_token_address)\" : address) \
 			; tick_spacing = $(tick_spacing)n \
-	    }) ($(init_cumulatives_buffer_extra_slots)n)" \
+	    }) ($(init_cumulatives_buffer_extra_slots)n) ($(metadata_map))" \
         --output-file $@
 
 $(OUT)/storage_increased_buffer_10.tz: init_cumulatives_buffer_extra_slots = 10
@@ -115,23 +116,56 @@ lib: prepare_lib
 	$(MAKE) -C haskell build PACKAGE=segmented-cfmm \
 		STACK_DEV_OPTIONS="--fast --ghc-options -Wwarn"
 
-metadata : x_token_symbol = x
-metadata : x_token_name = "Token X"
-metadata : x_token_decimals = 1
-metadata : y_token_symbol = y
-metadata : y_token_name = "Token Y"
-metadata : y_token_decimals = 1
-metadata : output = metadata.json
-metadata: lib
+metadata: x_token_symbol = x
+metadata: x_token_name = Token X
+metadata: x_token_decimals = 1
+metadata: y_token_symbol = y
+metadata: y_token_name = Token Y
+metadata: y_token_decimals = 1
+metadata: output = metadata.json
+metadata:
+	# ============== Generate TZIP16 metadata ============== #
 	$(MAKE) -C haskell exec PACKAGE=segmented-cfmm \
 		EXEC_ARGUMENTS="print-metadata \
 		--x-token-symbol $(x_token_symbol) \
-		--x-token-name $(call escape_double_quote,$(x_token_name)) \
+		--x-token-name \"$(call escape_double_quote,$(x_token_name))\" \
 		--x-token-decimals $(x_token_decimals) \
-		--y-token-symbol $(y_token_symbol)
-		--y-token-name $(call escape_double_quote,$(y_token_name)) \
+		--y-token-symbol $(y_token_symbol) \
+		--y-token-name \"$(call escape_double_quote,$(y_token_name))\" \
 		--y-token-decimals $(y_token_decimals) \
 		" EXEC_OUTPUT=$(output)
+
+$(OUT)/metadata_byte: x_token_symbol = x
+$(OUT)/metadata_byte: x_token_name = Token X
+$(OUT)/metadata_byte: x_token_decimals = 1
+$(OUT)/metadata_byte: y_token_symbol = y
+$(OUT)/metadata_byte: y_token_name = Token Y
+$(OUT)/metadata_byte: y_token_decimals = 1
+$(OUT)/metadata_byte:
+	# ============== Generate TZIP16 metadata in hex ============== #
+	$(MAKE) -C haskell exec PACKAGE=segmented-cfmm \
+		EXEC_ARGUMENTS="print-metadata-byte \
+		--x-token-symbol $(x_token_symbol) \
+		--x-token-name \"$(call escape_double_quote,$(x_token_name))\" \
+		--x-token-decimals $(x_token_decimals) \
+		--y-token-symbol $(y_token_symbol) \
+		--y-token-name \"$(call escape_double_quote,$(y_token_name))\" \
+		--y-token-decimals $(y_token_decimals)" EXEC_OUTPUT=$@
+
+$(OUT)/metadata_uri: metadata_key = sub_metadata
+$(OUT)/metadata_uri:
+	# ============== Generate metadata_uri to be used in tezos-storage ============== #
+	$(MAKE) -C haskell exec PACKAGE=segmented-cfmm \
+		EXEC_ARGUMENTS="generate-metadata-uri \
+		--metadata-uri-key $(metadata_key)" EXEC_OUTPUT=$@
+
+$(OUT)/metadata_map: metadata_key = sub_metadata
+$(OUT)/metadata_map: $(OUT)/metadata_byte $(OUT)/metadata_uri
+	echo "((Big_map.literal [ \
+		(\\\"\\\", 0x$(shell cat $(OUT)/metadata_uri)) ; \
+		(\\\"$(metadata_key)\\\", 0x$(shell cat $(OUT)/metadata_byte)) \
+		]) : metadata_map)" > $@
+
 
 docs/error_codes.md ligo/errors.mligo haskell/src/SegCFMM/Errors.hs: scripts/generate_error_code.hs
 	stack scripts/generate_error_code.hs

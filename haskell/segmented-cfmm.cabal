@@ -23,6 +23,7 @@ extra-source-files:
     test/storage_default.tz
     test/storage_increased_buffer_10.tz
     test/liquidity_mining.tz
+    test/assets/storage_with_metadata.tz
 extra-doc-files:
     README.md
 
@@ -167,11 +168,15 @@ executable segmented-cfmm
       ViewPatterns
   ghc-options: -Weverything -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missed-specialisations -Wno-all-missed-specialisations -Wno-unsafe -Wno-safe -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-implicit-prelude -Wno-unused-packages -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode
   build-depends:
-      aeson-pretty
+      aeson
+    , aeson-pretty
     , base-noprelude >=4.7 && <5
+    , bytestring
     , fmt
+    , hex-text
     , morley
     , morley-ledgers
+    , morley-metadata
     , morley-prelude
     , optparse-applicative
     , segmented-cfmm
@@ -191,11 +196,13 @@ test-suite segmented-cfmm-test
       Test.LiquidityMining.Contract
       Test.Math
       Test.Mining
+      Test.OffChainView
       Test.Position
       Test.ProtocolFee.XToY
       Test.ProtocolFee.YToX
       Test.RangeOracles
       Test.SegCFMM.Contract
+      Test.SegCFMM.Metadata
       Test.SegCFMM.Storage
       Test.SegCFMM.Types
       Test.TimedOracles
@@ -265,15 +272,19 @@ test-suite segmented-cfmm-test
     , containers
     , fmt
     , hedgehog
+    , hspec
     , lens
     , lorentz
     , morley
     , morley-ledgers
+    , morley-metadata
+    , morley-metadata-test
     , morley-prelude
     , o-clock
     , segmented-cfmm
     , tasty
     , tasty-hedgehog
+    , tasty-hspec
     , tasty-hunit-compat
     , universum
   default-language: Haskell2010

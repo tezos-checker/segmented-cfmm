@@ -22,6 +22,7 @@ extra-source-files:
 - test/storage_default.tz
 - test/storage_increased_buffer_10.tz
 - test/liquidity_mining.tz
+- test/assets/storage_with_metadata.tz
 
 description:         Tools and tests for the Segmented CFMM contract.
 
@@ -122,14 +123,19 @@ executables:
     main:                Main.hs
     source-dirs:         app
     dependencies:
+    - aeson
     - aeson-pretty
+    - bytestring
     - segmented-cfmm
     - fmt
     - morley
+    - morley-metadata
     - morley-ledgers
     - morley-prelude
     - optparse-applicative
+    - hex-text
     - universum
+
 
 tests:
   segmented-cfmm-test:
@@ -149,11 +155,15 @@ tests:
     - segmented-cfmm
     - fmt
     - HUnit
+    - hspec
     - lens
     - morley
     - morley-ledgers
+    - morley-metadata
+    - morley-metadata-test
     - morley-prelude
     - tasty
+    - tasty-hspec
     - tasty-hunit-compat
     - tasty-hedgehog
     - universum

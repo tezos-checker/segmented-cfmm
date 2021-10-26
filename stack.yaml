@@ -51,6 +51,7 @@ extra-deps:
     commit: cf434b81bd54939855541abc320552adcefd1715 # master
     subdirs:
       - code/morley-metadata
+      - code/morley-metadata-test
   - tasty-1.4
   - tasty-ant-xml-1.1.8
   # Needed by `summoner-2.0.1.1`, not sure why it is not required in `indigo` or `baseDAO`.

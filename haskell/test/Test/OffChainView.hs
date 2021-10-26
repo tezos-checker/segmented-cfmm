@@ -15,7 +15,7 @@ import Lorentz.Contracts.Spec.TZIP16Interface (View)
 import Michelson.Interpret (MichelsonFailed)
 import Michelson.Test.Dummy
 import Morley.Metadata
-import Test.HUnit ((@?=))
+import Test.HUnit ((@?=), Assertion, assertFailure)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
 import Tezos.Address
@@ -30,6 +30,12 @@ xToken = unsafeParseAddress "KT1XMaGzMc7iGVkbnCC9gZyjs2b85A3NxJTz"
 yToken :: Address
 yToken = unsafeParseAddress "KT1N3SQzqEb5vU7HmtqSqnuSTgrxs8hwkqVU"
 
+xTokenId :: FA2.TokenId
+xTokenId = FA2.TokenId 0
+
+yTokenId :: FA2.TokenId
+yTokenId = FA2.TokenId 1
+
 offChainViewStorage :: Storage
 offChainViewStorage =
   defaultStorage
@@ -40,9 +46,6 @@ offChainViewStorage =
       , cYTokenId = yTokenId
       }
     }
-  where
-    xTokenId = FA2.TokenId 0
-    yTokenId = FA2.TokenId 1
 
 test_OffChainViews :: TestTree
 test_OffChainViews =
@@ -52,20 +55,27 @@ test_OffChainViews =
     testGroup "Off-chain views"
     [ testCase "Get the address of tokens X" $
         runView @Address (getTokenXAddressView mc) offChainViewStorage NoParam
-          @?= (Right $ xToken)
+          (Right $ xToken)
     , testCase "Get the address of tokens Y" $
         runView @Address (getTokenYAddressView mc) offChainViewStorage NoParam
-          @?= (Right $ yToken)
+          (Right $ yToken)
+    , testCase "Get the id of tokens X" $
+        runView @FA2.TokenId (getTokenXIdView mc) offChainViewStorage NoParam
+          (Right $ xTokenId)
+    , testCase "Get the id of tokens Y" $
+        runView @FA2.TokenId (getTokenYIdView mc) offChainViewStorage NoParam
+          (Right $ yTokenId)
     ]
 
 runView
-  :: forall ret. (HasCallStack, IsoValue ret)
+  :: forall ret. (HasCallStack, IsoValue ret, Eq ret, Show ret)
   => View $ ToT Storage
   -> Storage
   -> ViewParam
   -> Either MichelsonFailed ret
-runView view storage param =
+  -> Assertion
+runView view storage param expected =
   case interpretView dummyContractEnv view param storage of
-    Right x -> Right x
-    Left (VIEMichelson _ (MSVIEMichelsonFailed e)) -> Left e
-    Left err -> error (pretty err)
+    Right x -> Right x @?= expected
+    Left (VIEMichelson _ (MSVIEMichelsonFailed e)) -> Left e @?= expected
+    Left err -> assertFailure (pretty err)

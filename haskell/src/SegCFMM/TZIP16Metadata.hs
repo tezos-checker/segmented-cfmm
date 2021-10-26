@@ -11,6 +11,8 @@ module SegCFMM.TZIP16Metadata
 
   , getTokenXAddressView
   , getTokenYAddressView
+  , getTokenXIdView
+  , getTokenYIdView
   , segCfmmViews
   ) where
 
@@ -100,7 +102,7 @@ type ContractView = MetadataSettings -> View (ToT Storage)
 ------------------------------------------------------------------------
 
 getLiquidityView :: ContractView
-getLiquidityView MetadataSettings{} = View
+getLiquidityView _ = View
   { vName = "get_liquidity"
   , vDescription = Just
       "Get the liquidity of a token"
@@ -108,13 +110,14 @@ getLiquidityView MetadataSettings{} = View
   , vImplementations =
       [ VIMichelsonStorageView $
           mkMichelsonStorageView @Storage @Natural Nothing [] $
-            unsafeCompileViewCode $ WithoutParam $ do
+            $$(compileViewCodeTH $ WithoutParam $ do
               stToField #sLiquidity
+            )
       ]
   }
 
 getSqrtPriceView :: ContractView
-getSqrtPriceView MetadataSettings{} = View
+getSqrtPriceView _ = View
   { vName = "get_sqrt_price"
   , vDescription = Just
       "Get the square root of virtual price"
@@ -122,13 +125,14 @@ getSqrtPriceView MetadataSettings{} = View
   , vImplementations =
       [ VIMichelsonStorageView $
           mkMichelsonStorageView @Storage @(X 80 Natural) Nothing [] $
-            unsafeCompileViewCode $ WithoutParam $ do
+            $$(compileViewCodeTH $ WithoutParam $ do
               stToField #sSqrtPrice
+            )
       ]
   }
 
 getTokenXAddressView :: ContractView
-getTokenXAddressView MetadataSettings{} = View
+getTokenXAddressView _ = View
   { vName = "get_token_x_address"
   , vDescription = Just
       "Get the address of token X"
@@ -136,14 +140,15 @@ getTokenXAddressView MetadataSettings{} = View
   , vImplementations =
       [ VIMichelsonStorageView $
           mkMichelsonStorageView @Storage @Address Nothing [] $
-            unsafeCompileViewCode $ WithoutParam $
+            $$(compileViewCodeTH $ WithoutParam $
               stToField #sConstants #
               toField #cXTokenAddress
+            )
       ]
   }
 
 getTokenYAddressView :: ContractView
-getTokenYAddressView MetadataSettings{} = View
+getTokenYAddressView _ = View
   { vName = "get_token_y_address"
   , vDescription = Just
       "Get the address of token Y"
@@ -151,8 +156,41 @@ getTokenYAddressView MetadataSettings{} = View
   , vImplementations =
       [ VIMichelsonStorageView $
           mkMichelsonStorageView @Storage @Address Nothing [] $
-            unsafeCompileViewCode $ WithoutParam $
+            $$(compileViewCodeTH $ WithoutParam $
               stToField #sConstants #
               toField #cYTokenAddress
+            )
+      ]
+  }
+
+getTokenXIdView :: ContractView
+getTokenXIdView _ = View
+  { vName = "get_token_x_id"
+  , vDescription = Just
+      "Get the id of token X"
+  , vPure = Just True
+  , vImplementations =
+      [ VIMichelsonStorageView $
+          mkMichelsonStorageView @Storage @FA2.TokenId Nothing [] $
+            $$(compileViewCodeTH $ WithoutParam $
+              stToField #sConstants #
+              toField #cXTokenId
+            )
+      ]
+  }
+
+getTokenYIdView :: ContractView
+getTokenYIdView _ = View
+  { vName = "get_token_y_id"
+  , vDescription = Just
+      "Get the id of token Y"
+  , vPure = Just True
+  , vImplementations =
+      [ VIMichelsonStorageView $
+          mkMichelsonStorageView @Storage @FA2.TokenId Nothing [] $
+            $$(compileViewCodeTH $ WithoutParam $
+              stToField #sConstants #
+              toField #cYTokenId
+            )
       ]
   }
