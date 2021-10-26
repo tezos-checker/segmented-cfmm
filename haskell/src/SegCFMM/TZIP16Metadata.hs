@@ -9,6 +9,8 @@ module SegCFMM.TZIP16Metadata
   , mkSegCfmmMetadata
   , mkMetadataSettings
 
+  , getTokenXAddressView
+  , getTokenYAddressView
   , segCfmmViews
   ) where
 
@@ -88,6 +90,8 @@ segCfmmViews :: MetadataSettings -> [View $ ToT Storage]
 segCfmmViews = sequence
   [ getLiquidityView
   , getSqrtPriceView
+  , getTokenXAddressView
+  , getTokenYAddressView
   ]
 
 type ContractView = MetadataSettings -> View (ToT Storage)
@@ -120,5 +124,35 @@ getSqrtPriceView MetadataSettings{} = View
           mkMichelsonStorageView @Storage @(X 80 Natural) Nothing [] $
             unsafeCompileViewCode $ WithoutParam $ do
               stToField #sSqrtPrice
+      ]
+  }
+
+getTokenXAddressView :: ContractView
+getTokenXAddressView MetadataSettings{} = View
+  { vName = "get_token_x_address"
+  , vDescription = Just
+      "Get the address of token X"
+  , vPure = Just True
+  , vImplementations =
+      [ VIMichelsonStorageView $
+          mkMichelsonStorageView @Storage @Address Nothing [] $
+            unsafeCompileViewCode $ WithoutParam $
+              stToField #sConstants #
+              toField #cXTokenAddress
+      ]
+  }
+
+getTokenYAddressView :: ContractView
+getTokenYAddressView MetadataSettings{} = View
+  { vName = "get_token_y_address"
+  , vDescription = Just
+      "Get the address of token Y"
+  , vPure = Just True
+  , vImplementations =
+      [ VIMichelsonStorageView $
+          mkMichelsonStorageView @Storage @Address Nothing [] $
+            unsafeCompileViewCode $ WithoutParam $
+              stToField #sConstants #
+              toField #cYTokenAddress
       ]
   }
