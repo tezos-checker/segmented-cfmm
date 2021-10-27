@@ -146,7 +146,7 @@ let rec x_to_y_rec (p : x_to_y_rec_param) : x_to_y_rec_param =
                 fee_growth = {p.s.fee_growth with x = {x128 = p.s.fee_growth.x.x128 + Bitwise.shift_left fee 128n / p.s.liquidity}}} in
             {p with s = s_new ; dx = 0n ; dy = p.dy + dy}
         else
-            (*We did cross the tick. *)
+            (* We did cross the tick. *)
             (* The tick we are currently in. *)
             let tick = get_tick p.s.ticks p.s.cur_tick_witness internal_tick_not_exist_err in
             (* The tick index below that. *)
@@ -214,9 +214,24 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
         p
     else
         (* The fee that would be extracted from selling dy. *)
-        let fee  = ceildiv (p.dy * p.s.constants.fee_bps) 10000n in
+        let fee = ceildiv (p.dy * p.s.constants.fee_bps) 10000n in
+        (* The amount of dy after the swap fee is taken. *)
+        let dy_minus_fee = assert_nat (p.dy - fee, internal_fee_more_than_100_percent_err) in
+        (* The amount of dy that will be converted to dx as a result of the swap. *)
+#if Y_IS_CTEZ
+        (* If Y is CTEZ then the 'Y' to convert (that are left after the swap fee)
+        * needs to be reduced by the protocol fee percentage/bps.
+        * Note: it's important to modify this _while_ updating the storage because
+        * we want to "burn" this fee and not convert it to 'X' token.
+        * This contract will continue to hold these 'Y' tokens indefinitely, but
+        * this amount won't be part of the usable balance.
+        *)
+        let dy_to_convert = ceildiv (dy_minus_fee * (one_minus_ctez_burn_fee_bps(p.s.constants))) 10000n in
+#else
+        let dy_to_convert = dy_minus_fee in
+#endif
         (* What the new price will be, assuming it's within the current tick. *)
-        let sqrt_price_new = sqrt_price_move_y p.s.liquidity p.s.sqrt_price (assert_nat (p.dy - fee, internal_fee_more_than_100_percent_err)) in
+        let sqrt_price_new = sqrt_price_move_y p.s.liquidity p.s.sqrt_price dy_to_convert in
         (* What the new value of cur_tick_index will be. *)
         let cur_tick_index_new = calc_new_cur_tick_index p.s.cur_tick_index p.s.sqrt_price sqrt_price_new p.s.ladder in
         let tick = get_tick p.s.ticks p.s.cur_tick_witness internal_tick_not_exist_err in
@@ -233,7 +248,7 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
                 fee_growth = {p.s.fee_growth with y = {x128 = p.s.fee_growth.y.x128 + Bitwise.shift_left fee 128n / p.s.liquidity}}} in
             {p with s = s_new ; dy = 0n ; dx = p.dx + dx}
         else
-            (*We did cross the tick. *)
+            (* We did cross the tick. *)
             (* The cached price corresponding to the next tick. *)
             let next_tick = get_tick p.s.ticks next_tick_index internal_tick_not_exist_err in
             let sqrt_price_new = next_tick.sqrt_price in
@@ -252,11 +267,19 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
                     ceildiv
                         (p.s.liquidity * (assert_nat (sqrt_price_new.x80 - p.s.sqrt_price.x80, internal_bad_sqrt_price_move_x_direction)))
                         pow_2_80n in
-
+            (* The amount of dy without the swap fee. *)
+#if Y_IS_CTEZ
+            (* In the case of CTEZ, the amount of dy needed increses by the
+               protocol fee _before_ the swap fee.
+             *)
+            let dy_minus_fee = ceildiv (dy_for_dx * 10000n) (one_minus_ctez_burn_fee_bps(p.s.constants)) in
+#else
+            let dy_minus_fee = dy_for_dx in
+#endif
             (* We will have to consume more dy than that because a fee will be applied. *)
-            let dy_consumed = ceildiv (dy_for_dx * 10000n) (one_minus_fee_bps(p.s.constants)) in
+            let dy_consumed = ceildiv (dy_minus_fee * 10000n) (one_minus_fee_bps(p.s.constants)) in
             (* Deduct the fee we will actually be paying. *)
-            let fee = assert_nat (dy_consumed - dy_for_dx, internal_impossible_err) in
+            let fee = assert_nat (dy_consumed - dy_minus_fee, internal_impossible_err) in
             let fee_growth_y_new = {x128 = p.s.fee_growth.y.x128 + (floordiv (Bitwise.shift_left fee 128n) p.s.liquidity)} in
             let fee_growth_new = {p.s.fee_growth with y=fee_growth_y_new} in
             (* Flip tick cumulative growth. *)
@@ -298,7 +321,18 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
 let update_storage_x_to_y (s : storage) (dx : nat) : (nat * nat * storage) =
     let r = x_to_y_rec {s = s ; dx = dx ; dy = 0n} in
     let dx_spent = assert_nat (dx - r.dx, internal_309) in
+#if Y_IS_CTEZ
+    (* If Y is CTEZ then the received Y are the total converted ones minus
+    * the protocol fee percentage/bps.
+    * Note: it's important to remove this _after_ updating the storage because
+    * we want to "burn" this fee, in the sense that this contract will continue
+    * to hold these tokens indefinitely, but this amount won't be part of the
+    * usable balance.
+    *)
+    let dy_received = ceildiv (r.dy * one_minus_ctez_burn_fee_bps(s.constants)) 10000n in
+#else
     let dy_received = r.dy in
+#endif
     (dx_spent, dy_received, r.s)
 
 
