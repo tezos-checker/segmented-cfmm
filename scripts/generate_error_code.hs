@@ -81,7 +81,8 @@ invalidInputErrors = errorsEnumerate 100
       :? "Some of the timestamps passed to the `observe` entrypoint are yet in the future."
 
   , "tick_order_err"
-      :? "When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`."
+      :? "When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. \
+         \When observing cumulative values at range, `upper_tick_index` must be greater or equal than `lower_tick_index`."
 
   , "position_liquidity_below_zero_err"
       :? "Liquidity of a position went below zero."

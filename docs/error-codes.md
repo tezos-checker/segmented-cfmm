@@ -30,7 +30,7 @@ Here is a summary of all the error codes thrown by the contract.
 | 108 | `invalid_x_prime_contract_err` | The X prime contract address provided is not a segmented-cfmm contract. |
 | 109 | `observe_outdated_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are too far back in the past. |
 | 110 | `observe_future_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are yet in the future. |
-| 111 | `tick_order_err` | When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. |
+| 111 | `tick_order_err` | When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. When observing cumulative values at range, `upper_tick_index` must be greater or equal than `lower_tick_index`. |
 | 112 | `position_liquidity_below_zero_err` | Liquidity of a position went below zero. |
 
 

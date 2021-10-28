@@ -228,7 +228,7 @@ type timed_cumulatives =
     }
 
 let init_timed_cumulatives : timed_cumulatives =
-    { time = (100 : timestamp)  // Should not really matter
+    { time = (0 : timestamp)  // Should not really matter
     ; tick = { sum = 0; block_start_value = {i = 0} }
     ; spl = { sum = {x128 = 0n}; block_start_liquidity_value = 0n }
     }
@@ -241,6 +241,8 @@ type timed_cumulatives_buffer = {
     //    the sake of future linear extrapolation.
     // 2. Timestamp when this sum was registered.
     //    This allows for bin search by timestamp.
+    //
+    // Indices in the map are assigned to values sequentially starting from 0.
     //
     // Invariants:
     // a. The set of indices that have an associated element with them is continuous;
@@ -268,12 +270,12 @@ type timed_cumulatives_buffer = {
 }
 
 let init_cumulatives_buffer (extra_reserved_slots : nat) : timed_cumulatives_buffer =
-    // Fill [0..n] slots with dummy values
+    // Fill [0..n] slots with init values
     let rec fill_map (n, map : nat * (nat, timed_cumulatives) big_map) : (nat, timed_cumulatives) big_map =
-            let map = Big_map.add n init_timed_cumulatives map in
-            match is_nat(n - 1) with
-                | None -> map
-                | Some n -> fill_map(n, map)
+        let map = Big_map.add n init_timed_cumulatives map in
+        match is_nat(n - 1) with
+        | None -> map
+        | Some n_dec -> fill_map(n_dec, map)
         in
     { map = fill_map(extra_reserved_slots, (Big_map.empty : (nat, timed_cumulatives) big_map))
     ; first = 0n

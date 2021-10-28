@@ -195,7 +195,7 @@ let update_balances_after_position_change
         x_transfer Tezos.sender Tezos.self_address (abs delta.x) s.constants
     else
 #if DEBUG
-        let _ : unit = if to_x = Tezos.self_address then failwith internal_unexpected_income_err else unit in
+        let _ : unit = if delta.x <> 0 && to_x = Tezos.self_address then failwith internal_unexpected_income_err else unit in
 #endif
         x_transfer Tezos.self_address to_x (abs delta.x) s.constants in
 
@@ -203,7 +203,7 @@ let update_balances_after_position_change
         y_transfer Tezos.sender Tezos.self_address (abs delta.y) s.constants
     else
 #if DEBUG
-        let _ : unit = if to_x = Tezos.self_address then failwith internal_unexpected_income_err else unit in
+        let _ : unit = if delta.y <> 0 && to_x = Tezos.self_address then failwith internal_unexpected_income_err else unit in
 #endif
         y_transfer Tezos.self_address to_y (abs delta.y) s.constants in
 
@@ -336,7 +336,13 @@ let update_position (s : storage) (p : update_position_param) : result =
 
 // Entrypoint that returns cumulative values at given range at the current moment
 // of time.
-let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_param) =
+//
+// This works only for initialized indexes.
+let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_param) : result =
+    // Since we promise to return `nat` values,
+    // it is important to check that the requested range is not negative.
+    let _: unit = if p.lower_tick_index > p.upper_tick_index then failwith tick_order_err else unit in
+
     let sums = get_last_cumulatives s.cumulatives_buffer in
     let cums_total =
             { tick = sums.tick.sum
@@ -391,7 +397,6 @@ let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_pa
                     - cums_below_lower.seconds_per_liquidity.x128
                     - cums_above_upper.seconds_per_liquidity.x128
                 }
-            ; tick_cumulative_inside = 0
             }
 
     in ([Tezos.transaction res 0mutez p.callback], s)
@@ -399,12 +404,9 @@ let snapshot_cumulatives_inside (s, p : storage * snapshot_cumulatives_inside_pa
 // Increase the number of stored accumulators.
 let increase_observation_count (s, p : storage * increase_observation_count_param) : result =
     let buffer = s.cumulatives_buffer in
-#if !DEBUG
+    // We have to get values close to the real ones because different numbers
+    // would take different amount of space in the storage.
     let dummy_timed_cumulatives = get_last_cumulatives buffer in
-#else
-    // This helps to faster detect access to garbage values
-    let dummy_timed_cumulatives = init_timed_cumulatives in
-#endif
     let new_reserved_length = buffer.reserved_length + p.added_observation_count in
 
     let stop_allocation_index = buffer.first + new_reserved_length in
@@ -416,9 +418,20 @@ let increase_observation_count (s, p : storage * increase_observation_count_para
             in allocate_buffer_slots(new_buffer_map, idx + 1n)
         in
 
-    let buffer_map = allocate_buffer_slots(buffer.map, buffer.last + 1n) in
+    let buffer_map = allocate_buffer_slots(buffer.map, buffer.first + buffer.reserved_length) in
     let buffer = {buffer with reserved_length = new_reserved_length; map = buffer_map}
     in (([] : operation list), {s with cumulatives_buffer = buffer})
+
+// Calculate seconds_per_liquidity cumulative diff.
+let eval_seconds_per_liquidity_x128(liquidity, duration : nat * nat) =
+    if liquidity = 0n
+    // It actually doesn't really matter how much we add to this accumulator
+    // when there is no active liquidity. When calculating a liquidity miner's
+    // rewards, we only care about the 'seconds per liquidity' accumulator's
+    // value while the current tick was inside the position's range
+    // (i.e., while the contract's liquidity was not zero).
+    then 0n
+    else Bitwise.shift_left duration 128n / liquidity
 
 // Recursive helper for `get_cumulatives`
 let rec find_cumulatives_around (buffer, t, l, r : timed_cumulatives_buffer * timestamp * (nat * timed_cumulatives) * (nat * timed_cumulatives)) : (timed_cumulatives * timed_cumulatives * nat) =
@@ -464,7 +477,7 @@ let get_cumulatives (buffer : timed_cumulatives_buffer) (t : timestamp) : cumula
             ; seconds_per_liquidity_cumulative =
                 let at_left_block_end_spl_value = sums_at_right.spl.block_start_liquidity_value
                 in {x128 = sums_at_left.spl.sum.x128 +
-                    Bitwise.shift_left time_delta 128n / at_left_block_end_spl_value }
+                    eval_seconds_per_liquidity_x128(at_left_block_end_spl_value, time_delta) }
             }
     else // t = r_v.time
         // This means that t = timestamp of the last recorded entry,
@@ -498,22 +511,25 @@ let update_timed_cumulatives (s : storage) : storage =
             ; spl =
                 { block_start_liquidity_value = s.liquidity
                 ; sum =
-                    let spl_since_last_block =
-                        if s.liquidity = 0n then 0n
-                        else Bitwise.shift_left time_passed 128n / s.liquidity in
-                    {x128 = last_value.spl.sum.x128 + spl_since_last_block};
+                    let spl_since_last_block_x128 =
+                        eval_seconds_per_liquidity_x128(s.liquidity, time_passed) in
+                    {x128 = last_value.spl.sum.x128 + spl_since_last_block_x128};
                 }
             ; time = Tezos.now
             } in
 
         let new_last = buffer.last + 1n in
-        let new_first =
+        let (new_first, delete_old) =
             // preserve the oldest element if reserves allow this
             if buffer.last - buffer.first < buffer.reserved_length - 1
-            then buffer.first else buffer.first + 1n in
+            then (buffer.first, false) else (buffer.first + 1n, true) in
+        let new_map = Big_map.add new_last new_value buffer.map in
+        let new_map = if delete_old
+            then Big_map.remove buffer.first new_map
+            else new_map in
 
         let new_buffer = {
-            map = Big_map.add new_last new_value buffer.map ;
+            map = new_map ;
             last = new_last ;
             first = new_first ;
             reserved_length = buffer.reserved_length ;

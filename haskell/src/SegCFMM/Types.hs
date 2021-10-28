@@ -25,6 +25,7 @@ module SegCFMM.Types
   , GetPositionInfoParam
   -- * Storage
   , Storage(..)
+  , StorageRPC(..)
   , PerToken(..)
   , TickIndex(..)
   , minTickIndex
@@ -35,12 +36,15 @@ module SegCFMM.Types
   , PositionId(..)
   , PositionMap
   , CumulativesValue(..)
-  , CumulativesValueRPC(..)
   , TickCumulative(..)
   , SplCumulative(..)
   , TimedCumulatives(..)
   , initTimedCumulatives
   , CumulativesBuffer(..)
+  , CumulativesBufferRPC(..)
+  , cbActualLength
+  , cbEntries
+  , cbAllEntries
   , initCumulativesBuffer
   , Constants(..)
 
@@ -54,8 +58,12 @@ module SegCFMM.Types
 import Universum
 
 import Data.Ix (Ix)
-import Fmt (Buildable, GenericBuildable(..), build)
+import qualified Data.Map as Map
+import Data.Ratio ((%))
+import Fmt (Buildable, GenericBuildable(..), build, pretty, (+|), (|+))
+import qualified Text.Show
 
+import qualified Control.Exception as E
 import Lorentz hiding (abs, now)
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import qualified Lorentz.Contracts.Spec.FA2Interface.ParameterInstances ()
@@ -67,10 +75,20 @@ newtype X (n :: Nat) a = X
   { pickX :: a
     -- ^ Get the value multiplied by @2^n@.
   } deriving stock (Show, Eq, Generic, Functor)
-    deriving newtype (IsoValue, HasAnnotation, Num, Integral, Enum, Ord, Real, Ix)
+    deriving newtype (IsoValue, HasAnnotation, Integral, Enum, Ord, Real, Ix)
 
-instance (Buildable a, KnownNat n) => Buildable (X n a) where
-  build x = build (pickX x) <> " X 2^" <> build (powerOfX x)
+instance (Num a, KnownNat n) => Num (X n a) where
+  X a + X b = X (a + b)
+  X a - X b = X (a - b)
+  X _ * X _ = error "multiplication on X type is not defined"
+  fromInteger i = X $ fromIntegral $ i * 2 ^ (natVal (Proxy @n))
+  abs (X a) = X (abs a)
+  signum (X a) = X (signum a)
+
+instance (Buildable a, KnownNat n, Integral a) => Buildable (X n a) where
+  build x =
+    pickX x |+ " X 2^-" +| build (powerOfX x) |+ " \
+    \(≈" +| fromIntegral @Integer @Double (round (pickX x * 1000 % (2 ^ powerOfX x))) / 1000 |+ ")"
 
 type instance AsRPC (X n a) = X n a
 
@@ -199,7 +217,9 @@ data CumulativesInsideSnapshot = CumulativesInsideSnapshot
   { cisTickCumulativeInside :: Integer
   , cisSecondsPerLiquidityInside :: X 128 Integer
   , cisSecondsInside :: Integer
-  }
+  } deriving stock (Eq)
+
+type instance AsRPC CumulativesInsideSnapshot = CumulativesInsideSnapshot
 
 subCumulativesInsideSnapshot
   :: CumulativesInsideSnapshot
@@ -283,7 +303,7 @@ instance Num a => Num (PerToken a) where
 type instance AsRPC (PerToken a) = PerToken a
 
 -- | Tick types, representing pieces of the curve offered between different tick segments.
-newtype TickIndex = TickIndex Integer
+newtype TickIndex = TickIndex { unTickIndex :: Integer }
   deriving stock (Generic, Show)
   deriving newtype (Enum, Ord, Eq, Num, Real, Integral, Buildable, Ix)
   deriving anyclass IsoValue
@@ -368,7 +388,19 @@ data CumulativesValue = CumulativesValue
   { cvTickCumulative :: Integer
   , cvSecondsPerLiquidityCumulative :: X 128 Natural
   }
-  deriving stock Show
+  deriving stock (Eq, Show)
+
+instance Num CumulativesValue where
+  CumulativesValue t1 spl1 + CumulativesValue t2 spl2 =
+    CumulativesValue (t1 + t2) (spl1 + spl2)
+  CumulativesValue t1 spl1 - CumulativesValue t2 spl2 =
+    CumulativesValue (t1 - t2) (spl1 - spl2)
+  _ * _ = error "`*` on CumulativesValue is not defined"
+  abs (CumulativesValue t spl) = CumulativesValue (abs t) (abs spl)
+  signum _ = error "signum on CumulativesValue is not defined"
+  fromInteger _ = error "fromInteger on CumulativesValue is not defined"
+
+type instance AsRPC CumulativesValue = CumulativesValue
 
 data TickCumulative = TickCumulative
   { tcSum :: Integer
@@ -391,25 +423,39 @@ data TimedCumulatives = TimedCumulatives
 
 initTimedCumulatives :: TimedCumulatives
 initTimedCumulatives = TimedCumulatives
-  { tcTime = timestampFromSeconds 100
+  { tcTime = timestampFromSeconds 0
   , tcTick = TickCumulative 0 (TickIndex 0)
-  , tcSpl = SplCumulative (mkX 0) 1
+  , tcSpl = SplCumulative (X 0) 0
   }
 
 data CumulativesBuffer = CumulativesBuffer
-  { tbMap :: BigMap Natural TimedCumulatives
-  , tbFirst :: Natural
-  , tbLast :: Natural
-  , tbReservedLength :: Natural
+  { cbMap :: BigMap Natural TimedCumulatives
+  , cbFirst :: Natural
+  , cbLast :: Natural
+  , cbReservedLength :: Natural
   }
+
+-- | All entries, including the pre-allocated ones.
+cbAllEntries :: CumulativesBuffer -> Map Natural TimedCumulatives
+cbAllEntries = bmMap . cbMap
+
+-- | All records.
+cbEntries :: CumulativesBuffer -> Map Natural TimedCumulatives
+cbEntries b =
+  Map.filterWithKey (\k _ -> cbFirst b <= k && k <= cbLast b) (cbAllEntries b)
 
 initCumulativesBuffer :: Natural -> CumulativesBuffer
 initCumulativesBuffer extraReservedSlots = CumulativesBuffer
-  { tbMap = mkBigMap $ foldMap (one . (, initTimedCumulatives)) [0 .. extraReservedSlots]
-  , tbFirst = 0
-  , tbLast = 0
-  , tbReservedLength = extraReservedSlots + 1
+  { cbMap = mkBigMap $ foldMap (one . (, initTimedCumulatives)) [0 .. extraReservedSlots]
+  , cbFirst = 0
+  , cbLast = 0
+  , cbReservedLength = extraReservedSlots + 1
   }
+
+cbActualLength :: CumulativesBuffer -> Natural
+cbActualLength CumulativesBuffer{..} =
+  E.assert (cbLast >= cbFirst) $
+    cbLast - cbFirst + 1
 
 -- | Stored constants picked at origination
 data Constants = Constants
@@ -478,6 +524,7 @@ instance HasAnnotation XToXPrimeParam where
 
 customGeneric "SetPositionParam" ligoLayout
 deriving via (GenericBuildable SetPositionParam) instance Buildable SetPositionParam
+instance Show SetPositionParam where show = pretty
 deriving anyclass instance IsoValue SetPositionParam
 instance HasAnnotation SetPositionParam where
   annOptions = segCfmmAnnOptions
@@ -533,10 +580,10 @@ instance HasAnnotation PositionState where
   annOptions = segCfmmAnnOptions
 
 customGeneric "CumulativesValue" ligoLayout
+deriving via (GenericBuildable CumulativesValue) instance Buildable CumulativesValue
 deriving anyclass instance IsoValue CumulativesValue
 instance HasAnnotation CumulativesValue where
   annOptions = segCfmmAnnOptions
-deriveRPCWithStrategy "CumulativesValue" ligoLayout
 
 customGeneric "TickCumulative" ligoLayout
 deriving via (GenericBuildable TickCumulative) instance Buildable TickCumulative

@@ -16,12 +16,17 @@ module Test.Util
   , prepareSomeSegCFMM
   , prepareSomeSegCFMM'
   , observe
+  , setPositionParamSimple
+  , updatePositionParamSimple
+  , gettingCumulativesInsideDiff
+  , convertTokens
   , mkDeadline
   , advanceSecs
   , mapToList
   , mapToListReverse
   , collectAllFees
   , collectFees
+  , lastRecordedCumulatives
   -- * FA2 helpers
   , balanceOf
   , balancesOf
@@ -34,14 +39,17 @@ module Test.Util
   , divUp
   , isInRange
   , isInRangeNat
+  , groupAdjacent
+  , isMonothonic
   ) where
 
 import Prelude
 
 import Data.Coerce (coerce)
 import Data.Ix (Ix, inRange)
+import qualified Data.List as List
 import qualified Data.Map as Map
-import Fmt (Buildable(build), GenericBuildable(..), indentF, unlinesF, (+|), (|+))
+import Fmt (Buildable(build), GenericBuildable(..), indentF, listF, unlinesF, (+|), (|+))
 import Hedgehog hiding (assert, failure)
 import qualified Indigo.Contracts.FA2Sample as FA2
 import Lorentz hiding (assert, map, transferTokens)
@@ -49,6 +57,7 @@ import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Lorentz.Test (contractConsumer)
 import Morley.Nettest
 import Morley.Nettest.Pure (PureM, runEmulated)
+import Tezos.Address (ta)
 import Tezos.Core (timestampPlusSeconds)
 import Time (sec)
 
@@ -101,20 +110,21 @@ originateSegCFMM xTokenType yTokenType storage = do
 -- to operate on them.
 prepareSomeSegCFMM
   :: MonadNettest caps base m
-  => Address
-  -> m ( ContractHandler CFMM.Parameter CFMM.Storage
-       , (FA2Token, FA2Token)
-       )
-prepareSomeSegCFMM liquidityProvider = prepareSomeSegCFMM' [liquidityProvider]
-
--- | Like 'prepareSomeSegCFMM' but accepts multiple (or no) liquidity providers.
-prepareSomeSegCFMM'
-  :: MonadNettest caps base m
   => [Address]
   -> m ( ContractHandler CFMM.Parameter CFMM.Storage
        , (FA2Token, FA2Token)
        )
-prepareSomeSegCFMM' liquidityProviders = do
+prepareSomeSegCFMM = prepareSomeSegCFMM' defaultStorage
+
+-- | Like 'prepareSomeSegCFMM' but accepts multiple (or no) liquidity providers.
+prepareSomeSegCFMM'
+  :: MonadNettest caps base m
+  => CFMM.Storage
+  -> [Address]
+  -> m ( ContractHandler CFMM.Parameter CFMM.Storage
+       , (FA2Token, FA2Token)
+       )
+prepareSomeSegCFMM' initialStorage liquidityProviders = do
   let xTokenId = FA2.TokenId 0
   let yTokenId = FA2.TokenId 1
   let xFa2storage = simpleFA2Storage liquidityProviders xTokenId
@@ -124,7 +134,7 @@ prepareSomeSegCFMM' liquidityProviders = do
   yToken <- originateSimple "fa2-Y" yFa2storage
     (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-  let initialSt = CFMM.defaultStorage
+  let initialSt = initialStorage
         { CFMM.sConstants = (CFMM.sConstants CFMM.defaultStorage)
           { CFMM.cXTokenAddress = toAddress xToken
           , CFMM.cXTokenId = xTokenId
@@ -154,6 +164,79 @@ observe cfmm = do
   getFullStorage consumer >>= \case
     [[cv]] -> pure cv
     _ -> failure "Expected to get exactly 1 CumulativeValue"
+
+setPositionParamSimple :: (TickIndex, TickIndex) -> Natural -> SetPositionParam
+setPositionParamSimple (sppLowerTickIndex, sppUpperTickIndex) sppLiquidity =
+  SetPositionParam
+  { sppLowerTickIndex
+  , sppUpperTickIndex
+  , sppLowerTickWitness = minTickIndex
+  , sppUpperTickWitness = minTickIndex
+  , sppLiquidity
+  , sppDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
+  , sppMaximumTokensContributed = 1e100
+  }
+
+updatePositionParamSimple :: PositionId -> Integer -> UpdatePositionParam
+updatePositionParamSimple uppPositionId uppLiquidityDelta =
+  UpdatePositionParam
+  { uppPositionId
+  , uppLiquidityDelta
+  , uppToX = receiver
+  , uppToY = receiver
+  , uppDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
+  , uppMaximumTokensContributed = 1e100
+  }
+  where
+    receiver = [ta|tz1QCtwyKA4S8USgYRJRghDNYLHkkQ3S1yAU|]
+
+-- | Get the diff of cumulatives_inside at given ticks range between two given
+-- timestamps.
+gettingCumulativesInsideDiff
+  :: (MonadEmulated caps base m, HasCallStack)
+  => ContractHandler Parameter Storage
+  -> (TickIndex, TickIndex)
+  -> m ()
+  -> m CumulativesInsideSnapshot
+gettingCumulativesInsideDiff cfmm (loTick, hiTick) action = do
+  consumer <- originateSimple "consumer" [] contractConsumer
+
+  call cfmm (Call @"Snapshot_cumulatives_inside") $
+    SnapshotCumulativesInsideParam loTick hiTick (toContractRef consumer)
+  action
+  call cfmm (Call @"Snapshot_cumulatives_inside") $
+    SnapshotCumulativesInsideParam loTick hiTick (toContractRef consumer)
+
+  getFullStorage consumer >>= \case
+    [s2, s1] -> return (subCumulativesInsideSnapshot s2 s1)
+    _ -> failure "Expected exactly 2 elements"
+
+-- | Convert given amount of X or Y tokens
+--
+-- Positive value will increase the current tick index, and negative value will
+-- decrease it.
+convertTokens
+  :: (MonadEmulated caps base m, HasCallStack)
+  => ContractHandler Parameter Storage
+  -> Integer
+  -> m ()
+convertTokens cfmm tokens =
+  case tokens `Prelude.compare` 0 of
+    EQ -> pass
+    GT -> call cfmm (Call @"Y_to_x") YToXParam
+      { ypDy = 2
+      , ypDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
+      , ypMinDx = 0
+      , ypToDx = receiver
+      }
+    LT -> call cfmm (Call @"X_to_y") XToYParam
+      { xpDx = 2
+      , xpDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
+      , xpMinDy = 0
+      , xpToDy = receiver
+      }
+  where
+    receiver = [ta|tz1QCtwyKA4S8USgYRJRghDNYLHkkQ3S1yAU|]
 
 -- | Create a valid deadline
 mkDeadline :: MonadNettest caps base m => m Timestamp
@@ -240,6 +323,50 @@ collectFees cfmm receiver posId posOwner = do
         , uppDeadline = deadline
         , uppMaximumTokensContributed = PerToken 0 0
         }
+
+-- | Get last recorded cumulative values from storage.
+lastRecordedCumulatives
+  :: forall caps base m. MonadNettest caps base m
+  => AsRPC Storage -> m TimedCumulatives
+lastRecordedCumulatives s = do
+  let buffer = sCumulativesBufferRPC s
+  getBigMapValue (cbMapRPC buffer) (cbLastRPC buffer)
+
+-- | Check two values with sufficiently large precision are approximately equal.
+infix 1 @~=
+(@~=)
+    :: (HasCallStack, Integral a, Buildable a, KnownNat n, MonadNettest caps base m)
+    => X n a -> X n a -> m ()
+actual @~= expected = do
+  let X a = adjustScale @30 actual
+  let X b = adjustScale @30 expected
+  assert (a - 1 <= b && b <= a + 1) $
+    unlinesF
+      [ "Failed approximate comparison"
+      , "━━ Expected (rhs) ━━"
+      , build expected
+      , "━━ Got (lhs) ━━"
+      , build actual
+      ]
+
+-- | Check that value lies in the given range, with a small margin of error.
+inApproxXRange
+    :: (HasCallStack, Integral a, Buildable a, KnownNat n, MonadNettest caps base m)
+    => X n a -> (X n a, X n a) -> m ()
+inApproxXRange ax (lx, rx)
+  | lx > rx = error "Negative range"
+  | otherwise = do
+    let X l = adjustScale @30 lx
+    let X r = adjustScale @30 rx
+    let X a = adjustScale @30 ax
+    assert (l - 1 <= a && a <= r + 1) $
+      unlinesF
+        [ "Failed approximate in-range check"
+        , "━━ Range (rhs) ━━"
+        , build (lx, rx)
+        , "━━ Got value (lhs) ━━"
+        , build ax
+        ]
 
 ----------------------------------------------------------------------------
 -- FA2 helpers
@@ -356,3 +483,13 @@ isInRangeNat (coerce -> x) (coerce -> y) (marginDown, marginUp) = do
           then y - marginDown
           else 0
   checkCompares (lowerBound, upperBound) inRange x
+
+groupAdjacent :: [a] -> [(a, a)]
+groupAdjacent l = [ (a1, a2) | a1 : a2 : _ <- List.tails l ]
+
+-- | Check that values grow monothonically (non-strictly).
+isMonothonic
+  :: (HasCallStack, MonadNettest caps base m, Ord a, Buildable a)
+  => [a] -> m ()
+isMonothonic l =
+  assert (l == sort l) ("Values do not grow monothonically: " +| listF l |+ "")

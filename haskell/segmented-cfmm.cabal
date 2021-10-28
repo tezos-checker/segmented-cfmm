@@ -21,6 +21,7 @@ extra-source-files:
     test/segmented_cfmm_FA2_CTEZ.tz
     test/segmented_cfmm_FA2_FA12.tz
     test/storage_default.tz
+    test/storage_increased_buffer_10.tz
     test/liquidity_mining.tz
 extra-doc-files:
     README.md
@@ -191,9 +192,11 @@ test-suite segmented-cfmm-test
       Test.Math
       Test.Mining
       Test.Position
+      Test.RangeOracles
       Test.SegCFMM.Contract
       Test.SegCFMM.Storage
       Test.SegCFMM.Types
+      Test.TimedOracles
       Test.Util
       Test.XToY
       Test.YToX
