@@ -182,6 +182,11 @@ Furthermore, when the `y` token is [`CTEZ`][ctez], a _protocol fee_ is subtracte
 tokens being deposited/withdrawn on every swap.
 This fee is burned immediately.
 
+**Note:** the burning happens by removing these `CTEZ` from the usable balance
+of this contract, but keeping them held by it.
+What this means is that effectively there will be no way to get these `CTEZ`
+transferred elsewhere and they will be stuck indefinitely.
+
 When an LP updates their position, they are rewarded with part of the swap fees paid by users,
 in both `x` and `y` tokens.
 This reward is proportional to:
@@ -698,4 +703,4 @@ has enough balance to liquidate all the LPs' positions if need be.
  [spot-price]: https://www.investopedia.com/terms/s/spotprice.asp
  [fa1.2]: https://gitlab.com/tezos/tzip/-/blob/master/proposals/tzip-7/tzip-7.md
  [fa2]: https://gitlab.com/tezos/tzip/-/blob/master/proposals/tzip-12/tzip-12.md
- [ctez]: https://github.com/tezos-checker/ctez
+ [ctez]: https://github.com/tezos-checker/ctez/tree/f3ea6772b1e4755f8a4a71a3a106a50c07b0572c
