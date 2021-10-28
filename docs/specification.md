@@ -4,9 +4,43 @@
    - SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
    -->
 
+<!-- TOC ignore:true -->
 # Segmented CFMM
 
 This contract implements a Constant Function Market Maker (CFMM) in Michelson inspired by [Uniswap v3][uniswap-v3].
+
+<!-- TOC -->
+
+- [Background](#background)
+  - [Overview](#overview)
+  - [Positions](#positions)
+  - [Swaps](#swaps)
+  - [Fees](#fees)
+  - [Price Oracle](#price-oracle)
+  - [Liquidity Mining](#liquidity-mining)
+- [Configuration](#configuration)
+  - [Configuration options](#configuration-options)
+- [Entrypoints](#entrypoints)
+  - [Standard FA2 entrypoints](#standard-fa2-entrypoints)
+    - [**transfer**](#transfer)
+    - [**balance_of**](#balance_of)
+    - [**update_operators**](#update_operators)
+  - [CFMM-specific entrypoints](#cfmm-specific-entrypoints)
+    - [**x_to_y**](#x_to_y)
+    - [**y_to_x**](#y_to_x)
+    - [**x_to_x_prime**](#x_to_x_prime)
+    - [**set_position**](#set_position)
+    - [**update_position**](#update_position)
+    - [**get_position_info**](#get_position_info)
+    - [**snapshot_cumulatives_inside**](#snapshot_cumulatives_inside)
+    - [**observe**](#observe)
+    - [**increase_observation_count**](#increase_observation_count)
+- [Errors](#errors)
+- [Design decisions](#design-decisions)
+  - [Observations](#observations)
+  - [Rounding](#rounding)
+
+<!-- /TOC -->
 
 # Background
 
@@ -629,11 +663,36 @@ type increase_observation_count_param = {
 
 See the [Error Codes](/docs/error-codes.md) file for the list of error codes.
 
-### Design decisions
+# Design decisions
 
-* The contract stores a fixed number of past [observations](#observe).
-  The alternative would be to store an unbound number of observations, which implies users would
-  continually pay additional storage costs every time a block is baked, which is not desirable.
+## Observations
+
+The contract stores a fixed number of past [observations](#observe).
+The alternative would be to store an unbound number of observations, which implies users would
+continually pay additional storage costs every time a block is baked, which is not desirable.
+
+## Rounding
+
+When an operation results in tokens being transferred to the contract, the amount of tokens to transfer is rounded up.
+These operations include:
+
+* Creating a position / adding liquidity to a position.
+* Charging swap fees.
+* Deposits of `y` tokens as part of `y_to_x` swaps.
+* Deposits of `x` tokens as part of `x_to_y` swaps.
+
+Conversely, when an operation results in tokens being transferred out of the contract, the amount of tokens to transfer is rounded down.
+These operations include:
+
+* Removing liquidity from a position.
+* Withdrawing fees earned by a position.
+* Withdrawing `x` tokens as part of `y_to_x` swaps.
+* Withdrawing `y` tokens as part of `x_to_y` swaps.
+
+Rounding the amount of tokens in the contract's favor guarantees that the contract always
+has enough balance to liquidate all the LPs' positions if need be.
+
+
 
  [uniswap-v3]: https://uniswap.org/whitepaper-v3.pdf
  [spot-price]: https://www.investopedia.com/terms/s/spotprice.asp

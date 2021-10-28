@@ -35,10 +35,6 @@ let floor_log_half_bps_x80 ((x, y, out_of_bounds_err) : x80n * x80n * nat) : int
     match (x, y) with
         ({x80 = x0}, {x80 = y0}) -> floor_log_half_bps(x0, y0, out_of_bounds_err)
 
-let shift_int (x : int) (n : int): int =
-    (if x < 0 then -1 else 1) * (int (if n > 0 then Bitwise.shift_left (abs x) (abs n) else Bitwise.shift_right (abs x) (abs n)))
-
-
 let assert_nat (x, error_code : int * nat) : nat =
     match is_nat x with
     | None -> (failwith error_code : nat)

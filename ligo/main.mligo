@@ -114,7 +114,7 @@ let garbage_collection (s : storage) (position : position_state) (position_id : 
     let s = garbage_collect_tick s position.upper_tick_index in
     s
 
-let calc_fee_growth_inside (s : storage) (lower_tick_index : tick_index) (upper_tick_index : tick_index) : balance_nat_x128 =
+let calc_fee_growth_inside (s : storage) (lower_tick_index : tick_index) (upper_tick_index : tick_index) : balance_int_x128 =
     let lower_tick = get_tick s.ticks lower_tick_index internal_tick_not_exist_err in
     let upper_tick = get_tick s.ticks upper_tick_index internal_tick_not_exist_err in
 
@@ -135,8 +135,8 @@ let calc_fee_growth_inside (s : storage) (lower_tick_index : tick_index) (upper_
               y = {x128 = assert_nat (s.fee_growth.y.x128 - lower_tick.fee_growth_outside.y.x128, internal_312) };
             } in
     // equation 6.19
-    { x = {x128 = assert_nat (s.fee_growth.x.x128 - fee_above.x.x128 - fee_below.x.x128, internal_314) };
-      y = {x128 = assert_nat (s.fee_growth.y.x128 - fee_above.y.x128 - fee_below.y.x128, internal_315) };
+    { x = {x128 = s.fee_growth.x.x128 - fee_above.x.x128 - fee_below.x.x128 };
+      y = {x128 = s.fee_growth.y.x128 - fee_above.y.x128 - fee_below.y.x128 };
     }
 
 let collect_fees (s : storage) (key : position_id) (position : position_state) : storage * balance_nat * position_state =
@@ -179,10 +179,10 @@ let update_balances_after_position_change
                 } in
         (s, {
             x = ceildiv_int (liquidity_delta * (int (Bitwise.shift_left (assert_nat (srp_u.x80 - s.sqrt_price.x80, internal_sqrt_price_grow_err_2)) 80n))) (int (s.sqrt_price.x80 * srp_u.x80)) ;
-            y = shift_int (liquidity_delta * (s.sqrt_price.x80 - srp_l.x80)) (-80)
+            y = ceildiv_int (liquidity_delta * (s.sqrt_price.x80 - srp_l.x80)) pow_2_80
             })
     else (* cur_tick_index >= p.upper_tick_index *)
-        (s, {x = 0 ; y = shift_int (liquidity_delta * (srp_u.x80 - srp_l.x80)) (-80) }) in
+        (s, {x = 0 ; y = ceildiv_int (liquidity_delta * (srp_u.x80 - srp_l.x80)) pow_2_80 }) in
 
     (* Collect fees to increase withdrawal or reduce required deposit. *)
     let delta = {x = delta.x - fees.x ; y = delta.y - fees.y} in

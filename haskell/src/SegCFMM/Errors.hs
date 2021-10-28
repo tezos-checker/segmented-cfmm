@@ -140,14 +140,6 @@ internal312 = 312
 internalPositionUnderflowErr :: Natural
 internalPositionUnderflowErr = 313
 
--- | Thrown when `(s.fee_growth.x - f_a.x - f_b.x)` is not nat.
-internal314 :: Natural
-internal314 = 314
-
--- | Thrown when `(s.fee_growth.y - f_a.y - f_b.y)` is not nat.
-internal315 :: Natural
-internal315 = 315
-
 -- | Thrown when `(fee_growth_inside.x - position.fee_growth_inside_last.x)` is not nat.
 internal316 :: Natural
 internal316 = 316
@@ -187,3 +179,7 @@ internalFlipSecondsPerLiquidityOutsideErr = 324
 -- | Position creation/change unexpectedly transferred tokens to someone
 internalUnexpectedIncomeErr :: Natural
 internalUnexpectedIncomeErr = 325
+
+-- | Price became negative when crossing a tick
+internalNegativePrice :: Natural
+internalNegativePrice = 326

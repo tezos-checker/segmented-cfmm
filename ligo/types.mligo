@@ -82,6 +82,7 @@ type fa2_parameter =
 
 type balance_nat = {x : nat ; y : nat}
 type balance_nat_x128 = {x : x128n ; y : x128n}
+type balance_int_x128 = {x : x128 ; y : x128}
 
 (* Information stored for every initialized tick. *)
 type tick_state = {
@@ -191,7 +192,7 @@ type position_state = {
     (* Total fees earned by the position at the moment of last fees collection for this position.
         This helps to evaluate the next portion of fees to collect.
     *)
-    fee_growth_inside_last : balance_nat_x128 ;
+    fee_growth_inside_last : balance_int_x128 ;
 }
 
 

@@ -61,8 +61,6 @@ Here is a summary of all the error codes thrown by the contract.
 | 311 | `internal_311` | Thrown when `s.cur_tick_index.i >= upper_tick_index.i` and `(s.fee_growth.x - upper_tick.fee_growth_outside.x)` (or `y`) is not nat. |
 | 312 | `internal_312` | Thrown when `s.cur_tick_index.i < lower_tick_index.i` and `(s.fee_growth.x - lower_tick.fee_growth_outside.x)` (or `y`) is not nat. |
 | 313 | `internal_position_underflow_err` | Number of positions underflow. |
-| 314 | `internal_314` | Thrown when `(s.fee_growth.x - f_a.x - f_b.x)` is not nat. |
-| 315 | `internal_315` | Thrown when `(s.fee_growth.y - f_a.y - f_b.y)` is not nat. |
 | 316 | `internal_316` | Thrown when `(fee_growth_inside.x - position.fee_growth_inside_last.x)` is not nat. |
 | 317 | `internal_317` | Thrown when `(fee_growth_inside.y - position.fee_growth_inside_last.y)` is not nat. |
 | 318 | `internal_sqrt_price_grow_err_1` | Thrown when `s.cur_tick_index.i < p.lower_tick_index.i` and the `sqrt_price` happened not to grow monotonically with tick indices (This is an invariant of the contract). |
@@ -73,5 +71,6 @@ Here is a summary of all the error codes thrown by the contract.
 | 323 | `internal_non_empty_position_gc_err` | Attempt to garbade collect a tick with non-zero liquidity net. |
 | 324 | `internal_flip_seconds_per_liquidity_outside_err` | Flip of `seconds_per_liquidity_outside` failed. (This is an invariant of the contract). |
 | 325 | `internal_unexpected_income_err` | Position creation/change unexpectedly transferred tokens to someone |
+| 326 | `internal_negative_price` | Price became negative when crossing a tick |
 
 

@@ -148,11 +148,9 @@ internalErrors = errorsEnumerate 300
   , "internal_position_underflow_err"
       :? "Number of positions underflow."
 
-  , "internal_314"
-      :? "Thrown when `(s.fee_growth.x - f_a.x - f_b.x)` is not nat."
+  , removedError
 
-  , "internal_315"
-      :? "Thrown when `(s.fee_growth.y - f_a.y - f_b.y)` is not nat."
+  , removedError
 
   , "internal_316"
       :? "Thrown when `(fee_growth_inside.x - position.fee_growth_inside_last.x)` is not nat."
@@ -183,6 +181,9 @@ internalErrors = errorsEnumerate 300
 
   , "internal_unexpected_income_err"
       :? "Position creation/change unexpectedly transferred tokens to someone"
+
+  , "internal_negative_price"
+      :? "Price became negative when crossing a tick"
 
   ]
 

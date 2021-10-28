@@ -113,12 +113,6 @@
 (* Number of positions underflow. *)
 [@inline] let internal_position_underflow_err = 313n
 
-(* Thrown when `(s.fee_growth.x - f_a.x - f_b.x)` is not nat. *)
-[@inline] let internal_314 = 314n
-
-(* Thrown when `(s.fee_growth.y - f_a.y - f_b.y)` is not nat. *)
-[@inline] let internal_315 = 315n
-
 (* Thrown when `(fee_growth_inside.x - position.fee_growth_inside_last.x)` is not nat. *)
 [@inline] let internal_316 = 316n
 
@@ -148,6 +142,9 @@
 
 (* Position creation/change unexpectedly transferred tokens to someone *)
 [@inline] let internal_unexpected_income_err = 325n
+
+(* Price became negative when crossing a tick *)
+[@inline] let internal_negative_price = 326n
 
 
 
