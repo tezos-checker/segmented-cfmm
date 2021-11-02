@@ -198,6 +198,7 @@ test-suite segmented-cfmm-test
       Test.SegCFMM.Types
       Test.TimedOracles
       Test.Util
+      Test.XToXPrime
       Test.XToY
       Test.YToX
       Tree
