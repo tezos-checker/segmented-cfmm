@@ -96,8 +96,10 @@ checkBalanceInvariants cfmm st = do
 
 -- | Invariants:
 -- 1. @cur_tick_witness@ is the highest initialized tick lower than or equal to @cur_tick_index@.
--- 2. Current liquidity is equal to the sum of all the tick's @liquidity_net@
---    from the lowest tick up to the current tick.
+-- 2.1. Current liquidity is equal to the sum of all the tick's @liquidity_net@
+--      from the lowest tick up to the current tick.
+-- 2.2. Current liquidity is also equal to the sum of liquidities of positions
+--      that cover the current tick.
 -- 3. @sqrt_price@ is the correct price for @cur_tick_index@.
 checkStorageInvariants :: (HasCallStack, MonadNettest caps base m) => Storage -> m ()
 checkStorageInvariants st = do
@@ -107,13 +109,20 @@ checkStorageInvariants st = do
   let expectedCurTickWitness = ticks <&> fst & filter (<= curTickIndex) & maximum
   sCurTickWitness st @== expectedCurTickWitness
 
-  -- Invariant 2.
-  let expectedLiquidity =
+  -- Invariant 2.1.
+  let liquiditiyAfterPriorTicks =
         ticks
         & filter (\t -> fst t <= curTickIndex)
         <&> (\t -> snd t & tsLiquidityNet)
         & sum
-  sLiquidity st @== fromIntegral @Integer @Natural expectedLiquidity
+  sLiquidity st @== fromIntegral @Integer @Natural liquiditiyAfterPriorTicks
+
+  -- Invariant 2.2.
+  let liquidityOfActivePositions = sum do
+        PositionState{..} <- elems (bmMap $ sPositions st)
+        guard (curTickIndex `inTicksRange` (psLowerTickIndex, psUpperTickIndex))
+        return psLiquidity
+  sLiquidity st @== liquidityOfActivePositions
 
   -- Invariant 3.
   -- Note that the global @cur_tick_index@ does not always match the global @sqrt_price@ _exactly_.

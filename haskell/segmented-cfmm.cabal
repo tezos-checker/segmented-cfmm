@@ -263,6 +263,7 @@ test-suite segmented-cfmm-test
     , containers
     , fmt
     , hedgehog
+    , lens
     , lorentz
     , morley
     , morley-ledgers

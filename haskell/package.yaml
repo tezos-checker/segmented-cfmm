@@ -149,6 +149,7 @@ tests:
     - segmented-cfmm
     - fmt
     - HUnit
+    - lens
     - morley
     - morley-ledgers
     - morley-prelude
