@@ -549,6 +549,7 @@ let get_position_info (s : storage) (p : get_position_info_param) : result =
     in ([Tezos.transaction result 0mutez p.callback], s)
 
 let main ((p, s) : parameter * storage) : result =
+let _: unit = if Tezos.amount = 0tez then unit else failwith non_zero_transfer_err in
 (* start by updating the oracles *)
 let s = update_timed_cumulatives s in
 (* dispatch call to the proper entrypoint *)

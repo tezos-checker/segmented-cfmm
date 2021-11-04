@@ -33,6 +33,7 @@ Here is a summary of all the error codes thrown by the contract.
 | 111 | `tick_order_err` | When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. When observing cumulative values at range, `upper_tick_index` must be greater or equal than `lower_tick_index`. |
 | 112 | `position_liquidity_below_zero_err` | Liquidity of a position went below zero. |
 | 113 | `incorrect_tick_spacing_err` | Tick indexes must be a multiple of the tick spacing. |
+| 114 | `non_zero_transfer_err` | Contract call also transfers some XTZ; this is not allowed, it would be stuck. |
 
 
 #### Contract Configuration Error Codes

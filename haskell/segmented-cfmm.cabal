@@ -191,6 +191,7 @@ test-suite segmented-cfmm-test
       Test.FA2.BalanceOf
       Test.FA2.Transfer
       Test.FA2.UpdateOperators
+      Test.General
       Test.Invariants
       Test.LiquidityMining.Contract
       Test.Math

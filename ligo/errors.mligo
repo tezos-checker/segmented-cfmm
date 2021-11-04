@@ -56,6 +56,9 @@
 (* Tick indexes must be a multiple of the tick spacing. *)
 [@inline] let incorrect_tick_spacing_err = 113n
 
+(* Contract call also transfers some XTZ; this is not allowed, it would be stuck. *)
+[@inline] let non_zero_transfer_err = 114n
+
 
 
 // ---------------------------------------------------------------------------

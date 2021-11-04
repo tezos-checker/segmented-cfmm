@@ -90,6 +90,9 @@ invalidInputErrors = errorsEnumerate 100
   , "incorrect_tick_spacing_err"
       :? "Tick indexes must be a multiple of the tick spacing."
 
+  , "non_zero_transfer_err"
+      :? "Contract call also transfers some XTZ; this is not allowed, it would be stuck."
+
   ]
 
 invalidConfigErrors :: [ErrorItem]

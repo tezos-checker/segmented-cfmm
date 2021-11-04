@@ -70,6 +70,10 @@ positionLiquidityBelowZeroErr = 112
 incorrectTickSpacingErr :: Natural
 incorrectTickSpacingErr = 113
 
+-- | Contract call also transfers some XTZ; this is not allowed, it would be stuck.
+nonZeroTransferErr :: Natural
+nonZeroTransferErr = 114
+
 
 ----------------------------------------------------------------------------
 -- Contract Configuration Error Codes
