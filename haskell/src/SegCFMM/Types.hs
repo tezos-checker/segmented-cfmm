@@ -160,7 +160,7 @@ data YToXParam = YToXParam
 data XToXPrimeParam = XToXPrimeParam
   { xppDx :: Natural
     -- ^ Sold tokens amount.
-  , xppXPrimeContract :: Address
+  , xppX_PrimeContract :: Address
     -- ^ Address of another segmented-cfmm contract.
   , xppDeadline :: Timestamp
     -- ^ Deadline for the exchange.

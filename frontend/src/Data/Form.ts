@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
 
 import * as O from "fp-ts/lib/Option"
-import { toNumber } from '../Shared/Helper'
+import { Moment } from "moment";
+import { toNumber, toNat } from '../Shared/Helper';
+import moment from 'moment'
 
 export type ValidateState
   = { type: "ValidateInitial" }
@@ -10,6 +12,7 @@ export type ValidateState
 
 export type FormType
   = { type: "TextForm" }
+  | { type: "CalendarForm", momentVal: Moment }
   | { type: "RadioForm", values: [string, string][], selected: string }
 
 export type ValidationFunc = (value: string) => O.Option<string>
@@ -41,6 +44,22 @@ export const isNumber: ValidationFunc = (value: string) => {
   else return O.none
 }
 
+export const isNat: ValidationFunc = (value: string) => {
+  const result = toNat(value)
+  if (result._tag === "None") return O.some("Number cannot be negative")
+  else return O.none
+}
+
+
+// ----------------------------------------------------------------------------------------
+// Helper
+// ----------------------------------------------------------------------------------------
+
+const getNowPlusOneMinute = () => moment().add(1, 'minutes')
+
+// ----------------------------------------------------------------------------------------
+// Form Datas
+// ----------------------------------------------------------------------------------------
 
 export const xToYFormInit: () => Map<string, FormItem> = () =>
   new Map(
@@ -53,7 +72,7 @@ export const xToYFormInit: () => Map<string, FormItem> = () =>
           value: "",
           placeholder: "0",
           validatedState: { type: "ValidateInitial" },
-          validationFuncs: [required, isNumber],
+          validationFuncs: [required, isNat],
           formType: { type: "TextForm" }
         }
       ],
@@ -65,20 +84,20 @@ export const xToYFormInit: () => Map<string, FormItem> = () =>
           value: "",
           placeholder: "0",
           validatedState: { type: "ValidateInitial" },
-          validationFuncs: [required, isNumber],
+          validationFuncs: [required, isNat],
           formType: { type: "TextForm" }
         }
       ],
       ["deadline",
         {
           order: 3,
-          label: "Deadline: (example: 2022-01-01T00:01:40Z)",
+          label: "Deadline:",
           desc: "The transaction won't be executed past this point.",
-          value: "",
+          value: getNowPlusOneMinute().format("YYYY-MM-DD[T]HH:mm:ss[Z]"),
           placeholder: "2022-01-01T00:01:40Z",
           validatedState: { type: "ValidateInitial" },
           validationFuncs: [required],
-          formType: { type: "TextForm" }
+          formType: { type: "CalendarForm", momentVal: getNowPlusOneMinute()}
         }
       ],
       ["to_dy",
@@ -107,7 +126,7 @@ export const yToXFormInit: () => Map<string, FormItem> = () =>
           value: "",
           placeholder: "0",
           validatedState: { type: "ValidateInitial" },
-          validationFuncs: [required, isNumber],
+          validationFuncs: [required, isNat],
           formType: { type: "TextForm" }
         }
       ],
@@ -119,20 +138,20 @@ export const yToXFormInit: () => Map<string, FormItem> = () =>
           value: "",
           placeholder: "0",
           validatedState: { type: "ValidateInitial" },
-          validationFuncs: [required, isNumber],
+          validationFuncs: [required, isNat],
           formType: { type: "TextForm" }
         }
       ],
       ["deadline",
         {
           order: 3,
-          label: "Deadline: (example: 2022-01-01T00:01:40Z)",
+          label: "Deadline:",
           desc: "The transaction won't be executed past this point.",
-          value: "",
+          value: getNowPlusOneMinute().format("YYYY-MM-DD[T]HH:mm:ss[Z]"),
           placeholder: "2022-01-01T00:01:40Z",
           validatedState: { type: "ValidateInitial" },
           validationFuncs: [required],
-          formType: { type: "TextForm" }
+          formType: { type: "CalendarForm", momentVal: getNowPlusOneMinute()}
         }
       ],
       ["to_dx",
@@ -153,15 +172,15 @@ export const yToXFormInit: () => Map<string, FormItem> = () =>
 export const setPositionFormInit: () => Map<string, FormItem> = () =>
   new Map(
     [
-      ["liquidity_delta",
+      ["liquidity",
         {
           order: 1,
-          label: "Liquidity Delta",
-          desc: " How to change the liquidity of the existing position.",
+          label: "Liquidity ",
+          desc: "Liquidity of the new position",
           value: "",
           placeholder: "0",
           validatedState: { type: "ValidateInitial" },
-          validationFuncs: [required, isNumber],
+          validationFuncs: [required, isNat],
           formType: { type: "TextForm" }
         }
       ],
@@ -221,7 +240,7 @@ export const setPositionFormInit: () => Map<string, FormItem> = () =>
           value: "",
           placeholder: "0",
           validatedState: { type: "ValidateInitial" },
-          validationFuncs: [required, isNumber],
+          validationFuncs: [required, isNat],
           formType: { type: "TextForm" }
         }
       ],
@@ -233,44 +252,20 @@ export const setPositionFormInit: () => Map<string, FormItem> = () =>
           value: "",
           placeholder: "0",
           validatedState: { type: "ValidateInitial" },
-          validationFuncs: [required, isNumber],
+          validationFuncs: [required, isNat],
           formType: { type: "TextForm" }
         }
       ],
       ["deadline",
         {
           order: 8,
-          label: "Deadline: (example: 2022-01-01T00:01:40Z)",
+          label: "Deadline:",
           desc: "The transaction won't be executed past this point.",
-          value: "",
+          value: getNowPlusOneMinute().format("YYYY-MM-DD[T]HH:mm:ss[Z]"),
           placeholder: "2022-01-01T00:01:40Z",
           validatedState: { type: "ValidateInitial" },
           validationFuncs: [required],
-          formType: { type: "TextForm" }
-        }
-      ],
-      ["to_x",
-        {
-          order: 9,
-          label: "To X Address",
-          desc: "Where to send the freed X tokens, if any.",
-          value: "",
-          placeholder: "tz1ZCQP68ybWVzAuA5KidbWgwXz1Eh6ioMyo",
-          validatedState: { type: "ValidateInitial" },
-          validationFuncs: [required],
-          formType: { type: "TextForm" }
-        }
-      ],
-      ["to_y",
-        {
-          order: 10,
-          label: "To Y Address",
-          desc: "Where to send the freed Y tokens, if any.",
-          value: "",
-          placeholder: "tz1ZCQP68ybWVzAuA5KidbWgwXz1Eh6ioMyo",
-          validatedState: { type: "ValidateInitial" },
-          validationFuncs: [required],
-          formType: { type: "TextForm" }
+          formType: { type: "CalendarForm", momentVal: getNowPlusOneMinute()}
         }
       ],
     ]
@@ -312,7 +307,7 @@ export const transferFormInit: () => Map<string, FormItem> = () =>
           value: "",
           placeholder: "1",
           validatedState: { type: "ValidateInitial" },
-          validationFuncs: [required, isNumber],
+          validationFuncs: [required, isNat],
           formType: { type: "TextForm" }
         }
       ],
@@ -340,7 +335,7 @@ export const updateOperatorsFormInit: () => Map<string, FormItem> = () =>
           label: "Operator Address",
           desc: "Address of the user to be made/removed as operator.",
           value: "",
-          placeholder: "KT1CXYNFwbBSDeavGqV1LyGF9tKRFeLCZPrq",
+          placeholder: "KT1XMaGzMc7iGVkbnCC9gZyjs2b85A3NxJTz",
           validatedState: { type: "ValidateInitial" },
           validationFuncs: [required],
           formType: { type: "TextForm" }
@@ -354,7 +349,7 @@ export const updateOperatorsFormInit: () => Map<string, FormItem> = () =>
           value: "",
           placeholder: "0",
           validatedState: { type: "ValidateInitial" },
-          validationFuncs: [required, isNumber],
+          validationFuncs: [required, isNat],
           formType: { type: "TextForm" }
         }
       ]
@@ -373,7 +368,7 @@ export const xToXPrimeFormInit: () => Map<string, FormItem> = () =>
           value: "",
           placeholder: "0",
           validatedState: { type: "ValidateInitial" },
-          validationFuncs: [required, isNumber],
+          validationFuncs: [required, isNat],
           formType: { type: "TextForm" }
         }
       ],
@@ -385,20 +380,20 @@ export const xToXPrimeFormInit: () => Map<string, FormItem> = () =>
           value: "",
           placeholder: "0",
           validatedState: { type: "ValidateInitial" },
-          validationFuncs: [required, isNumber],
+          validationFuncs: [required, isNat],
           formType: { type: "TextForm" }
         }
       ],
       ["deadline",
         {
           order: 3,
-          label: "Deadline: (example: 2022-01-01T00:01:40Z)",
+          label: "Deadline:",
           desc: "The transaction won't be executed past this point.",
-          value: "",
+          value: getNowPlusOneMinute().format("YYYY-MM-DD[T]HH:mm:ss[Z]"),
           placeholder: "2022-01-01T00:01:40Z",
           validatedState: { type: "ValidateInitial" },
           validationFuncs: [required],
-          formType: { type: "TextForm" }
+          formType: { type: "CalendarForm", momentVal: getNowPlusOneMinute()}
         }
       ],
       ["to_dx_prime",
@@ -419,7 +414,7 @@ export const xToXPrimeFormInit: () => Map<string, FormItem> = () =>
           label: "X' Contract",
           desc: "Address of another segmented-cfmm contract.",
           value: "",
-          placeholder: "KT1CXYNFwbBSDeavGqV1LyGF9tKRFeLCZPrq",
+          placeholder: "KT1XMaGzMc7iGVkbnCC9gZyjs2b85A3NxJTz",
           validatedState: { type: "ValidateInitial" },
           validationFuncs: [required],
           formType: { type: "TextForm" }
@@ -439,7 +434,99 @@ export const increaseObservationCountFormInit: () => Map<string, FormItem> = () 
           value: "",
           placeholder: "0",
           validatedState: { type: "ValidateInitial" },
+          validationFuncs: [required, isNat],
+          formType: { type: "TextForm" }
+        }
+      ],
+    ]
+  )
+
+
+export const updatePositionFormInit: () => Map<string, FormItem> = () =>
+  new Map(
+    [
+      ["position_id",
+        {
+          order: 1,
+          label: "Position ID",
+          desc: "ID of the position to be updated.",
+          value: "",
+          placeholder: "1",
+          validatedState: { type: "ValidateInitial" },
+          validationFuncs: [required, isNat],
+          formType: { type: "TextForm" }
+        }
+      ],
+      ["liquidity_delta",
+        {
+          order: 2,
+          label: "Liquidity Delta",
+          desc: " How to change the liquidity of the existing position.",
+          value: "",
+          placeholder: "0",
+          validatedState: { type: "ValidateInitial" },
           validationFuncs: [required, isNumber],
+          formType: { type: "TextForm" }
+        }
+      ],
+
+      ["maximum_tokens_contributed_x",
+        {
+          order: 3,
+          label: "Maximum X Tokens Contributed",
+          desc: "The maximum number of X token to contribute.",
+          value: "",
+          placeholder: "0",
+          validatedState: { type: "ValidateInitial" },
+          validationFuncs: [required, isNat],
+          formType: { type: "TextForm" }
+        }
+      ],
+      ["maximum_tokens_contributed_y",
+        {
+          order: 4,
+          label: "Maximum Y Tokens Contributed",
+          desc: "The maximum number of Y token to contribute.",
+          value: "",
+          placeholder: "0",
+          validatedState: { type: "ValidateInitial" },
+          validationFuncs: [required, isNat],
+          formType: { type: "TextForm" }
+        }
+      ],
+      ["deadline",
+        {
+          order: 5,
+          label: "Deadline:",
+          desc: "The transaction won't be executed past this point.",
+          value: getNowPlusOneMinute().format("YYYY-MM-DD[T]HH:mm:ss[Z]"),
+          placeholder: "2022-01-01T00:01:40Z",
+          validatedState: { type: "ValidateInitial" },
+          validationFuncs: [required],
+          formType: { type: "CalendarForm", momentVal: getNowPlusOneMinute()}
+        }
+      ],
+      ["to_x",
+        {
+          order: 6,
+          label: "To X Address",
+          desc: "Where to send the freed X tokens, if any.",
+          value: "",
+          placeholder: "tz1ZCQP68ybWVzAuA5KidbWgwXz1Eh6ioMyo",
+          validatedState: { type: "ValidateInitial" },
+          validationFuncs: [required],
+          formType: { type: "TextForm" }
+        }
+      ],
+      ["to_y",
+        {
+          order: 7,
+          label: "To Y Address",
+          desc: "Where to send the freed Y tokens, if any.",
+          value: "",
+          placeholder: "tz1ZCQP68ybWVzAuA5KidbWgwXz1Eh6ioMyo",
+          validatedState: { type: "ValidateInitial" },
+          validationFuncs: [required],
           formType: { type: "TextForm" }
         }
       ],

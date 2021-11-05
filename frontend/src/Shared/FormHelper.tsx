@@ -7,11 +7,14 @@ import { Html } from 'elm-ts/lib/React'
 import * as A from "fp-ts/lib/Array"
 import * as M from "fp-ts/lib/Map"
 import * as O from "fp-ts/lib/Option"
-import { pipe } from "fp-ts/lib/pipeable"
 import { contramap } from "fp-ts/lib/Ord"
+import { pipe } from "fp-ts/lib/pipeable"
 import * as S from "fp-ts/lib/string"
 import * as N from 'fp-ts/number'
+import { Moment } from "moment"
+import moment from 'moment'
 import * as React from 'react'
+import Datetime from "react-datetime"
 import { FormItem } from '../Data/Form'
 import { ContractInfo } from "../Type"
 
@@ -24,6 +27,8 @@ export const init: Model = { formMap: new Map([]) }
 export type Msg
   = { type: 'ValidateForm', value: ContractInfo }
   | { type: 'InputForm', key: string, value: string }
+  | { type: 'DateInputForm', key: string, value: (string | Moment) }
+  | { type: 'DateInputFormFromNow', key: string, minutes: number }
 
 export type OutputMsg
   = { type: 'None' }
@@ -60,19 +65,45 @@ export const update = (msg: Msg, model: Model): [Model, OutputMsg] => {
       )
       if (isFormValid) return [{ ...model, formMap: newFormMap }, { type: 'FormComplete', contractInfo: msg.value }]
       else return [{ ...model, formMap: newFormMap }, { type: 'None' }]
-    case 'InputForm':
-      let formMap = pipe(
+    case 'InputForm': {
+      const formMap = pipe(
         model.formMap,
         M.modifyAt(S.Ord)(msg.key, n => ({ ...n, value: msg.value })),
         O.fold(() => { throw new Error("impossbile") }, a => a)
       )
       return [{ ...model, formMap }, { type: 'None' }]
-
+    }
+    case 'DateInputForm': {
+      if (typeof msg.value === 'string')
+        throw new Error("Return value of `DateTime` component shouldn't be a string.")
+      else {
+        const momentVal = msg.value
+        const dateString = msg.value.format("YYYY-MM-DD[T]HH:mm:ss[Z]")
+        const formMap = pipe(
+          model.formMap,
+          M.modifyAt(S.Ord)(msg.key, n => ({ ...n, value: dateString, formType: { ...n.formType, momentVal } })),
+          O.fold(() => { throw new Error("impossbile") }, a => a)
+        )
+        return [{ ...model, formMap }, { type: 'None' }]
+      }
+    }
+    case 'DateInputFormFromNow': {
+      const momentVal = moment().add(msg.minutes, 'minutes')
+      const dateString = moment().format("YYYY-MM-DD[T]HH:mm:ss[Z]")
+      console.log(dateString)
+      const formMap = pipe(
+        model.formMap,
+        M.modifyAt(S.Ord)(msg.key, n => ({ ...n, value: dateString, formType: { ...n.formType, momentVal } })),
+        O.fold(() => { throw new Error("impossbile") }, a => a)
+      )
+      return [{ ...model, formMap }, { type: 'None' }]
+    }
   }
 }
 
 let InputType = (props: { item: [string, FormItem], dispatch: React.Dispatch<Msg> }) => {
   let [key, val] = props.item
+
   if (val.formType.type === "RadioForm")
     return <div>{
       pipe(
@@ -87,7 +118,19 @@ let InputType = (props: { item: [string, FormItem], dispatch: React.Dispatch<Msg
           </div>
         ))}
     </div>
-
+  else if (val.formType.type === "CalendarForm")
+    return <div>
+      <Datetime
+        onChange={v => props.dispatch({ type: 'DateInputForm', key, value: v })}
+        value={val.formType.momentVal}
+      />
+      <div className="flex text-sm">
+        <p className="text-blue-500 pr-5" >From now:</p>
+        <p className="text-blue-500 pr-5 cursor-pointer" onClick={() => props.dispatch({ type: 'DateInputFormFromNow', key, minutes: 3 })}>3 minutes</p>
+        <p className="text-blue-500 pr-5 cursor-pointer" onClick={() => props.dispatch({ type: 'DateInputFormFromNow', key, minutes: 60 })}>1 hour</p>
+        <p className="text-blue-500 pr-5 cursor-pointer" onClick={() => props.dispatch({ type: 'DateInputFormFromNow', key, minutes: (60 * 24) })}>1 day</p>
+      </div>
+    </div>
   else return <input
     className="w-full rounded p-2 bg-gray-100 border-2 border-gray-300" placeholder={val.placeholder}
     onChange={e => props.dispatch({ type: 'InputForm', key, value: e.target.value })}

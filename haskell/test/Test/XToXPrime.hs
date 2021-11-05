@@ -129,7 +129,7 @@ test_swapping_x_for_x_prime =
       withSender swapper do
         call cfmm1 (Call @"X_to_x_prime") XToXPrimeParam
           { xppDx = dx
-          , xppXPrimeContract = toAddress cfmm2
+          , xppX_PrimeContract = toAddress cfmm2
           , xppDeadline = deadline
           , xppMinDxPrime = 0
           , xppToDxPrime = swapReceiver
@@ -208,7 +208,7 @@ test_fails_when_y_doesnt_match =
     withSender swapper do
       call cfmm1 (Call @"X_to_x_prime") XToXPrimeParam
         { xppDx = 10
-        , xppXPrimeContract = toAddress cfmm2
+        , xppX_PrimeContract = toAddress cfmm2
         , xppDeadline = deadline
         , xppMinDxPrime = 0
         , xppToDxPrime = swapReceiver

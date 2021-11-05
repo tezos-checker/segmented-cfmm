@@ -150,10 +150,21 @@ typescript: prepare_lib
 	# Copy generated files to the frontend
 	mkdir -p frontend/src/Generated
 	cp $(TS_OUT)/segmented-cfmm/src/common.ts frontend/src/Generated/common.ts
-	cp -r $(TS_OUT)/segmented-cfmm/src/generated/ frontend/src/Generated/generated/
+	cp -a $(TS_OUT)/segmented-cfmm/src/generated frontend/src/Generated/
 
 # Quickly setup the frontend and run the it locally. Check `frontend/readme.md` for details.
-frontend:
+frontend: env = development
+frontend: testnet_url = https://granada.testnet.tezos.serokell.team/
+frontend: mainnet_url = https://mainnet.api.tez.ie/
+frontend: typescript
+	mkdir -p frontend/src/Generated
+
+	# Don't print error message if the file does not exist.
+	rm frontend/src/Generated/Env.ts 2> /dev/null || true
+
+	echo "export const env = \"$(env)\"" >> frontend/src/Generated/Env.ts
+	echo "export const testnetLink = \"$(testnet_url)\"" >> frontend/src/Generated/Env.ts
+	echo "export const mainnetLink = \"$(mainnet_url)\"" >> frontend/src/Generated/Env.ts
 	cd frontend && yarn && yarn tailwind && yarn dev
 
 clean:

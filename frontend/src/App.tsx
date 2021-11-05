@@ -13,9 +13,10 @@ import * as M from "fp-ts/lib/Map"
 import * as O from 'fp-ts/lib/Option'
 import * as S from "fp-ts/lib/string"
 import * as React from 'react'
-import { increaseObservationCountFormInit, setPositionFormInit, transferFormInit, updateOperatorsFormInit, xToXPrimeFormInit, xToYFormInit, yToXFormInit } from './Data/Form'
+import { testnetLink, mainnetLink } from './Generated/Env';
+import { increaseObservationCountFormInit, setPositionFormInit, transferFormInit, updateOperatorsFormInit, updatePositionFormInit, xToXPrimeFormInit, xToYFormInit, yToXFormInit } from './Data/Form'
 import * as FH from './Shared/FormHelper'
-import { callEntrypoint, connectWallet, findContract, getWalletAddress } from './Shared/Network'
+import { callEntrypoint, connectWallet, findContract, getStorage, getWalletAddress } from './Shared/Network'
 import { ContractInfo, EntrypointTypes, Model, NetworkTypes } from './Type'
 
 // ------------------------------------------------------
@@ -34,12 +35,14 @@ export const init = (): [Model, cmd.Cmd<Msg>] => {
     selectedEntrypoint: { type: "x_to_y" },
     isWalletConnected: false,
     userAddress: O.none,
-    tezos: new TezosToolkit('https://granadanet.api.tez.ie/'),
+    tezos: new TezosToolkit(testnetLink),
+    storage: RD.initial,
 
     // shared
     xToYForm: { formMap: xToYFormInit() },
     yToXForm: { formMap: yToXFormInit() },
     setPositionForm: { formMap: setPositionFormInit() },
+    updatePositionForm: { formMap: updatePositionFormInit() },
     transferForm: { formMap: transferFormInit() },
     updateOperatorsForm: { formMap: updateOperatorsFormInit() },
     xToXPrimeForm: { formMap: xToXPrimeFormInit() },
@@ -50,7 +53,7 @@ export const init = (): [Model, cmd.Cmd<Msg>] => {
     model,
     cmd.batch([
       connectWalletCmd(model),
-      // findContractCmd(model,  "KT1CXYNFwbBSDeavGqV1LyGF9tKRFeLCZPrq") // Find contract automatically when development
+      // findContractCmd(model, "KT1XMaGzMc7iGVkbnCC9gZyjs2b85A3NxJTz") // Find contract automatically when development
     ])
   ]
 }
@@ -67,6 +70,8 @@ export type Msg
   | { type: 'ContractAddressInput', input: string }
   | { type: 'FindContract' }
   | { type: 'FindContractResult', result: E.Either<any, ContractInfo> }
+  | { type: 'GetStorage' }
+  | { type: 'GetStorageResult', result: E.Either<any, any> }
   | { type: 'CallEntrypointResult', result: E.Either<any, TransactionWalletOperation> }
   | { type: 'ChangeForm', value: EntrypointTypes }
   | { type: 'FormHelperMsg', entrypoint: EntrypointTypes, value: FH.Msg }
@@ -124,14 +129,37 @@ export function update(msg: Msg, model: Model): [Model, cmd.Cmd<Msg>] {
         }
         , findContractCmd(model, model.addressInput)
       ]
-    case 'FindContractResult':
+
+    case 'FindContractResult': {
       console.log("Contract Info", msg.result)
-      let contract = pipe(msg.result, E.fold(RD.failure, r => RD.success(r)))
+      const contract = pipe(msg.result, E.fold(RD.failure, r => RD.success(r)))
+      const newModel = {
+        ...model,
+        contract,
+        storage: RD.pending
+      }
+      return [
+        newModel,
+        getStorageIfContractExist(newModel)
+      ]
+    }
+    case 'GetStorage': {
+      const newModel = {
+        ...model,
+        storage: RD.pending
+      }
+      return [
+        newModel,
+        getStorageIfContractExist(newModel)
+      ]
+    }
+    case 'GetStorageResult':
+      let getStorageResult = pipe(msg.result, E.fold(RD.failure, r => RD.success(r)))
 
       return [
         {
           ...model,
-          contract
+          storage: getStorageResult
         }
         , cmd.none
       ]
@@ -150,7 +178,7 @@ export function update(msg: Msg, model: Model): [Model, cmd.Cmd<Msg>] {
     case 'ChangeForm':
       return [{ ...model, selectedEntrypoint: msg.value }, cmd.none]
     case 'ChangeNet':
-      let tezosLink = msg.value === 'Mainnet' ? "https://mainnet.api.tez.ie/" : "http://granada.testnet.tezos.serokell.team:8732/"
+      let tezosLink = msg.value === 'Mainnet' ? mainnetLink : testnetLink
       let tezos = new TezosToolkit(tezosLink)
       let currentNet = msg.value;
       return [{ ...model, tezos, currentNet }, cmd.none]
@@ -181,6 +209,8 @@ const getModelFromEntrypoint = (model: Model, ep: EntrypointTypes): FH.Model => 
     return model.yToXForm
   else if (ep.type === "set_position")
     return model.setPositionForm
+  else if (ep.type === "update_position")
+    return model.updatePositionForm
   else if (ep.type === "transfer")
     return model.transferForm
   else if (ep.type === "update_operators")
@@ -198,6 +228,8 @@ const updateModelFromEntrypoint = (model: Model, ep: EntrypointTypes, newForm: F
     return { ...model, yToXForm: newForm }
   else if (ep.type === "set_position")
     return { ...model, setPositionForm: newForm }
+  else if (ep.type === "update_position")
+    return { ...model, updatePositionForm: newForm }
   else if (ep.type === "transfer")
     return { ...model, transferForm: newForm }
   else if (ep.type === "update_operators")
@@ -207,6 +239,12 @@ const updateModelFromEntrypoint = (model: Model, ep: EntrypointTypes, newForm: F
   else if (ep.type === "increase_observation_count")
     return { ...model, increaseObservationCountForm: newForm }
   else throw new Error("getModelFromEntrypoint: Entrypoint does not exist.")
+}
+
+const getStorageIfContractExist = (model: Model) => {
+  if (model.contract._tag === "RemoteSuccess")
+    return getStorageCmd(model, model.contract.value)
+  else return cmd.none
 }
 
 // ------------------------------------------------------
@@ -229,6 +267,12 @@ function findContractCmd(model: Model, addr: string): cmd.Cmd<Msg> {
   return attempt
     ((result: E.Either<string, ContractAbstraction<ContractProvider>>) => ({ type: 'FindContractResult', result }))
     (findContract(model, addr))
+}
+
+function getStorageCmd(model: Model, contractInfo: ContractInfo) {
+  return attempt
+    ((result: E.Either<string, TransactionWalletOperation>) => ({ type: 'GetStorageResult', result }))
+    (getStorage(model, contractInfo))
 }
 
 // ------------------------------------------------------
@@ -285,7 +329,7 @@ const ContractFinder = (props: { model: Model, dispatch: React.Dispatch<Msg> }) 
   }
   return <div className={"bg-white rounded-2xl mt-10 p-6 m-auto " + isDisabled} style={{ "width": "500px" }}>
     <div className="text-sm">Enter an address of a Segmented CFMM contract</div>
-    <p className="text-xs pt-2 text-gray-500"> For example: KT1CXYNFwbBSDeavGqV1LyGF9tKRFeLCZPrq</p>
+    <p className="text-xs pt-2 text-gray-500"> For example: KT1XMaGzMc7iGVkbnCC9gZyjs2b85A3NxJTz</p>
     <div className="mt-4">
       <input
         onChange={e => props.dispatch({ type: 'ContractAddressInput', input: e.target.value })}
@@ -303,7 +347,7 @@ const ContractFinder = (props: { model: Model, dispatch: React.Dispatch<Msg> }) 
 
 export function view(model: Model): Html.Html<Msg> {
   return dispatch => (
-    <div className="max-w-screen min-h-screen flex flex-col bg-blue-100 items-center text-gray-700 pb-10">
+    <div className="max-w-screen min-h-screen flex flex-col bg-blue-100 items-center text-gray-700 pb-60">
       <Navbar model={model} dispatch={dispatch} />
       <div className="w-8/12">
         <ContractFinder model={model} dispatch={dispatch} />
@@ -330,45 +374,94 @@ const Form = (props: { model: Model, dispatch: React.Dispatch<Msg> }) => {
 
 }
 
+let ResultText = (props: { model: Model, dispatch: React.Dispatch<Msg> }) => {
+  if (props.model.callEntrypointResult._tag === "RemoteFailure")
+    return <div className="py-2">
+      <p className="text-sm text-red-600">{JSON.stringify(props.model.callEntrypointResult.error)}</p>
+    </div>
+  else if (props.model.callEntrypointResult._tag === "RemoteSuccess")
+    return <div className="py-2">
+      <p className="text-sm text-green-600">Success! Operation hash: {props.model.callEntrypointResult.value.opHash}</p>
+    </div>
+  else return <div></div>
+}
+
 
 export const EntrypointForms = (props: { model: Model, dispatch: React.Dispatch<Msg> }) => {
 
   const isDisabled = (): string => {
-    if (props.model.contract._tag === "RemoteSuccess") return 'opacity-100 pointer-events-auto'
-    else return 'opacity-50 pointer-events-none'
+    if (props.model.contract._tag === "RemoteSuccess") return ' opacity-100 pointer-events-auto'
+    else return ' opacity-50 pointer-events-none'
   }
 
   const allEntrypoints: Array<[string, EntrypointTypes]> = [
     ["Swap X for Y", { type: 'x_to_y' }],
     ["Swap Y for X", { type: 'y_to_x' }],
     ["Set position", { type: 'set_position' }],
+    ["Update position", { type: 'update_position' }],
     ["Transfer position", { type: 'transfer' }],
     ["Update operators", { type: 'update_operators' }],
     ["Swap X for X'", { type: 'x_to_x_prime' }],
     ["Increase observation count", { type: 'increase_observation_count' }],
   ]
 
-  let ErrorText = () => {
-    if (props.model.callEntrypointResult._tag === "RemoteFailure")
-      return <div className="py-2">
-        <p className="text-sm text-red-600">{JSON.stringify(props.model.callEntrypointResult.error)}</p>
+  let ContractStorageView = () => {
+    if (props.model.storage._tag === "RemoteSuccess")
+      return <div>
+        <p className="pb-1"><span className="font-bold">Price:</span> {Math.pow(props.model.storage.value.sqrt_price.toString(), 2)}</p>
+        <p className="pb-1"><span className="font-bold">Liquidity:</span> {props.model.storage.value.liquidity.toString()}</p>
+        <p className="pb-1"><span className="font-bold">Token X ID:</span> {props.model.storage.value.constants.x_token_id.toString()}</p>
+        <p className="pb-1"><span className="font-bold">X Address:</span> {props.model.storage.value.constants.x_token_address.toString()}</p>
+        <p className="pb-1"><span className="font-bold">Token Y ID:</span> {props.model.storage.value.constants.y_token_id.toString()}</p>
+        <p className="pb-1"><span className="font-bold">Y Address:</span> {props.model.storage.value.constants.y_token_address.toString()}</p>
+        <p className="pb-1"><span className="font-bold">Swap Fee BPS:</span> {props.model.storage.value.constants.fee_bps.toString()}</p>
+        <p className="pb-1"><span className="font-bold">CTEZ Burn Fee BPS:</span> {props.model.storage.value.constants.ctez_burn_fee_bps.toString()}</p>
       </div>
     else return <div></div>
   }
 
-  return <div className={"bg-white rounded-2xl mt-10 m-auto " + isDisabled()} style={{ width: "500px" }}>
+  let RefreshButtonView = () => {
+    if (props.model.storage._tag === "RemotePending")
+      return <button
+        className="block rounded-xl bg-blue-500 text-white text-sm px-3 py-2">
+        Loading
+      </button>
+    else if (props.model.storage._tag === "RemoteInitial")
+      return <div></div>
+    else
+      return <button
+        className="block rounded-xl bg-blue-500 text-white text-sm px-3 py-2"
+        onClick={() => props.dispatch({ type: 'GetStorage' })}>
+        Refresh
+      </button>
+  }
 
-    <div className="relative">
-      <div className="absolute top-0 bg-white py-4 rounded-lg" style={{ "left": "-260px" }}>
-        {pipe(allEntrypoints, A.mapWithIndex((i, a) => <FormSelect key={i} a={a} dispatch={props.dispatch} model={props.model} />))}
+  return <div>
+    <div className={"bg-white rounded-2xl mt-10 m-auto p-6 " + isDisabled()} style={{ width: "500px" }}>
+      <p className="font-bold pb-1 text-lg">Current Contract Info</p>
+      <div className="py-2">
+        <ContractStorageView />
+      </div>
+      <div className="py-2">
+        <RefreshButtonView />
       </div>
     </div>
-    <div className="p-6">
-      {<Form model={props.model} dispatch={props.dispatch} />}
-      <ErrorText />
-    </div>
 
+    <div className={"bg-white rounded-2xl mt-10 m-auto " + isDisabled()} style={{ width: "500px" }}>
+
+      <div className="relative">
+        <div className="absolute top-0 bg-white py-4 rounded-lg" style={{ "left": "-260px" }}>
+          {pipe(allEntrypoints, A.mapWithIndex((i, a) => <FormSelect key={i} a={a} dispatch={props.dispatch} model={props.model} />))}
+        </div>
+      </div>
+      <div className="p-6">
+        <Form model={props.model} dispatch={props.dispatch} />
+        <ResultText model={props.model} dispatch={props.dispatch} />
+      </div>
+
+    </div>
   </div>
+
 
 }
 
