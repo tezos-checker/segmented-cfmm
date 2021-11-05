@@ -37,9 +37,19 @@
    *)
 let sqrt_price_move_x (liquidity : nat) (sqrt_price_old : x80n) (dx : nat) : x80n =
     (* floordiv because we want to overstate how much this trade lowers the price *)
-    {x80 = floordiv
-        (Bitwise.shift_left (liquidity * sqrt_price_old.x80) 80n)
-        ((Bitwise.shift_left liquidity 80n) + dx * sqrt_price_old.x80)}
+    let sqrt_price_new =
+        {x80 = floordiv
+            (Bitwise.shift_left (liquidity * sqrt_price_old.x80) 80n)
+            ((Bitwise.shift_left liquidity 80n) + dx * sqrt_price_old.x80)
+        } in
+#if DEBUG
+    let _ : unit =
+        if sqrt_price_new <= sqrt_price_old
+            then unit
+            else failwith "sqrt_price_move_x: sqrt_price moved in the wrong direction" in
+#endif
+    sqrt_price_new
+
 
 (*  Calculate the new `sqrt_price` after a deposit of `dy` `y` tokens.
     Derived from equation 6.13:
@@ -69,9 +79,17 @@ let sqrt_price_move_x (liquidity : nat) (sqrt_price_old : x80n) (dx : nat) : x80
    *)
 let sqrt_price_move_y (liquidity : nat) (sqrt_price_old : x80n) (dy : nat) : x80n =
     (* ceildiv because we want to overstate how much this trade increases the price *)
-    { x80 =
-        ceildiv (Bitwise.shift_left dy 80n) liquidity + sqrt_price_old.x80
-    }
+    let sqrt_price_new =
+        { x80 =
+            ceildiv (Bitwise.shift_left dy 80n) liquidity + sqrt_price_old.x80
+        } in
+#if DEBUG
+    let _ : unit =
+        if sqrt_price_new >= sqrt_price_old
+            then unit
+            else failwith "sqrt_price_move_y: sqrt_price moved in the wrong direction" in
+#endif
+    sqrt_price_new
 
 (* Helper function to grab a tick we know exists in the tick indexed state. *)
 let get_tick (ticks : (tick_index, tick_state) big_map) (index: tick_index) (error_code: nat) : tick_state =
