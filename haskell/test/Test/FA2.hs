@@ -17,7 +17,6 @@ import Test.Tasty (TestTree)
 import Test.Tasty.Hedgehog (testProperty)
 import Util.Named
 
-import Test.FA2.Common
 import Test.Util
 
 -- | Utility type used for the generation of the test below
@@ -58,7 +57,7 @@ test_FA2_positions =
             FinalOwner -> finalOwner
 
       let createPosition (n, posLst) (ownerType, lowerTickIndex, upperTickIndex) = do
-            setSimplePosition cfmm (ownerFor ownerType) lowerTickIndex upperTickIndex
+            withSender (ownerFor ownerType) $ setPosition cfmm 1_e7 (lowerTickIndex, upperTickIndex)
             return (n + 1, (FA2.TokenId n, ownerType) : posLst)
 
       positionsList <- snd <$> foldM createPosition (0, []) sortedPositions

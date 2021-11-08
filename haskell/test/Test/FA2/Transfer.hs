@@ -26,7 +26,6 @@ import Morley.Nettest.Tasty
 import Util.Named
 
 import SegCFMM.Types
-import Test.FA2.Common
 import Test.Util
 
 test_zero_transfers :: TestTree
@@ -37,13 +36,15 @@ test_zero_transfers =
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
 
     -- the token does not even exist
-    withSender owner $ transferToken cfmm owner operator (FA2.TokenId 0) 0
+    withSender owner do
+      transferToken cfmm owner operator (FA2.TokenId 0) 0
 
-    setSimplePosition cfmm owner -10 15
-    withSender owner $ transferToken cfmm owner operator (FA2.TokenId 0) 0
+      setPosition cfmm 1_e7 (-10, 15)
+      transferToken cfmm owner operator (FA2.TokenId 0) 0
 
-    setSimplePosition cfmm owner -20 -15
-    withSender owner $ updateOperator cfmm owner operator (FA2.TokenId 1) True
+      setPosition cfmm 1_e7 (-20, -15)
+      updateOperator cfmm owner operator (FA2.TokenId 1) True
+
     withSender operator $ transferToken cfmm owner operator (FA2.TokenId 1) 0
 
 test_unknown_position :: TestTree
@@ -68,29 +69,12 @@ test_removed_position =
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
 
     withSender owner do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
-      call cfmm (Call @"Update_position")
-        UpdatePositionParam
-          { uppPositionId = PositionId 0
-          , uppLiquidityDelta = -(toInteger liquidityDelta)
-          , uppToX = owner
-          , uppToY = owner
-          , uppDeadline = validDeadline
-          , uppMaximumTokensContributed = PerToken 1000000 1000000
-          }
+      setPosition cfmm liquidityDelta (lowerTickIndex, upperTickIndex)
+      updatePosition cfmm owner (- toInteger liquidityDelta) 0
 
-    -- the token is once again undefined because the position was removed
-    expectCustomError_ #fA2_TOKEN_UNDEFINED $
-      withSender owner $ transferToken' cfmm owner receiver (FA2.TokenId 0)
+      -- the token is once again undefined because the position was removed
+      expectCustomError_ #fA2_TOKEN_UNDEFINED $
+        transferToken' cfmm owner receiver (FA2.TokenId 0)
 
 test_getting_position_back :: TestTree
 test_getting_position_back =
@@ -103,30 +87,10 @@ test_getting_position_back =
     foreigner <- newAddress "foreigner"
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
 
-    withSender owner $ do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = 1000
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
+    withSender owner do
+      setPosition cfmm 1000 (lowerTickIndex, upperTickIndex)
       transferToken' cfmm owner foreigner (FA2.TokenId 0)
-
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = 5
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
-
+      setPosition cfmm 5 (lowerTickIndex, upperTickIndex)
     withSender foreigner do
       transferToken' cfmm foreigner owner (FA2.TokenId 0)
 
@@ -143,7 +107,7 @@ test_not_owner =
     receiver <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner, notOwner, receiver]
 
-    setSimplePosition cfmm owner -10 15
+    withSender owner $ setPosition cfmm 1_e7 (-10, 15)
     expectCustomError #fA2_INSUFFICIENT_BALANCE (#required .! 1, #present .! 0) $
       withSender notOwner $ transferToken' cfmm notOwner receiver (FA2.TokenId 0)
 
@@ -154,7 +118,7 @@ test_not_operator =
     notOper <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner, notOper]
 
-    setSimplePosition cfmm owner -10 15
+    withSender owner $ setPosition cfmm 1_e7 (-10, 15)
     expectCustomError_ #fA2_NOT_OPERATOR $
       withSender notOper $ transferToken' cfmm owner notOper (FA2.TokenId 0)
 
@@ -165,9 +129,10 @@ test_fungible_amount =
     receiver <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
 
-    setSimplePosition cfmm owner -10 15
-    expectCustomError #fA2_INSUFFICIENT_BALANCE (#required .! 2, #present .! 1) $
-      withSender owner $ transferToken cfmm owner receiver (FA2.TokenId 0) 2
+    withSender owner do
+      setPosition cfmm 1_e7 (-10, 15)
+      expectCustomError #fA2_INSUFFICIENT_BALANCE (#required .! 2, #present .! 1) $
+        transferToken cfmm owner receiver (FA2.TokenId 0) 2
 
 test_owner_transfer :: TestTree
 test_owner_transfer =
@@ -176,15 +141,16 @@ test_owner_transfer =
     receiver <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
 
-    setSimplePosition cfmm owner -10 15
-    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 1
-    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) receiver @@== 0
-    withSender owner $ transferToken' cfmm owner receiver (FA2.TokenId 0)
-    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 0
-    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) receiver @@== 1
-    -- check that previous owner can no longer manage the position ...
-    expectCustomError #fA2_INSUFFICIENT_BALANCE (#required .! 1, #present .! 0) $
-      withSender owner $ transferToken' cfmm owner receiver (FA2.TokenId 0)
+    withSender owner do
+      setPosition cfmm 1_e7 (-10, 15)
+      balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 1
+      balanceOf (TokenInfo (FA2.TokenId 0) cfmm) receiver @@== 0
+      transferToken' cfmm owner receiver (FA2.TokenId 0)
+      balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 0
+      balanceOf (TokenInfo (FA2.TokenId 0) cfmm) receiver @@== 1
+      -- check that previous owner can no longer manage the position ...
+      expectCustomError #fA2_INSUFFICIENT_BALANCE (#required .! 1, #present .! 0) $
+        transferToken' cfmm owner receiver (FA2.TokenId 0)
     -- ... but the new one can
     withSender receiver $ transferToken' cfmm receiver owner (FA2.TokenId 0)
 
@@ -196,8 +162,9 @@ test_operator_transfer =
     receiver <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
 
-    setSimplePosition cfmm owner -10 15
-    withSender owner $ updateOperator cfmm owner operator (FA2.TokenId 0) True
+    withSender owner do
+      setPosition cfmm 1_e7 (-10, 15)
+      updateOperator cfmm owner operator (FA2.TokenId 0) True
 
     balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 1
     balanceOf (TokenInfo (FA2.TokenId 0) cfmm) operator @@== 0
@@ -213,8 +180,9 @@ test_self_transfer =
     owner <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
 
-    setSimplePosition cfmm owner -10 15
-    withSender owner $ transferToken' cfmm owner owner (FA2.TokenId 0)
+    withSender owner do
+      setPosition cfmm 1_e7 (-10, 15)
+      transferToken' cfmm owner owner (FA2.TokenId 0)
 
 test_multiple_transfers :: TestTree
 test_multiple_transfers =
@@ -224,10 +192,12 @@ test_multiple_transfers =
     receiver <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner1, owner2, receiver]
 
-    setSimplePosition cfmm owner1 -10 15
-    setSimplePosition cfmm owner1 -20 -15
-    setSimplePosition cfmm owner2 5 12
-    withSender owner2 $ updateOperator cfmm owner2 owner1 (FA2.TokenId 2) True
+    withSender owner1 do
+      setPosition cfmm 1_e7 (-10, 15)
+      setPosition cfmm 1_e7 (-20, -15)
+    withSender owner2 do
+      setPosition cfmm 1_e7 (5, 12)
+      updateOperator cfmm owner2 owner1 (FA2.TokenId 2) True
     let tokenIds = map FA2.TokenId [0..2]
 
     balancesOf cfmm tokenIds owner1    @@== [1, 1, 0]

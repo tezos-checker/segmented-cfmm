@@ -30,9 +30,7 @@ test_CornerCases = testGroup "Corner cases"
       alice <- newAddress "alice"
       (cfmm, _) <- prepareSomeSegCFMM [alice]
 
-      withSender alice do
-        call cfmm (Call @"Set_position") $
-          setPositionParamSimple (TickIndex (-100), TickIndex 100) 1
+      withSender alice $ setPosition cfmm 1 (-100, 100)
 
       consumer <- originateSimple "consumer" [] contractConsumer
       expectFailedWith tickNotExistErr $
@@ -43,9 +41,7 @@ test_CornerCases = testGroup "Corner cases"
       alice <- newAddress "alice"
       (cfmm, _) <- prepareSomeSegCFMM [alice]
 
-      withSender alice do
-        call cfmm (Call @"Set_position") $
-          setPositionParamSimple (TickIndex 0, TickIndex 10) 1
+      withSender alice $ setPosition cfmm 1 (0, 10)
 
       advanceTime (sec 1)
 
@@ -59,9 +55,7 @@ test_CornerCases = testGroup "Corner cases"
       alice <- newAddress "alice"
       (cfmm, _) <- prepareSomeSegCFMM [alice]
 
-      withSender alice do
-        call cfmm (Call @"Set_position") $
-          setPositionParamSimple (TickIndex 0, TickIndex 10) 1
+      withSender alice $ setPosition cfmm 1 (0, 10)
 
       advanceTime (sec 1)
 
@@ -81,9 +75,7 @@ test_ValuesSanity = testGroup "Values are sane"
       alice <- newAddress "alice"
       (cfmm, _) <- prepareSomeSegCFMM [alice]
 
-      withSender alice do
-        call cfmm (Call @"Set_position") $
-          setPositionParamSimple (lowerTickIndex, upperTickIndex) 1000
+      withSender alice $ setPosition cfmm 1000 (lowerTickIndex, upperTickIndex)
 
       gettingCumulativesInsideDiff cfmm tickIndicesRange
         do advanceTime (sec 2000)
@@ -149,7 +141,6 @@ test_ValuesSanity = testGroup "Values are sane"
               ( TickIndex $ -tickBoundary * fromIntegral maxStepsNum
               , TickIndex $  tickBoundary * fromIntegral maxStepsNum
               )
-      let basePosition = setPositionParamSimple baseTickRange (mkLiquidity 10)
 
       -- Generate scenario
       -- State contains positions created so far
@@ -192,15 +183,14 @@ test_ValuesSanity = testGroup "Values are sane"
         (cfmm, _) <- prepareSomeSegCFMM [alice]
 
         withSender alice do
-          call cfmm (Call @"Set_position") basePosition
+          setPosition cfmm (mkLiquidity 10) baseTickRange
 
           for_ commands' $ \((positions, jump, timePeriod), allTicks) -> do
 
             -- Do changes in the contract
 
             for_ positions $ \(boundaries, liquidity) ->
-              call cfmm (Call @"Set_position") $
-                setPositionParamSimple boundaries liquidity
+              setPosition cfmm liquidity boundaries
 
             convertTokens cfmm jump
 

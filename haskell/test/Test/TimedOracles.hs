@@ -45,9 +45,7 @@ test_Continuity =
 
     advanceTime (sec 3)
 
-    withSender alice do
-      call cfmm (Call @"Set_position") $
-        setPositionParamSimple (TickIndex (-100), TickIndex 100) 100
+    withSender alice $ setPosition cfmm 100 (-100, 100)
 
     advanceTime (sec 3)
 
@@ -98,9 +96,7 @@ test_IncreaseObservationCount =
 
     -- This helps to distinguish dummy and true values in the buffer
     -- Note: this also triggers the contract to record a value in the buffer
-    withSender alice do
-      call cfmm (Call @"Set_position") $
-        setPositionParamSimple (TickIndex (-100), TickIndex 100) 100
+    withSender alice $ setPosition cfmm 100 (-100, 100)
 
     -- Run invariants that can be checked immediately,
     -- and return info (current storage) for performing later mass checks.
@@ -187,9 +183,7 @@ test_LargeInitialBuffer =
       id
 
     -- Note: this also triggers the contract to record a value in the buffer
-    withSender alice do
-      call cfmm (Call @"Set_position") $
-        setPositionParamSimple (TickIndex (-100), TickIndex 100) 100
+    withSender alice $ setPosition cfmm 100 (-100, 100)
 
     -- Run invariants that can be checked immediately,
     -- and return info (current storage) for performing later mass checks.
@@ -263,28 +257,22 @@ test_ObservedValues = testGroup "Observed values are sane"
         call cfmm (Call @"Observe") $ mkView [now] consumer
 
       do
-        withSender alice do
-          call cfmm (Call @"Set_position") $
-            setPositionParamSimple (TickIndex (-100), TickIndex 100) 10
+        withSender alice $ setPosition cfmm 10 (-100, 100)
         advanceTime (sec 10)
         now <- getNow
         call cfmm (Call @"Observe") $ mkView [now] consumer
 
       do
         withSender alice do
-          call cfmm (Call @"Set_position") $
-            setPositionParamSimple (TickIndex (-10), TickIndex 30) 40
-          call cfmm (Call @"Set_position") $
-            -- not active position
-            setPositionParamSimple (TickIndex 30, TickIndex 50) 10000
+          setPosition cfmm 40 (-10, 30)
+          setPosition cfmm 10000 (30, 50) -- not active position
+
         advanceTime (sec 100)
         now <- getNow
         call cfmm (Call @"Observe") $ mkView [now] consumer
 
       do
-        withSender alice do
-          call cfmm (Call @"Update_position") $
-            updatePositionParamSimple (PositionId 0) -10
+        withSender alice $ updatePosition cfmm alice -10 0
         advanceTime (sec 10)
         now <- getNow
         call cfmm (Call @"Observe") $ mkView [now] consumer
@@ -311,8 +299,7 @@ test_ObservedValues = testGroup "Observed values are sane"
 
       do
         withSender alice do
-          call cfmm (Call @"Set_position") $
-            setPositionParamSimple (TickIndex (-10), TickIndex 10) 10
+          setPosition cfmm 10 (-10, 10)
           -- Just to the end of position
           call cfmm (Call @"Y_to_x") YToXParam
             { ypDy = 2
@@ -327,8 +314,7 @@ test_ObservedValues = testGroup "Observed values are sane"
 
       do
         withSender alice do
-          call cfmm (Call @"Set_position") $
-            setPositionParamSimple (TickIndex (-20), TickIndex 50) 10
+          setPosition cfmm 10 (-20, 50)
           -- Just to the start of position
           call cfmm (Call @"X_to_y") XToYParam
             { xpDx = 5

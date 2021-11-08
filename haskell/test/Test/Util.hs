@@ -25,8 +25,8 @@ module Test.Util
   , prepareSomeSegCFMM
   , prepareSomeSegCFMM'
   , observe
-  , setPositionParamSimple
-  , updatePositionParamSimple
+  , setPosition
+  , updatePosition
   , gettingCumulativesInsideDiff
   , convertTokens
   , validDeadline
@@ -264,30 +264,46 @@ observe cfmm = do
     [[cv]] -> pure cv
     _ -> failure "Expected to get exactly 1 CumulativeValue"
 
-setPositionParamSimple :: (TickIndex, TickIndex) -> Natural -> SetPositionParam
-setPositionParamSimple (sppLowerTickIndex, sppUpperTickIndex) sppLiquidity =
-  SetPositionParam
-  { sppLowerTickIndex
-  , sppUpperTickIndex
-  , sppLowerTickWitness = minTickIndex
-  , sppUpperTickWitness = minTickIndex
-  , sppLiquidity
-  , sppDeadline = validDeadline
-  , sppMaximumTokensContributed = 1e100
-  }
+-- | Utility function to make a simple call to @Set_position@ between the two
+-- given 'TickIndex'.
+--
+-- It should succeed and a position be created if the given address was also
+-- given to 'prepareSomeSegCFMM'.
+setPosition
+  :: (MonadNettest caps base m, HasCallStack)
+  => ContractHandler Parameter Storage
+  -> Natural
+  -> (TickIndex, TickIndex)
+  -> m ()
+setPosition cfmm liquidity (lowerTickIndex, upperTickIndex) = do
+  call cfmm (Call @"Set_position")
+    SetPositionParam
+      { sppLowerTickIndex = lowerTickIndex
+      , sppUpperTickIndex = upperTickIndex
+      , sppLowerTickWitness = minTickIndex
+      , sppUpperTickWitness = minTickIndex
+      , sppLiquidity = liquidity
+      , sppDeadline = validDeadline
+      , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
+      }
 
-updatePositionParamSimple :: PositionId -> Integer -> UpdatePositionParam
-updatePositionParamSimple uppPositionId uppLiquidityDelta =
-  UpdatePositionParam
-  { uppPositionId
-  , uppLiquidityDelta
-  , uppToX = receiver
-  , uppToY = receiver
-  , uppDeadline = validDeadline
-  , uppMaximumTokensContributed = 1e100
-  }
-  where
-    receiver = [ta|tz1QCtwyKA4S8USgYRJRghDNYLHkkQ3S1yAU|]
+updatePosition
+  :: (MonadNettest caps base m, HasCallStack)
+  => ContractHandler Parameter Storage
+  -> Address
+  -> Integer
+  -> PositionId
+  -> m ()
+updatePosition cfmm receiver liquidityDelta positionId = do
+  call cfmm (Call @"Update_position")
+    UpdatePositionParam
+      { uppPositionId = positionId
+      , uppLiquidityDelta = liquidityDelta
+      , uppToX = receiver
+      , uppToY = receiver
+      , uppDeadline = validDeadline
+      , uppMaximumTokensContributed = PerToken defaultBalance defaultBalance
+      }
 
 -- | Get the diff of cumulatives_inside at given ticks range between two given
 -- timestamps.

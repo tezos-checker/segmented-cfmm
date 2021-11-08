@@ -72,21 +72,12 @@ test_BasicWorkflow =
     let lowerTickIndex = CFMM.TickIndex (-100)
     let upperTickIndex = CFMM.TickIndex 100
     positionId <- do
-      now <- getNow
+
       withSender liquidityProvider do
-        call cfmm (Call @"Set_position") CFMM.SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = CFMM.minTickIndex
-          , sppUpperTickWitness = CFMM.minTickIndex
-          , sppLiquidity = 10
-          , sppDeadline = now `timestampPlusSeconds` 100000
-          , sppMaximumTokensContributed = 99999999
-          }
+        setPosition cfmm 10 (lowerTickIndex, upperTickIndex)
         let positionId = CFMM.PositionId 0
 
-        call cfmm (Call @"Update_operators")
-          [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress staker) (checkedCoerce positionId)]
+        updateOperator cfmm liquidityProvider (toAddress staker) (checkedCoerce positionId) True
 
         call staker (Call @"Register_deposit") positionId
         return positionId

@@ -50,18 +50,7 @@ test_swapping_within_a_single_tick_range =
       -- Add some slots to the buffers to make the tests more meaningful.
       call cfmm (Call @"Increase_observation_count") 10
 
-      withSender liquidityProvider do
-        call cfmm (Call @"Set_position")
-          SetPositionParam
-            { sppLowerTickIndex = lowerTickIndex
-            , sppUpperTickIndex = upperTickIndex
-            , sppLowerTickWitness = minTickIndex
-            , sppUpperTickWitness = minTickIndex
-            , sppLiquidity = liquidity
-            , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-            }
-        checkAllInvariants cfmm
+      withSender liquidityProvider $ setPosition cfmm liquidity (lowerTickIndex, upperTickIndex)
 
       for_ swaps \dy -> do
         initialSt <- getFullStorage cfmm
@@ -139,23 +128,10 @@ test_many_small_swaps =
     (cfmm1, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing (set cFeeBpsL feeBps)
     (cfmm2, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing (set cFeeBpsL feeBps)
 
-    -- Add some slots to the buffers to make the tests more meaningful.
-    for_ [cfmm1, cfmm2] \cfmm -> call cfmm (Call @"Increase_observation_count") 10
-
-    withSender liquidityProvider do
-      for_ [cfmm1, cfmm2] \cfmm -> do
-        call cfmm (Call @"Set_position")
-          SetPositionParam
-            { sppLowerTickIndex = lowerTickIndex
-            , sppUpperTickIndex = upperTickIndex
-            , sppLowerTickWitness = minTickIndex
-            , sppUpperTickWitness = minTickIndex
-            , sppLiquidity = liquidity
-            , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-            }
-    checkAllInvariants cfmm1
-    checkAllInvariants cfmm2
+    for_ [cfmm1, cfmm2] \cfmm -> do
+      -- Add some slots to the buffers to make the tests more meaningful.
+      call cfmm (Call @"Increase_observation_count") 10
+      withSender liquidityProvider $ setPosition cfmm liquidity (lowerTickIndex, upperTickIndex)
 
     withSender swapper $ do
       -- 1 big swap
@@ -228,32 +204,13 @@ test_crossing_ticks =
     -- Add some slots to the buffers to make the tests more meaningful.
     for_ [cfmm1, cfmm2] \cfmm -> call cfmm (Call @"Increase_observation_count") 10
 
+    -- Place 1 big position
     withSender liquidityProvider do
-      -- Place 1 big position
-      call cfmm1 (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidity
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-          }
-
+      setPosition cfmm1 liquidity (lowerTickIndex, upperTickIndex)
       -- Place many small positions with the same liquidity
-      let positionSize = 100
-      for_ [lowerTickIndex, lowerTickIndex + positionSize .. upperTickIndex - positionSize] \lowerTickIndex' -> do
-        call cfmm2 (Call @"Set_position")
-          SetPositionParam
-            { sppLowerTickIndex = lowerTickIndex'
-            , sppUpperTickIndex = lowerTickIndex' + positionSize
-            , sppLowerTickWitness = minTickIndex
-            , sppUpperTickWitness = minTickIndex
-            , sppLiquidity = liquidity
-            , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-            }
+      for_ [-1000, -900 .. 900] \lowerTickIndex' -> do
+        setPosition cfmm2 liquidity (lowerTickIndex', lowerTickIndex' + 100)
+
     checkAllInvariants cfmm1
     checkAllInvariants cfmm2
 
@@ -354,29 +311,15 @@ test_fee_split =
   nettestScenarioOnEmulatorCaps "fees are correctly assigned to each position" do
     let feeBps = 50_00 -- 50%
 
-    let liquidityDelta = 1_e6
-
     liquidityProvider <- newAddress auto
-    let position1Bounds = (-100, 100)
-    let position2Bounds = (100, 200)
-
     swapper <- newAddress auto
     feeReceiver1 <- newAddress auto
     feeReceiver2 <- newAddress auto
     (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
 
     withSender liquidityProvider do
-      for_ [position1Bounds, position2Bounds] \(lowerTickIndex, upperTickIndex) -> do
-        call cfmm (Call @"Set_position")
-          SetPositionParam
-            { sppLowerTickIndex = lowerTickIndex
-            , sppUpperTickIndex = upperTickIndex
-            , sppLowerTickWitness = minTickIndex
-            , sppUpperTickWitness = minTickIndex
-            , sppLiquidity = liquidityDelta
-            , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-            }
+      setPosition cfmm 1_e6 (-100, 100)
+      setPosition cfmm 1_e6 (100, 200)
 
     withSender swapper do
       -- Place a small x-to-y swap.
@@ -413,25 +356,10 @@ test_fee_split =
 test_must_exceed_min_dx :: TestTree
 test_must_exceed_min_dx =
   nettestScenarioOnEmulatorCaps "swap fails if the user would receiver less than min_dx" do
-    let liquidity = 1_e7
-    let lowerTickIndex = -1000
-    let upperTickIndex = 1000
-
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper]
-
-    withSender liquidityProvider do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidity
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-          }
+    withSender liquidityProvider $ setPosition cfmm 1_e7 (-1000, 1000)
 
     withSender swapper do
       call cfmm (Call @"Y_to_x") YToXParam
@@ -445,25 +373,10 @@ test_must_exceed_min_dx =
 test_fails_if_its_past_the_deadline :: TestTree
 test_fails_if_its_past_the_deadline =
   nettestScenarioOnEmulatorCaps "swap fails if it's past the deadline" do
-    let liquidity = 1_e7
-    let lowerTickIndex = -1000
-    let upperTickIndex = 1000
-
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper]
-
-    withSender liquidityProvider do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidity
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-          }
+    withSender liquidityProvider $ setPosition cfmm 1_e7 (-1000, 1000)
 
     withSender swapper do
       now <- getNow
@@ -482,18 +395,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
     (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper]
-
-    withSender liquidityProvider do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = -100
-          , sppUpperTickIndex = 100
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = 10_000
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-          }
+    withSender liquidityProvider $ setPosition cfmm 10_000 (-100, 100)
 
     withSender swapper do
       -- Place a swap big enough to exhaust the position's liquidity

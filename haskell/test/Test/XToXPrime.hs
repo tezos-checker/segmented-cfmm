@@ -48,17 +48,7 @@ test_swapping_x_for_x_prime =
       (cfmm2, _) <- prepareSomeSegCFMM' accounts (Just (z, y)) Nothing (set cFeeBpsL feeBps2)
 
       for_ [cfmm1, cfmm2] \cfmm -> do
-        withSender liquidityProvider do
-          call cfmm (Call @"Set_position")
-            SetPositionParam
-              { sppLowerTickIndex = lowerTickIndex
-              , sppUpperTickIndex = upperTickIndex
-              , sppLowerTickWitness = minTickIndex
-              , sppUpperTickWitness = minTickIndex
-              , sppLiquidity = liquidity
-              , sppDeadline = validDeadline
-              , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-              }
+        withSender liquidityProvider $ setPosition cfmm liquidity (lowerTickIndex, upperTickIndex)
 
       initialSt1 <- getFullStorage cfmm1
       initialSt2 <- getFullStorage cfmm2
@@ -119,17 +109,7 @@ test_fails_when_y_doesnt_match =
     (cfmm2, _) <- prepareSomeSegCFMM accounts
 
     for_ [cfmm1, cfmm2] \cfmm -> do
-      withSender liquidityProvider do
-        call cfmm (Call @"Set_position")
-          SetPositionParam
-            { sppLowerTickIndex = lowerTickIndex
-            , sppUpperTickIndex = upperTickIndex
-            , sppLowerTickWitness = minTickIndex
-            , sppUpperTickWitness = minTickIndex
-            , sppLiquidity = liquidity
-            , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-            }
+      withSender liquidityProvider $ setPosition cfmm liquidity (lowerTickIndex, upperTickIndex)
 
     withSender swapper do
       call cfmm1 (Call @"X_to_x_prime") XToXPrimeParam

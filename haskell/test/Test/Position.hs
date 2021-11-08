@@ -44,104 +44,49 @@ cumulativesBuffer1 now =
 test_equal_ticks :: TestTree
 test_equal_ticks =
   nettestScenarioOnEmulatorCaps "setting a position with lower_tick=upper_tick fails" do
-    let lowerTickIndex = 100
-    let upperTickIndex = 100
     liquidityProvider <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
 
-    withSender liquidityProvider $
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = 1
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
-          & expectFailedWith tickOrderErr
+    withSender liquidityProvider $ setPosition cfmm 1 (100, 100)
+      & expectFailedWith tickOrderErr
 
 test_wrong_tick_order :: TestTree
 test_wrong_tick_order =
   nettestScenarioOnEmulatorCaps "setting a position with lower_tick>upper_tick fails" do
-    let lowerTickIndex = 100
-    let upperTickIndex = 99
     liquidityProvider <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
 
-    withSender liquidityProvider $
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = 1
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
-          & expectFailedWith tickOrderErr
+    withSender liquidityProvider $ setPosition cfmm 1 (100, 99)
+      & expectFailedWith tickOrderErr
 
 test_setting_a_position_with_zero_liquidity_is_a_noop :: TestTree
 test_setting_a_position_with_zero_liquidity_is_a_noop =
   nettestScenarioOnEmulatorCaps "setting a position with zero liquidity is a no-op" do
-    let lowerTickIndex = -100
-    let upperTickIndex = 100
     liquidityProvider <- newAddress auto
     (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider]
     initialSt <- getFullStorage cfmm
 
-    withSender liquidityProvider $
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = 0
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
+    withSender liquidityProvider $ setPosition cfmm 0 (-100, 100)
 
     -- The storage shouldn't have changed (with few exceptions).
     now <- getNow
     getFullStorage cfmm @@== initialSt
       { sCumulativesBuffer = cumulativesBuffer1 now
       }
-    (balanceOf x cfmm <&> fromIntegral @Natural @Integer) @@== 0
-    (balanceOf y cfmm <&> fromIntegral @Natural @Integer) @@== 0
+    balanceOf x cfmm @@== 0
+    balanceOf y cfmm @@== 0
 
 test_deposit_and_withdrawal_is_a_noop :: TestTree
 test_deposit_and_withdrawal_is_a_noop =
   nettestScenarioOnEmulatorCaps "depositing and withdrawing the same amount of liquidity is a no-op" $ do
-    let liquidityDelta = 10000000
-    let lowerTickIndex = -10
-    let upperTickIndex = 15
     liquidityProvider <- newAddress auto
     (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider]
     initialSt <- getFullStorage cfmm
 
     withSender liquidityProvider do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
-      call cfmm (Call @"Update_position")
-        UpdatePositionParam
-          { uppPositionId = PositionId 0
-          , uppLiquidityDelta = -(toInteger liquidityDelta)
-          , uppToX = liquidityProvider
-          , uppToY = liquidityProvider
-          , uppDeadline = validDeadline
-          , uppMaximumTokensContributed = PerToken 1000000 1000000
-          }
+      setPosition cfmm 1_e7 (-10, 15)
+      updatePosition cfmm liquidityProvider -1_e7 0
+
     -- The storage shouldn't have changed (with few exceptions).
     now <- getNow
     getFullStorage cfmm @@== initialSt
@@ -150,17 +95,15 @@ test_deposit_and_withdrawal_is_a_noop =
       }
     -- The contract's balance should be 0.
     -- There is a margin of error, so the contract may end up with at most 1 token.
-    xBalance <- balanceOf x cfmm <&> fromIntegral @Natural @Integer
+    xBalance <- balanceOf x cfmm
     checkCompares xBalance elem [0, 1]
-    yBalance <- balanceOf y cfmm <&> fromIntegral @Natural @Integer
+    yBalance <- balanceOf y cfmm
     checkCompares yBalance elem [0, 1]
 
 test_adding_liquidity_twice :: TestTree
 test_adding_liquidity_twice =
   nettestScenarioOnEmulatorCaps "adding liquidity twice is the same as adding it once" $ do
-    let liquidityDelta = 100000
-    let lowerTickIndex = -25
-    let upperTickIndex = 15
+    let liquidityDelta = 1_e5
     liquidityProvider <- newAddress auto
     let accounts = [liquidityProvider]
     tokens@(x, y) <- forEach (FA2.TokenId 0, FA2.TokenId 1) $ originateFA2 accounts
@@ -169,36 +112,10 @@ test_adding_liquidity_twice =
 
     withSender liquidityProvider do
       -- Add liquidity twice to cfmm1
-      call cfmm1 (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
-      call cfmm1 (Call @"Update_position")
-        UpdatePositionParam
-          { uppPositionId = PositionId 0
-          , uppLiquidityDelta = toInteger liquidityDelta
-          , uppToX = liquidityProvider
-          , uppToY = liquidityProvider
-          , uppDeadline = validDeadline
-          , uppMaximumTokensContributed = PerToken 1000000 1000000
-          }
+      setPosition cfmm1 liquidityDelta (-25, 15)
+      updatePosition cfmm1 liquidityProvider (toInteger liquidityDelta) 0
       -- Add twice the liquidity once to cfmm2
-      call cfmm2 (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta * 2
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
+      setPosition cfmm2 (2 * liquidityDelta) (-25, 15)
 
     -- The two contracts should have the same storage and the same balance.
     -- There may be a -/+1 margin of the error in the balance calculations.
@@ -375,63 +292,38 @@ test_fails_if_its_not_multiple_tick_spacing =
 test_cannot_set_position_over_max_tick :: TestTree
 test_cannot_set_position_over_max_tick =
   nettestScenarioOnEmulatorCaps "cannot set a position with upper_tick > max_tick" $ do
-    let liquidityDelta = 10000
-    let lowerTickIndex = -10
 
+    liquidityProvider <- newAddress auto
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
+
+    withSender liquidityProvider $ setPosition cfmm 1 (-10, maxTickIndex + 1)
+      & expectFailedWith tickNotExistErr
+
+test_maximum_tokens_contributed :: TestTree
+test_maximum_tokens_contributed =
+  nettestScenarioOnEmulatorCaps "cannot transfer more than maximum_tokens_contributed" $ do
     liquidityProvider <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
 
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
         SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = maxTickIndex + 1
+          { sppLowerTickIndex = -10
+          , sppUpperTickIndex = 10
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
-          & expectFailedWith tickNotExistErr
-
-test_maximum_tokens_contributed :: TestTree
-test_maximum_tokens_contributed =
-  nettestScenarioOnEmulatorCaps "cannot transfer more than maximum_tokens_contributed" $ do
-    let liquidityDelta = 10000000
-    let lowerTickIndex = -10
-    let upperTickIndex = 10
-
-    liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
-
-    withSender liquidityProvider $ do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta
+          , sppLiquidity = 10000000
           , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1 1
           }
           & expectFailedWith highTokensErr
 
       -- Also check "Update_position"
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
+      setPosition cfmm 1 (-10, 10)
       call cfmm (Call @"Update_position")
         UpdatePositionParam
           { uppPositionId = PositionId 0
-          , uppLiquidityDelta = toInteger liquidityDelta
+          , uppLiquidityDelta = 10000000
           , uppToX = liquidityProvider
           , uppToY = liquidityProvider
           , uppDeadline = validDeadline
@@ -442,34 +334,14 @@ test_maximum_tokens_contributed =
 test_lowest_and_highest_ticks_cannot_be_garbage_collected :: TestTree
 test_lowest_and_highest_ticks_cannot_be_garbage_collected =
   nettestScenarioOnEmulatorCaps "lowest and highest ticks cannot be garbage collected" $ do
-    let liquidityDelta = 1
-    let lowerTickIndex = minTickIndex
-    let upperTickIndex = maxTickIndex
-
     liquidityProvider <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
     initialSt <- getFullStorage cfmm
 
     withSender liquidityProvider do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
-      call cfmm (Call @"Update_position")
-        UpdatePositionParam
-          { uppPositionId = PositionId 0
-          , uppLiquidityDelta = -(toInteger liquidityDelta)
-          , uppToX = liquidityProvider
-          , uppToY = liquidityProvider
-          , uppDeadline = validDeadline
-          , uppMaximumTokensContributed = PerToken 1000000 1000000
-          }
+      setPosition cfmm 1 (minTickIndex, maxTickIndex)
+      updatePosition cfmm liquidityProvider (-1) 0
+
     -- The storage shouldn't have changed (with few exceptions).
     now <- getNow
     getFullStorage cfmm @@== initialSt
@@ -480,7 +352,7 @@ test_lowest_and_highest_ticks_cannot_be_garbage_collected =
 test_withdrawal_overflow :: TestTree
 test_withdrawal_overflow =
   nettestScenarioOnEmulatorCaps "cannot withdraw more liquidity from a position than it currently has" $ do
-    let liquidityDelta = 10000
+    let liquidityDelta = 10_000
     let lowerTickIndex = -10
     let upperTickIndex = 10
 
@@ -488,44 +360,18 @@ test_withdrawal_overflow =
     liquidityProvider2 <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider1, liquidityProvider2]
 
-    -- Add some liquidity with `liquidityProvider`
-    withSender liquidityProvider1 do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
+    -- Add some liquidity with `liquidityProvider1`
+    withSender liquidityProvider1 $ setPosition cfmm liquidityDelta (lowerTickIndex, upperTickIndex)
+
+    -- Add some liquidity with `liquidityProvider2`,
+    -- and then attempt to remove more than what was added.
+    --
+    -- There should still be some liquidity left in the contract (thanks to `liquidityProvider1`),
+    -- but the position's liquidity should drop below 0 (and fail).
     withSender liquidityProvider2 do
-      -- Add some liquidity with `liquidityProvider2`,
-      -- and then attempt to remove more than what was added.
-      --
-      -- There should still be some liquidity left in the contract (thanks to liquidityProvider1),
-      -- but the position's liquidity should drop below 0 (and fail).
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
-      call cfmm (Call @"Update_position")
-        UpdatePositionParam
-          { uppPositionId = PositionId 1
-          , uppLiquidityDelta = -(toInteger liquidityDelta) - 1
-          , uppToX = liquidityProvider2
-          , uppToY = liquidityProvider2
-          , uppDeadline = validDeadline
-          , uppMaximumTokensContributed = PerToken 1000000 1000000
-          }
-          & expectFailedWith positionLiquidityBelowZeroErr
+      setPosition cfmm liquidityDelta (lowerTickIndex, upperTickIndex)
+      updatePosition cfmm liquidityProvider2 (-(toInteger liquidityDelta) - 1) 1
+        & expectFailedWith positionLiquidityBelowZeroErr
 
 test_LPs_get_fees :: TestTree
 test_LPs_get_fees =
@@ -540,17 +386,7 @@ test_LPs_get_fees =
       feeReceiver <- newAddress auto
       (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
 
-      withSender liquidityProvider $
-        call cfmm (Call @"Set_position")
-          SetPositionParam
-            { sppLowerTickIndex = -10000
-            , sppUpperTickIndex = 10000
-            , sppLowerTickWitness = minTickIndex
-            , sppUpperTickWitness = minTickIndex
-            , sppLiquidity = 1_e7
-            , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-            }
+      withSender liquidityProvider $ setPosition cfmm 1_e7 (-10000, 10000)
 
       (xFees, yFees) <- unzip <$> for swaps \(SwapData swapDirection swapAmt) -> do
         withSender swapper do
@@ -604,17 +440,7 @@ test_fees_are_proportional_to_liquidity =
       (cfmm, (x, y)) <- prepareSomeSegCFMM' accounts Nothing Nothing (set cFeeBpsL feeBps)
 
       for_ [(liquidityProvider1, position1Liquidity), (liquidityProvider2, position2Liquidity)] \(lp, liquidity) ->
-        withSender lp do
-          call cfmm (Call @"Set_position")
-            SetPositionParam
-              { sppLowerTickIndex = -10_000
-              , sppUpperTickIndex = 10_000
-              , sppLowerTickWitness = minTickIndex
-              , sppUpperTickWitness = minTickIndex
-              , sppLiquidity = liquidity
-              , sppDeadline = validDeadline
-              , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-              }
+        withSender lp $ setPosition cfmm liquidity (-10_000, 10_000)
 
       (xFees, yFees) <- unzip <$> for swaps \(SwapData swapDirection swapAmt) -> do
         withSender swapper do
@@ -672,19 +498,6 @@ test_LPs_do_not_receive_past_fees =
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
       (cfmm, (x, y)) <- prepareSomeSegCFMM' accounts Nothing Nothing (set cFeeBpsL feeBps)
 
-      let setPosition lp =
-            withSender lp do
-              call cfmm (Call @"Set_position")
-                SetPositionParam
-                  { sppLowerTickIndex = -10_000
-                  , sppUpperTickIndex = 10_000
-                  , sppLowerTickWitness = minTickIndex
-                  , sppUpperTickWitness = minTickIndex
-                  , sppLiquidity = 1_e7
-                  , sppDeadline = validDeadline
-                  , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-                  }
-
       let placeSwaps swaps =
             bimap sum sum .
             unzip <$>
@@ -708,9 +521,9 @@ test_LPs_do_not_receive_past_fees =
                         }
                       pure $ (0, calcSwapFee feeBps swapAmt)
 
-      setPosition liquidityProvider1
+      withSender liquidityProvider1 $ setPosition cfmm 1_e7 (-10_000, 10_000)
       (xFeesBefore, yFeesBefore) <- placeSwaps beforeSwaps
-      setPosition liquidityProvider2
+      withSender liquidityProvider2 $ setPosition cfmm 1_e7 (-10_000, 10_000)
       (xFeesAfter, yFeesAfter) <- placeSwaps afterSwaps
 
       checkAllInvariants cfmm
@@ -749,17 +562,7 @@ test_fees_are_discounted =
       let upperTickIndex = 10_000
       (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
 
-      withSender liquidityProvider do
-        call cfmm (Call @"Set_position")
-          SetPositionParam
-            { sppLowerTickIndex = lowerTickIndex
-            , sppUpperTickIndex = upperTickIndex
-            , sppLowerTickWitness = minTickIndex
-            , sppUpperTickWitness = minTickIndex
-            , sppLiquidity = liquidityDelta
-            , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-            }
+      withSender liquidityProvider $ setPosition cfmm liquidityDelta (lowerTickIndex, upperTickIndex)
 
       (xFees , yFees) <-
           bimap sum sum .
@@ -787,16 +590,7 @@ test_fees_are_discounted =
       initialBalanceX <- balanceOf x liquidityProvider
       initialBalanceY <- balanceOf y liquidityProvider
 
-      withSender liquidityProvider do
-        call cfmm (Call @"Update_position")
-          UpdatePositionParam
-            { uppPositionId = 0
-            , uppLiquidityDelta = fromIntegral @Natural @Integer liquidityDelta
-            , uppToX = feeReceiver
-            , uppToY = feeReceiver
-            , uppDeadline = validDeadline
-            , uppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-            }
+      withSender liquidityProvider $ updatePosition cfmm feeReceiver (toInteger liquidityDelta) 0
 
       -- The fees earned during the swaps should be discounted from the
       -- tokens needed to make the deposit.
@@ -833,26 +627,8 @@ test_ticks_are_updated =
     (cfmm, _) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
 
     withSender liquidityProvider do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = ti1
-          , sppUpperTickIndex = ti3
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-          }
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = ti2
-          , sppUpperTickIndex = ti4
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-          }
+      setPosition cfmm liquidityDelta (ti1, ti3)
+      setPosition cfmm liquidityDelta (ti2, ti4)
 
     -- Place a small swap to move the tick a little bit
     -- and make sure `tick_cumulative` is not 0.
@@ -882,17 +658,7 @@ test_ticks_are_updated =
     initialState <- initialStorage & sTicks & bmMap & Map.lookup ti2 & evalJust
 
     -- Place a new position on `ti2` in order to update its state.
-    withSender liquidityProvider do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = ti2
-          , sppUpperTickIndex = ti3
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-          }
+    withSender liquidityProvider $ setPosition cfmm liquidityDelta (ti2, ti3)
 
     -- Check that `ti2`'s state has been updated.
     finalStorage <- getFullStorage cfmm
@@ -924,23 +690,12 @@ test_many_small_liquidations =
       receiver1 <- newAddress auto
       receiver2 <- newAddress auto
       let liquidityDelta = 1_e7
-      let lowerTickIndex = -10_000
-      let upperTickIndex = 10_000
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
       (cfmm, (x, y)) <- prepareSomeSegCFMM' accounts Nothing Nothing (set cFeeBpsL feeBps)
 
       for_ [liquidityProvider1, liquidityProvider2] \liquidityProvider ->
         withSender liquidityProvider do
-          call cfmm (Call @"Set_position")
-            SetPositionParam
-              { sppLowerTickIndex = lowerTickIndex
-              , sppUpperTickIndex = upperTickIndex
-              , sppLowerTickWitness = minTickIndex
-              , sppUpperTickWitness = minTickIndex
-              , sppLiquidity = liquidityDelta
-              , sppDeadline = validDeadline
-              , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-              }
+          setPosition cfmm liquidityDelta (-10_000, 10_000)
 
       for_ swaps \(SwapData swapDirection swapAmt) -> do
         withSender swapper do
@@ -963,28 +718,11 @@ test_many_small_liquidations =
               pure $ (0, calcSwapFee feeBps swapAmt)
 
       -- Liquidate the position all at once
-      withSender liquidityProvider1 do
-        call cfmm (Call @"Update_position")
-          UpdatePositionParam
-            { uppPositionId = 0
-            , uppLiquidityDelta = - (fromIntegral @Natural @Integer liquidityDelta)
-            , uppToX = receiver1
-            , uppToY = receiver1
-            , uppDeadline = validDeadline
-            , uppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-            }
+      withSender liquidityProvider1 $ updatePosition cfmm receiver1 (- toInteger liquidityDelta) 0
+
       -- Liquidate the position in small steps
-      withSender liquidityProvider2 do
-        replicateM_ 10 do
-          call cfmm (Call @"Update_position")
-            UpdatePositionParam
-              { uppPositionId = 1
-              , uppLiquidityDelta = - (fromIntegral @Natural @Integer liquidityDelta) `div` 10
-              , uppToX = receiver2
-              , uppToY = receiver2
-              , uppDeadline = validDeadline
-              , uppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-              }
+      replicateM_ 10 do
+        withSender liquidityProvider2 $ updatePosition cfmm receiver2 (- toInteger liquidityDelta `div` 10) 1
 
       balanceReceiver1X <- balanceOf x receiver1
       balanceReceiver1Y <- balanceOf y receiver1
@@ -1045,17 +783,7 @@ test_position_initialization =
         initialBalanceX <- balanceOf x cfmm
         initialBalanceY <- balanceOf y cfmm
 
-        withSender liquidityProvider $
-          call cfmm (Call @"Set_position")
-            SetPositionParam
-              { sppLowerTickIndex = lowerTickIndex
-              , sppUpperTickIndex = upperTickIndex
-              , sppLowerTickWitness = minTickIndex
-              , sppUpperTickWitness = minTickIndex
-              , sppLiquidity = liquidityDelta
-              , sppDeadline = validDeadline
-              , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
-              }
+        withSender liquidityProvider $ setPosition cfmm liquidityDelta (lowerTickIndex, upperTickIndex)
         checkAllInvariants cfmm
 
         st <- getFullStorage cfmm
@@ -1130,35 +858,13 @@ test_position_initialization =
 test_updating_nonexisting_position :: TestTree
 test_updating_nonexisting_position =
   nettestScenarioOnEmulatorCaps "attempt to update a non-existing position properly fails" $ do
-    let liquidityDelta = 10000000
-    let lowerTickIndex = -10
-    let upperTickIndex = 10
-
     liquidityProvider <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
 
-    withSender liquidityProvider $ do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = liquidityDelta
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken 1000000 1000000
-          }
-      call cfmm (Call @"Update_position")
-        UpdatePositionParam
-          { uppPositionId = PositionId 3
-          , uppLiquidityDelta = toInteger liquidityDelta
-          , uppToX = liquidityProvider
-          , uppToY = liquidityProvider
-          , uppDeadline = validDeadline
-          , uppMaximumTokensContributed = PerToken 1 1
-          }
-          & expectCustomError_ #fA2_TOKEN_UNDEFINED
-
+    withSender liquidityProvider do
+      setPosition cfmm 1_e7 (-10, 10)
+      updatePosition cfmm liquidityProvider 1_e7 3
+        & expectCustomError_ #fA2_TOKEN_UNDEFINED
 
 ----------------------------------------------------------------------------
 -- Hedgehog generators

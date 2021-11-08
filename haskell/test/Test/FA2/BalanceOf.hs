@@ -18,8 +18,10 @@ import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Morley.Nettest
 import Morley.Nettest.Tasty
 
-import Test.FA2.Common
 import Test.Util
+
+liquidity :: Natural
+liquidity = 1_e7
 
 test_unknown_position :: TestTree
 test_unknown_position =
@@ -43,7 +45,7 @@ test_owned_position =
   nettestScenarioOnEmulatorCaps "balance_of is 1 for an owned position" do
     owner <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
-    setSimplePosition cfmm owner -10 10
+    withSender owner $ setPosition cfmm liquidity (-10, 10)
     balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 1
 
 test_unowned_position :: TestTree
@@ -52,7 +54,7 @@ test_unowned_position =
     owner <- newAddress auto
     nonOwner <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner, nonOwner]
-    setSimplePosition cfmm owner -10 15
+    withSender owner $ setPosition cfmm liquidity (-10, 15)
 
     balanceOf (TokenInfo (FA2.TokenId 0) cfmm) nonOwner @@== 0
 
@@ -61,7 +63,7 @@ test_exisiting_position =
   nettestScenarioOnEmulatorCaps "balance_of is 0 if caller is unknown" do
     owner <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
-    setSimplePosition cfmm owner 10 15
+    withSender owner $ setPosition cfmm liquidity (10, 15)
 
     nonOwner <- newAddress auto
     balanceOf (TokenInfo (FA2.TokenId 0) cfmm) nonOwner @@== 0
@@ -75,12 +77,12 @@ test_multiple_positions =
     nonOwner1 <- newAddress auto
     nonOwner2 <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner1, owner2, owner3, nonOwner1]
-    setSimplePosition cfmm owner1 -20 -15   -- TokenId 0
-    setSimplePosition cfmm owner1 -10 1     -- TokenId 1
-    setSimplePosition cfmm owner1 6 17      -- TokenId 2
-    setSimplePosition cfmm owner2 -10 15    -- TokenId 3
-    setSimplePosition cfmm owner3 -10 15    -- TokenId 4
-    setSimplePosition cfmm owner3 -1 8      -- TokenId 5
+    withSender owner1 $ setPosition cfmm liquidity (-20, -15)   -- TokenId 0
+    withSender owner1 $ setPosition cfmm liquidity (-10, 1)     -- TokenId 1
+    withSender owner1 $ setPosition cfmm liquidity (6, 17)      -- TokenId 2
+    withSender owner2 $ setPosition cfmm liquidity (-10, 15)    -- TokenId 3
+    withSender owner3 $ setPosition cfmm liquidity (-10, 15)    -- TokenId 4
+    withSender owner3 $ setPosition cfmm liquidity (-1, 8)      -- TokenId 5
 
     let tokenIds = map FA2.TokenId [0..5]
 

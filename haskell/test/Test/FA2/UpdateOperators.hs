@@ -19,8 +19,7 @@ import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Morley.Nettest
 import Morley.Nettest.Tasty
 
-import Test.FA2.Common
-import Test.Util (prepareSomeSegCFMM, transferToken', updateOperator, updateOperators)
+import Test.Util
 
 test_sender_owner :: TestTree
 test_sender_owner =
@@ -46,7 +45,7 @@ test_unknown_position =
 
     withSender owner $ updateOperator cfmm owner operator (FA2.TokenId 0) True
     -- The transfer can be performed even if the token_id is added later
-    setSimplePosition cfmm owner -10 15
+    withSender owner $ setPosition cfmm 1_e7 (-10, 15)
     receiver <- newAddress auto
     withSender operator $ transferToken' cfmm owner receiver (FA2.TokenId 0)
 
@@ -94,12 +93,14 @@ test_multiple_updates =
     operator1 <- newAddress auto
     operator2 <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner, operator1, operator2]
-    setSimplePosition cfmm owner -10 15
-    setSimplePosition cfmm owner -20 -15
+    withSender owner do
+      setPosition cfmm 1_e7 (-10, 15)
+      setPosition cfmm 1_e7 (-20, -15)
 
-    let addOperator1 = FA2.AddOperator $ FA2.OperatorParam owner operator1 (FA2.TokenId 0)
-        removeOperator1 = FA2.RemoveOperator $ FA2.OperatorParam owner operator1 (FA2.TokenId 1)
-        addOperator2 = FA2.AddOperator $ FA2.OperatorParam owner operator2 (FA2.TokenId 1)
-    withSender owner $ updateOperators cfmm [addOperator1, removeOperator1, addOperator2]
+      let addOperator1 = FA2.AddOperator $ FA2.OperatorParam owner operator1 (FA2.TokenId 0)
+          removeOperator1 = FA2.RemoveOperator $ FA2.OperatorParam owner operator1 (FA2.TokenId 1)
+          addOperator2 = FA2.AddOperator $ FA2.OperatorParam owner operator2 (FA2.TokenId 1)
+      updateOperators cfmm [addOperator1, removeOperator1, addOperator2]
+
     withSender operator1 $ transferToken' cfmm owner operator2 (FA2.TokenId 0)
     withSender operator2 $ transferToken' cfmm owner operator1 (FA2.TokenId 1)

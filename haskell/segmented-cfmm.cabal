@@ -189,7 +189,6 @@ test-suite segmented-cfmm-test
   other-modules:
       Test.FA2
       Test.FA2.BalanceOf
-      Test.FA2.Common
       Test.FA2.Transfer
       Test.FA2.UpdateOperators
       Test.Invariants
