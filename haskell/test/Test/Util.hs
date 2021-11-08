@@ -10,7 +10,9 @@ module Test.Util
     clevelandProp
   , evalJust
   -- * FA2 helpers
+  , TokenInfo(..)
   , simpleFA2Storage
+  , originateFA2
   , balanceOf
   , balancesOf
   , updateOperator
@@ -62,13 +64,17 @@ import Tezos.Address (ta)
 import Tezos.Core (timestampPlusSeconds)
 import Time (sec)
 
-import FA2.Types
 import SegCFMM.Types as CFMM
 import Test.SegCFMM.Contract (TokenType(..), segCFMMContract)
 import Test.SegCFMM.Storage as CFMM
 
 deriving stock instance Eq CumulativesBuffer
 deriving stock instance Eq Storage
+
+data TokenInfo = TokenInfo
+  { tiTokenId :: FA2.TokenId
+  , tiToken :: ContractHandler FA2.FA2SampleParameter FA2.Storage
+  }
 
 ----------------------------------------------------------------------------
 -- Cleveland helpers
@@ -93,6 +99,21 @@ simpleFA2Storage addresses tokenId = FA2.Storage
   , sOperators = mempty
   , sTokenMetadata = mempty
   }
+
+originateFA2
+  :: MonadNettest caps base m
+  => [Address]
+  -> FA2.TokenId
+  -> m TokenInfo
+originateFA2 accounts tokenId@(FA2.TokenId tid) = do
+  let st = FA2.Storage
+        { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, tokenId), 1_e15)
+        , sOperators = mempty
+        , sTokenMetadata = mempty
+        }
+  let name = "fa2-" <> show tid
+  tokenAddr <- originateSimple name st (FA2.fa2Contract def { FA2.cAllowedTokenIds = [tokenId] })
+  pure $ TokenInfo tokenId tokenAddr
 
 deriveManyRPC "FA2.BalanceResponseItem" []
 deriving via (GenericBuildable BalanceRequestItemRPC) instance Buildable BalanceRequestItemRPC
@@ -198,48 +219,47 @@ prepareSomeSegCFMM
   :: MonadNettest caps base m
   => [Address]
   -> m ( ContractHandler CFMM.Parameter CFMM.Storage
-       , (FA2Token, FA2Token)
+       , (TokenInfo, TokenInfo)
        )
-prepareSomeSegCFMM = prepareSomeSegCFMM' defaultStorage
+prepareSomeSegCFMM accounts =
+  prepareSomeSegCFMM' accounts Nothing Nothing id
 
--- | Like 'prepareSomeSegCFMM' but accepts multiple (or no) liquidity providers.
+-- | Like 'prepareSomeSegCFMM' but allows overriding some defaults.
 prepareSomeSegCFMM'
   :: MonadNettest caps base m
-  => CFMM.Storage
-  -> [Address]
+  => [Address]
+  -> Maybe (TokenInfo, TokenInfo)
+  -> Maybe CFMM.Storage
+  -> (Constants -> Constants)
   -> m ( ContractHandler CFMM.Parameter CFMM.Storage
-       , (FA2Token, FA2Token)
+       , (TokenInfo, TokenInfo)
        )
-prepareSomeSegCFMM' initialStorage liquidityProviders = do
-  let xTokenId = FA2.TokenId 0
-  let yTokenId = FA2.TokenId 1
-  let xFa2storage = simpleFA2Storage liquidityProviders xTokenId
-  let yFa2storage = simpleFA2Storage liquidityProviders yTokenId
-  xToken <- originateSimple "fa2-X" xFa2storage
-    (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
-  yToken <- originateSimple "fa2-Y" yFa2storage
-    (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
+prepareSomeSegCFMM' accounts tokensInfoMb initialStorageMb modifyConstants = do
 
-  let initialSt = initialStorage
-        { CFMM.sConstants = (CFMM.sConstants CFMM.defaultStorage)
-          { CFMM.cXTokenAddress = toAddress xToken
-          , CFMM.cXTokenId = xTokenId
-          , CFMM.cYTokenAddress = toAddress yToken
-          , CFMM.cYTokenId = yTokenId
+  tokensInfo@(TokenInfo xTokenId xToken, TokenInfo yTokenId yToken) <-
+    case tokensInfoMb of
+      Just tokensInfo -> pure tokensInfo
+      Nothing -> forEach (FA2.TokenId 0, FA2.TokenId 1) $ originateFA2 accounts
+
+  let initialStorage = fromMaybe defaultStorage initialStorageMb
+  let initialStorage' = initialStorage
+        { sConstants = modifyConstants $ (sConstants initialStorage)
+          { cXTokenAddress = toAddress xToken
+          , cXTokenId = xTokenId
+          , cYTokenAddress = toAddress yToken
+          , cYTokenId = yTokenId
           }
         }
-  cfmm <- originateSegCFMM FA2 FA2 initialSt
+  cfmm <- originateSegCFMM FA2 FA2 initialStorage'
 
-  forM_ liquidityProviders $ \lp ->
-    withSender lp do
-      call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam lp (toAddress cfmm) xTokenId]
-      call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam lp (toAddress cfmm) yTokenId]
+  forM_ accounts $ \account ->
+    withSender account do
+      updateOperator xToken account (toAddress cfmm) xTokenId True
+      updateOperator yToken account (toAddress cfmm) yTokenId True
 
   return
     ( cfmm
-    , ( FA2Token (toAddress xToken) xTokenId
-      , FA2Token (toAddress yToken) yTokenId
-      )
+    , tokensInfo
     )
 
 observe :: (HasCallStack, MonadEmulated caps base m) => ContractHandler Parameter st -> m CumulativesValue

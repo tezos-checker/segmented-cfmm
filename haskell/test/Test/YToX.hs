@@ -11,7 +11,6 @@ import Data.Map ((!))
 import Hedgehog hiding (assert, failure)
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-import qualified Indigo.Contracts.FA2Sample as FA2
 import Lorentz hiding (assert, not, now, (>>))
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Morley.Nettest
@@ -24,25 +23,7 @@ import SegCFMM.Errors
 import SegCFMM.Types
 import Test.Invariants
 import Test.Math
-import Test.SegCFMM.Contract (TokenType(..))
-import Test.SegCFMM.Storage (defaultStorage)
 import Test.Util
-
-mkStorage
-  :: ContractHandler FA2.FA2SampleParameter FA2.Storage -> FA2.TokenId
-  -> ContractHandler FA2.FA2SampleParameter FA2.Storage -> FA2.TokenId
-  -> Natural
-  -> Storage
-mkStorage xToken xTokenId yToken yTokenId feeBps =
-  defaultStorage
-    { sConstants = (sConstants defaultStorage)
-      { cXTokenAddress = toAddress xToken
-      , cXTokenId = xTokenId
-      , cYTokenAddress = toAddress yToken
-      , cYTokenId = yTokenId
-      , cFeeBps = feeBps
-      }
-    }
 
 test_swapping_within_a_single_tick_range :: TestTree
 test_swapping_within_a_single_tick_range =
@@ -65,31 +46,10 @@ test_swapping_within_a_single_tick_range =
       swapper <- newAddress auto
       swapReceiver <- newAddress auto
       feeReceiver <- newAddress auto
-      let accounts = [liquidityProvider, swapper]
 
-      let xTokenId = FA2.TokenId 0
-      let yTokenId = FA2.TokenId 1
-      let xFa2storage = FA2.Storage
-            { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, xTokenId), userFA2Balance)
-            , sOperators = mempty
-            , sTokenMetadata = mempty
-            }
-      let yFa2storage = FA2.Storage
-            { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, yTokenId), userFA2Balance)
-            , sOperators = mempty
-            , sTokenMetadata = mempty
-            }
-      xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
-      yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
-
-      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
+      (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
       -- Add some slots to the buffers to make the tests more meaningful.
       call cfmm (Call @"Increase_observation_count") 10
-
-      for_ accounts \account ->
-        withSender account do
-          call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
-          call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) yTokenId]
 
       deadline <- mkDeadline
       withSender liquidityProvider do
@@ -176,32 +136,14 @@ test_many_small_swaps =
 
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
-    let accounts = [liquidityProvider, swapper]
-    let xTokenId = FA2.TokenId 0
-    let yTokenId = FA2.TokenId 1
-    let xFa2storage = FA2.Storage
-          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, xTokenId), userFA2Balance)
-          , sOperators = mempty
-          , sTokenMetadata = mempty
-          }
-    let yFa2storage = FA2.Storage
-          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, yTokenId), userFA2Balance)
-          , sOperators = mempty
-          , sTokenMetadata = mempty
-          }
-    xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
-    yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    cfmm1 <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
-    cfmm2 <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
+    let accounts = [liquidityProvider, swapper]
+    tokens@(TokenInfo xTokenId xToken, TokenInfo yTokenId yToken) <- forEach (FA2.TokenId 0, FA2.TokenId 1) $ originateFA2 accounts
+    (cfmm1, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing (set cFeeBpsL feeBps)
+    (cfmm2, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing (set cFeeBpsL feeBps)
+
     -- Add some slots to the buffers to make the tests more meaningful.
     for_ [cfmm1, cfmm2] \cfmm -> call cfmm (Call @"Increase_observation_count") 10
-
-    for_ accounts \account ->
-      for_ [cfmm1, cfmm2] \cfmm ->
-        withSender account do
-          call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
-          call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) yTokenId]
 
     deadline <- mkDeadline
     withSender liquidityProvider do
@@ -282,32 +224,14 @@ test_crossing_ticks =
     swapper <- newAddress auto
     feeReceiver1 <- newAddress auto
     feeReceiver2 <- newAddress auto
-    let accounts = [liquidityProvider, swapper]
-    let xTokenId = FA2.TokenId 0
-    let yTokenId = FA2.TokenId 1
-    let xFa2storage = FA2.Storage
-          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, xTokenId), userFA2Balance)
-          , sOperators = mempty
-          , sTokenMetadata = mempty
-          }
-    let yFa2storage = FA2.Storage
-          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, yTokenId), userFA2Balance)
-          , sOperators = mempty
-          , sTokenMetadata = mempty
-          }
-    xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
-    yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    cfmm1 <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
-    cfmm2 <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
+    let accounts = [liquidityProvider, swapper]
+    tokens@(TokenInfo xTokenId xToken, TokenInfo yTokenId yToken) <- forEach (FA2.TokenId 0, FA2.TokenId 1) $ originateFA2 accounts
+    (cfmm1, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing (set cFeeBpsL feeBps)
+    (cfmm2, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing (set cFeeBpsL feeBps)
+
     -- Add some slots to the buffers to make the tests more meaningful.
     for_ [cfmm1, cfmm2] \cfmm -> call cfmm (Call @"Increase_observation_count") 10
-
-    for_ accounts \account ->
-      for_ [cfmm1, cfmm2] \cfmm ->
-        withSender account do
-          call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
-          call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) yTokenId]
 
     deadline <- mkDeadline
     withSender liquidityProvider do
@@ -434,7 +358,7 @@ test_crossing_ticks =
 test_fee_split :: TestTree
 test_fee_split =
   nettestScenarioOnEmulatorCaps "fees are correctly assigned to each position" do
-    let feeBps = 5000 -- 50%
+    let feeBps = 50_00 -- 50%
 
     let liquidityDelta = 1_e6
     let userFA2Balance = 1_e15
@@ -446,28 +370,7 @@ test_fee_split =
     swapper <- newAddress auto
     feeReceiver1 <- newAddress auto
     feeReceiver2 <- newAddress auto
-    let accounts = [liquidityProvider, swapper]
-    let xTokenId = FA2.TokenId 0
-    let yTokenId = FA2.TokenId 1
-    let xFa2storage = FA2.Storage
-          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, xTokenId), userFA2Balance)
-          , sOperators = mempty
-          , sTokenMetadata = mempty
-          }
-    let yFa2storage = FA2.Storage
-          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, yTokenId), userFA2Balance)
-          , sOperators = mempty
-          , sTokenMetadata = mempty
-          }
-    xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
-    yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
-
-    cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
-
-    for_ accounts \account ->
-      withSender account do
-        call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
-        call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) yTokenId]
+    (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
 
     deadline <- mkDeadline
     withSender liquidityProvider do
@@ -522,33 +425,10 @@ test_must_exceed_min_dx =
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
     let userFA2Balance = 1_e15
-    let feeBps = 100
 
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
-    let accounts = [liquidityProvider, swapper]
-
-    let xTokenId = FA2.TokenId 0
-    let yTokenId = FA2.TokenId 1
-    let xFa2storage = FA2.Storage
-          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, xTokenId), userFA2Balance)
-          , sOperators = mempty
-          , sTokenMetadata = mempty
-          }
-    let yFa2storage = FA2.Storage
-          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, yTokenId), userFA2Balance)
-          , sOperators = mempty
-          , sTokenMetadata = mempty
-          }
-    xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
-    yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
-
-    cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
-
-    for_ accounts \account ->
-      withSender account do
-        call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
-        call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) yTokenId]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper]
 
     deadline <- mkDeadline
     withSender liquidityProvider do
@@ -579,33 +459,10 @@ test_fails_if_its_past_the_deadline =
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
     let userFA2Balance = 1_e15
-    let feeBps = 100
 
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
-    let accounts = [liquidityProvider, swapper]
-
-    let xTokenId = FA2.TokenId 0
-    let yTokenId = FA2.TokenId 1
-    let xFa2storage = FA2.Storage
-          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, xTokenId), userFA2Balance)
-          , sOperators = mempty
-          , sTokenMetadata = mempty
-          }
-    let yFa2storage = FA2.Storage
-          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, yTokenId), userFA2Balance)
-          , sOperators = mempty
-          , sTokenMetadata = mempty
-          }
-    xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
-    yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
-
-    cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
-
-    for_ accounts \account ->
-      withSender account do
-        call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
-        call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) yTokenId]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper]
 
     deadline <- mkDeadline
     withSender liquidityProvider do
@@ -637,29 +494,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
     let userFA2Balance = 1_e15
-    let accounts = [liquidityProvider, swapper]
-    let xTokenId = FA2.TokenId 0
-    let yTokenId = FA2.TokenId 1
-    let xFa2storage = FA2.Storage
-          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, xTokenId), userFA2Balance)
-          , sOperators = mempty
-          , sTokenMetadata = mempty
-          }
-    let yFa2storage = FA2.Storage
-          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, yTokenId), userFA2Balance)
-          , sOperators = mempty
-          , sTokenMetadata = mempty
-          }
-    xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
-    yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
-
-    cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId 200
-    checkAllInvariants cfmm
-
-    for_ accounts \account ->
-      withSender account do
-        call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
-        call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) yTokenId]
+    (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM [liquidityProvider, swapper]
 
     deadline <- mkDeadline
     withSender liquidityProvider do
@@ -675,7 +510,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
           }
 
     withSender swapper do
-      -- Place a swpa big enough to exhaust the position's liquidity
+      -- Place a swap big enough to exhaust the position's liquidity
       call cfmm (Call @"Y_to_x") YToXParam
         { ypDy = 200
         , ypDeadline = deadline

@@ -47,6 +47,13 @@ module SegCFMM.Types
   , cbAllEntries
   , initCumulativesBuffer
   , Constants(..)
+  , cFeeBpsL
+  , cCtezBurnFeeBpsL
+  , cXTokenIdL
+  , cYTokenIdL
+  , cXTokenAddressL
+  , cYTokenAddressL
+  , cTickSpacingL
 
   -- * Operators
   , Operators
@@ -62,6 +69,7 @@ import qualified Data.Map as Map
 import Data.Ratio ((%))
 import Fmt (Buildable, GenericBuildable(..), build, pretty, (+|), (|+))
 import qualified Text.Show
+import Util.Lens (makeLensesWith, postfixLFields)
 
 import qualified Control.Exception as E
 import Lorentz hiding (abs, now)
@@ -650,3 +658,5 @@ type instance AsRPC FA2.TokenId = FA2.TokenId
 
 deriveRPCWithStrategy "Storage" ligoLayout
 deriving via (GenericBuildable StorageRPC) instance Buildable StorageRPC
+
+makeLensesWith postfixLFields ''Constants

@@ -40,9 +40,9 @@ test_Continuity :: TestTree
 test_Continuity =
   nettestScenarioCaps "Returned cumulative values continuously grow over time" do
     alice <- newAddress "alice"
-    (cfmm, _) <- prepareSomeSegCFMM' defaultStorage
-      { sCumulativesBuffer = initCumulativesBuffer 100
-      } [alice]
+    (cfmm, _) <- prepareSomeSegCFMM' [alice] Nothing
+      (Just defaultStorage { sCumulativesBuffer = initCumulativesBuffer 100 })
+      id
 
     advanceTime (sec 3)
 
@@ -78,9 +78,9 @@ test_TimeOutOfBounds :: TestTree
 test_TimeOutOfBounds =
   nettestScenarioCaps "Observing time out of bounds" do
     alice <- newAddress "alice"
-    (cfmm, _) <- prepareSomeSegCFMM' defaultStorage
-      { sCumulativesBuffer = initCumulativesBuffer 100
-      } [alice]
+    (cfmm, _) <- prepareSomeSegCFMM' [alice] Nothing
+      (Just defaultStorage { sCumulativesBuffer = initCumulativesBuffer 100 })
+      id
 
     now <- getNow
     consumer <- originateSimple "consumer" [] contractConsumer
@@ -183,9 +183,9 @@ test_LargeInitialBuffer =
   nettestScenarioOnEmulatorCaps "Setting large initial buffer works properly" do
     alice <- newAddress "alice"
     let incr = 10
-    (cfmm, _) <- prepareSomeSegCFMM' defaultStorage
-      { sCumulativesBuffer = initCumulativesBuffer incr
-      } [alice]
+    (cfmm, _) <- prepareSomeSegCFMM' [alice] Nothing
+      (Just defaultStorage { sCumulativesBuffer = initCumulativesBuffer incr })
+      id
 
     -- Note: this also triggers the contract to record a value in the buffer
     withSender alice do
