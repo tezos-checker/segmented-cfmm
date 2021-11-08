@@ -70,10 +70,8 @@ import Test.SegCFMM.Storage as CFMM
 deriving stock instance Eq CumulativesBuffer
 deriving stock instance Eq Storage
 
-data TokenInfo = TokenInfo
-  { tiTokenId :: FA2.TokenId
-  , tiToken :: ContractHandler FA2.FA2SampleParameter FA2.Storage
-  }
+data TokenInfo where
+  TokenInfo :: FA2.ParameterC param => FA2.TokenId -> ContractHandler param st -> TokenInfo
 
 ----------------------------------------------------------------------------
 -- Cleveland helpers
@@ -116,9 +114,9 @@ deriving via (GenericBuildable BalanceResponseItemRPC) instance Buildable Balanc
 
 -- | Retrieve the FA2 balance for a given account and token.
 balanceOf
-  :: (HasCallStack, MonadNettest caps base m, ToAddress addr, FA2.ParameterC param)
-  => ContractHandler param storage -> FA2.TokenId -> addr -> m Natural
-balanceOf fa2 tokenId account = balancesOf fa2 [tokenId] account >>= \case
+  :: (HasCallStack, MonadNettest caps base m, ToAddress addr)
+  => TokenInfo -> addr -> m Natural
+balanceOf (TokenInfo tokenId fa2) account = balancesOf fa2 [tokenId] account >>= \case
   [bal] -> return bal
   bals  -> failure $ unlinesF
     [ "Expected consumer storage to have exactly 1 item in its balance response."

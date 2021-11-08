@@ -43,9 +43,9 @@ test_BasicWorkflow =
     liquidityProvider <- newAddress "liquidity-provider"
 
     -- Prepare token with reward
-    (TokenInfo miningRewardTokenId miningRewardTokenContract) <- originateFA2 [rewardGiver] FA2.theTokenId
+    miningRewardTokenInfo@(TokenInfo miningRewardTokenId miningRewardTokenContract) <- originateFA2 [rewardGiver] FA2.theTokenId
     let miningRewardToken = FA2Token (toAddress miningRewardTokenContract) miningRewardTokenId
-    let getRewardOf = balanceOf miningRewardTokenContract miningRewardTokenId
+    let getRewardOf = balanceOf miningRewardTokenInfo
 
     -- Prepare the contracts
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]

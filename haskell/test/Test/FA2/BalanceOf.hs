@@ -19,7 +19,7 @@ import Morley.Nettest
 import Morley.Nettest.Tasty
 
 import Test.FA2.Common
-import Test.Util (balanceOf, balancesOf, prepareSomeSegCFMM)
+import Test.Util
 
 test_unknown_position :: TestTree
 test_unknown_position =
@@ -27,9 +27,9 @@ test_unknown_position =
     owner <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
 
-    expectCustomError_ #fA2_TOKEN_UNDEFINED $ balanceOf cfmm (FA2.TokenId 0) owner
-    expectCustomError_ #fA2_TOKEN_UNDEFINED $ balanceOf cfmm (FA2.TokenId 1) owner
-    expectCustomError_ #fA2_TOKEN_UNDEFINED $ balanceOf cfmm (FA2.TokenId 8) owner
+    expectCustomError_ #fA2_TOKEN_UNDEFINED $ balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner
+    expectCustomError_ #fA2_TOKEN_UNDEFINED $ balanceOf (TokenInfo (FA2.TokenId 1) cfmm) owner
+    expectCustomError_ #fA2_TOKEN_UNDEFINED $ balanceOf (TokenInfo (FA2.TokenId 8) cfmm) owner
 
 test_empty_requests :: TestTree
 test_empty_requests =
@@ -44,7 +44,7 @@ test_owned_position =
     owner <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
     setSimplePosition cfmm owner -10 10
-    balanceOf cfmm (FA2.TokenId 0) owner @@== 1
+    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 1
 
 test_unowned_position :: TestTree
 test_unowned_position =
@@ -54,7 +54,7 @@ test_unowned_position =
     cfmm <- fst <$> prepareSomeSegCFMM [owner, nonOwner]
     setSimplePosition cfmm owner -10 15
 
-    balanceOf cfmm (FA2.TokenId 0) nonOwner @@== 0
+    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) nonOwner @@== 0
 
 test_exisiting_position :: TestTree
 test_exisiting_position =
@@ -64,7 +64,7 @@ test_exisiting_position =
     setSimplePosition cfmm owner 10 15
 
     nonOwner <- newAddress auto
-    balanceOf cfmm (FA2.TokenId 0) nonOwner @@== 0
+    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) nonOwner @@== 0
 
 test_multiple_positions :: TestTree
 test_multiple_positions =

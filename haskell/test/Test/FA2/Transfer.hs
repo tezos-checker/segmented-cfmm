@@ -177,11 +177,11 @@ test_owner_transfer =
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
 
     setSimplePosition cfmm owner -10 15
-    balanceOf cfmm (FA2.TokenId 0) owner @@== 1
-    balanceOf cfmm (FA2.TokenId 0) receiver @@== 0
+    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 1
+    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) receiver @@== 0
     withSender owner $ transferToken' cfmm owner receiver (FA2.TokenId 0)
-    balanceOf cfmm (FA2.TokenId 0) owner @@== 0
-    balanceOf cfmm (FA2.TokenId 0) receiver @@== 1
+    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 0
+    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) receiver @@== 1
     -- check that previous owner can no longer manage the position ...
     expectCustomError #fA2_INSUFFICIENT_BALANCE (#required .! 1, #present .! 0) $
       withSender owner $ transferToken' cfmm owner receiver (FA2.TokenId 0)
@@ -199,13 +199,13 @@ test_operator_transfer =
     setSimplePosition cfmm owner -10 15
     withSender owner $ updateOperator cfmm owner operator (FA2.TokenId 0) True
 
-    balanceOf cfmm (FA2.TokenId 0) owner @@== 1
-    balanceOf cfmm (FA2.TokenId 0) operator @@== 0
-    balanceOf cfmm (FA2.TokenId 0) receiver @@== 0
+    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 1
+    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) operator @@== 0
+    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) receiver @@== 0
     withSender operator $ transferToken' cfmm owner receiver (FA2.TokenId 0)
-    balanceOf cfmm (FA2.TokenId 0) owner @@== 0
-    balanceOf cfmm (FA2.TokenId 0) operator @@== 0
-    balanceOf cfmm (FA2.TokenId 0) receiver @@== 1
+    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 0
+    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) operator @@== 0
+    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) receiver @@== 1
 
 test_self_transfer :: TestTree
 test_self_transfer =

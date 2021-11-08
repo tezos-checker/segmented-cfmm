@@ -117,6 +117,7 @@ test_swapping_within_a_single_tick_range =
             fromList $ accounts <&> (, userTokenBalance)
       xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
       yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
+      let x = TokenInfo xTokenId xToken
 
       cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
       -- Add some slots to the buffers to make the tests more meaningful.
@@ -142,9 +143,9 @@ test_swapping_within_a_single_tick_range =
 
       for_ swaps \dx -> do
         initialSt <- getFullStorage cfmm
-        initialBalanceSwapperX <- balanceOf xToken xTokenId swapper
+        initialBalanceSwapperX <- balanceOf x swapper
         initialBalanceSwapperY <- getFA12Balance yToken swapper
-        initialBalanceSwapReceiverX <- balanceOf xToken xTokenId swapReceiver
+        initialBalanceSwapReceiverX <- balanceOf x swapReceiver
         initialBalanceSwapReceiverY <- getFA12Balance yToken swapReceiver
 
         withSender swapper do
@@ -176,10 +177,10 @@ test_swapping_within_a_single_tick_range =
 
         -- The right amount of tokens was subtracted from the `swapper`'s balance
         let expectedDy = receivedY' (sSqrtPrice initialSt) (sSqrtPrice finalSt) (sLiquidity initialSt) protoFeeBps
-        balanceOf xToken xTokenId swapper @@== initialBalanceSwapperX - dx
+        balanceOf x swapper @@== initialBalanceSwapperX - dx
         getFA12Balance yToken swapper @@== initialBalanceSwapperY
         -- The right amount of tokens was sent to the `receiver`.
-        balanceOf xToken xTokenId swapReceiver @@== initialBalanceSwapReceiverX
+        balanceOf x swapReceiver @@== initialBalanceSwapReceiverX
         getFA12Balance yToken swapReceiver @@== initialBalanceSwapReceiverY + fromIntegral @Integer @Natural expectedDy
 
       -- `feeReceiver` receives the expected fees.
@@ -190,7 +191,7 @@ test_swapping_within_a_single_tick_range =
             <&> (\dx -> calcSwapFee feeBps dx)
             & sum
       -- `update_position` rounds the fee down, so it's possible 1 X token is lost.
-      receivedFee <- balanceOf xToken xTokenId feeReceiver
+      receivedFee <- balanceOf x feeReceiver
       receivedFee `isInRangeNat` expectedFees $ (1, 0)
 
 test_many_small_swaps :: TestTree
@@ -225,6 +226,7 @@ test_many_small_swaps =
           fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
+    let x = TokenInfo xTokenId xToken
 
     cfmm1 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId 0 0
     cfmm2 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId 0 0
@@ -295,8 +297,8 @@ test_many_small_swaps =
     cfmm2YBalance `isInRangeNat` cfmm1YBalance $ (0, swapCount)
 
     -- The two contracts should hold the same exact amount of X tokens
-    cfmm1XBalance <- balanceOf xToken xTokenId cfmm1
-    cfmm2XBalance <- balanceOf xToken xTokenId cfmm2
+    cfmm1XBalance <- balanceOf x cfmm1
+    cfmm2XBalance <- balanceOf x cfmm2
     cfmm1XBalance @== cfmm2XBalance
 
 
@@ -331,6 +333,7 @@ test_crossing_ticks =
           fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
+    let x = TokenInfo xTokenId xToken
 
     cfmm1 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
     cfmm2 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
@@ -372,9 +375,9 @@ test_crossing_ticks =
     checkAllInvariants cfmm1
     checkAllInvariants cfmm2
 
-    cfmm1InitialBalanceX <- balanceOf xToken xTokenId cfmm1
+    cfmm1InitialBalanceX <- balanceOf x cfmm1
     cfmm1InitialBalanceY <- getFA12Balance yToken cfmm1
-    cfmm2InitialBalanceX <- balanceOf xToken xTokenId cfmm2
+    cfmm2InitialBalanceX <- balanceOf x cfmm2
     cfmm2InitialBalanceY <- getFA12Balance yToken cfmm2
 
     -- Place a small swap to move the tick past 0 and advance the time to fill the
@@ -429,9 +432,9 @@ test_crossing_ticks =
 
 
     let calcBalanceDelta initial final = fromIntegral @Natural @Integer final - fromIntegral @Natural @Integer initial
-    cfmm1BalanceDeltaX <- balanceOf xToken xTokenId cfmm1 <&> calcBalanceDelta cfmm1InitialBalanceX
+    cfmm1BalanceDeltaX <- balanceOf x cfmm1 <&> calcBalanceDelta cfmm1InitialBalanceX
     cfmm1BalanceDeltaY <- getFA12Balance yToken cfmm1 <&> calcBalanceDelta cfmm1InitialBalanceY
-    cfmm2BalanceDeltaX <- balanceOf xToken xTokenId cfmm2 <&> calcBalanceDelta cfmm2InitialBalanceX
+    cfmm2BalanceDeltaX <- balanceOf x cfmm2 <&> calcBalanceDelta cfmm2InitialBalanceX
     cfmm2BalanceDeltaY <- getFA12Balance yToken cfmm2 <&> calcBalanceDelta cfmm2InitialBalanceY
     -- The two contract should have received the exact same amount of X tokens
     cfmm1BalanceDeltaX @== cfmm2BalanceDeltaX
@@ -446,8 +449,8 @@ test_crossing_ticks =
     collectAllFees cfmm2 feeReceiver2
     getFA12Balance yToken feeReceiver1 @@== 0
     getFA12Balance yToken feeReceiver2 @@== 0
-    feeReceiver1BalanceX <- balanceOf xToken xTokenId feeReceiver1
-    feeReceiver2BalanceX <- balanceOf xToken xTokenId feeReceiver2
+    feeReceiver1BalanceX <- balanceOf x feeReceiver1
+    feeReceiver2BalanceX <- balanceOf x feeReceiver2
     feeReceiver2BalanceX `isInRangeNat` feeReceiver1BalanceX $ (10, 10)
 
     -- The global accumulators of both contracts should be the same.
@@ -490,6 +493,7 @@ test_fee_split =
           fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
+    let x = TokenInfo xTokenId xToken
 
     cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
 
@@ -535,12 +539,12 @@ test_fee_split =
 
     -- position1 should have earned both X and Y fees.
     collectFees cfmm feeReceiver1 0 liquidityProvider
-    balanceOf xToken xTokenId feeReceiver1 @@/= 0
+    balanceOf x feeReceiver1 @@/= 0
     getFA12Balance yToken feeReceiver1 @@/= 0
 
     -- position2 should have earned X fees only.
     collectFees cfmm feeReceiver2 1 liquidityProvider
-    balanceOf xToken xTokenId feeReceiver2 @@/= 0
+    balanceOf x feeReceiver2 @@/= 0
     getFA12Balance yToken feeReceiver2 @@== 0
 
 test_must_exceed_min_dy :: TestTree
@@ -674,6 +678,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
           fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
+    let x = TokenInfo xTokenId xToken
 
     cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId 200 100
     checkAllInvariants cfmm
@@ -707,11 +712,11 @@ test_swaps_are_noops_when_liquidity_is_zero =
       let
         isNoOp op = do
           initialSt <- getFullStorage cfmm
-          initialBalanceX <- balanceOf xToken xTokenId cfmm
+          initialBalanceX <- balanceOf x cfmm
           initialBalanceY <- getFA12Balance yToken cfmm
           op
           getFullStorage cfmm @@== initialSt
-          balanceOf xToken xTokenId cfmm @@== initialBalanceX
+          balanceOf x cfmm @@== initialBalanceX
           getFA12Balance yToken cfmm @@== initialBalanceY
 
       isNoOp $ call cfmm (Call @"X_to_y") XToYParam

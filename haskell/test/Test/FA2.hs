@@ -110,6 +110,6 @@ test_FA2_positions =
 
       -- in the end all positions should be owned by 'finalOwner'
       forM_ allPositions $ \positionId -> do
-        balanceOf cfmm positionId ownerAndOperator @@== 0
-        balanceOf cfmm positionId ownerOnly        @@== 0
-        balanceOf cfmm positionId finalOwner       @@== 1
+        balanceOf (TokenInfo positionId cfmm) ownerAndOperator @@== 0
+        balanceOf (TokenInfo positionId cfmm) ownerOnly        @@== 0
+        balanceOf (TokenInfo positionId cfmm) finalOwner       @@== 1

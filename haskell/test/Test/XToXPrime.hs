@@ -42,8 +42,7 @@ test_swapping_x_for_x_prime =
       swapReceiver <- newAddress auto
       let accounts = [liquidityProvider, swapper]
 
-      let tokenIds@(xTokenId, yTokenId, zTokenId) = (FA2.TokenId 0, FA2.TokenId 1, FA2.TokenId 2)
-      (x@(TokenInfo _ xToken), y@(TokenInfo _ yToken), z@(TokenInfo _ zToken)) <- forEach tokenIds $ originateFA2 accounts
+      (x, y, z) <- forEach (FA2.TokenId 0, FA2.TokenId 1, FA2.TokenId 2) $ originateFA2 accounts
 
       (cfmm1, _) <- prepareSomeSegCFMM' accounts (Just (x, y)) Nothing (set cFeeBpsL feeBps1)
       (cfmm2, _) <- prepareSomeSegCFMM' accounts (Just (z, y)) Nothing (set cFeeBpsL feeBps2)
@@ -63,12 +62,12 @@ test_swapping_x_for_x_prime =
 
       initialSt1 <- getFullStorage cfmm1
       initialSt2 <- getFullStorage cfmm2
-      initialBalanceSwapperX <- balanceOf xToken xTokenId swapper
-      initialBalanceSwapperY <- balanceOf yToken yTokenId swapper
-      initialBalanceSwapperZ <- balanceOf zToken zTokenId swapper
-      initialBalanceSwapReceiverX <- balanceOf xToken xTokenId swapReceiver
-      initialBalanceSwapReceiverY <- balanceOf yToken yTokenId swapReceiver
-      initialBalanceSwapReceiverZ <- balanceOf zToken zTokenId swapReceiver
+      initialBalanceSwapperX <- balanceOf x swapper
+      initialBalanceSwapperY <- balanceOf y swapper
+      initialBalanceSwapperZ <- balanceOf z swapper
+      initialBalanceSwapReceiverX <- balanceOf x swapReceiver
+      initialBalanceSwapReceiverY <- balanceOf y swapReceiver
+      initialBalanceSwapReceiverZ <- balanceOf z swapReceiver
 
       withSender swapper do
         call cfmm1 (Call @"X_to_x_prime") XToXPrimeParam
@@ -81,12 +80,12 @@ test_swapping_x_for_x_prime =
       checkAllInvariants cfmm1
       checkAllInvariants cfmm2
 
-      finalBalanceSwapperX <- balanceOf xToken xTokenId swapper
-      finalBalanceSwapperY <- balanceOf yToken yTokenId swapper
-      finalBalanceSwapperZ <- balanceOf zToken zTokenId swapper
-      finalBalanceSwapReceiverX <- balanceOf xToken xTokenId swapReceiver
-      finalBalanceSwapReceiverY <- balanceOf yToken yTokenId swapReceiver
-      finalBalanceSwapReceiverZ <- balanceOf zToken zTokenId swapReceiver
+      finalBalanceSwapperX <- balanceOf x swapper
+      finalBalanceSwapperY <- balanceOf y swapper
+      finalBalanceSwapperZ <- balanceOf z swapper
+      finalBalanceSwapReceiverX <- balanceOf x swapReceiver
+      finalBalanceSwapReceiverY <- balanceOf y swapReceiver
+      finalBalanceSwapReceiverZ <- balanceOf z swapReceiver
 
       let expectedFee1 = calcSwapFee feeBps1 dx
       let expectedNewPrice1 = calcNewPriceX (sSqrtPrice initialSt1) (sLiquidity initialSt1) (dx - expectedFee1)
