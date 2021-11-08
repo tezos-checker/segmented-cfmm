@@ -16,7 +16,6 @@ import Morley.Nettest
 import Morley.Nettest.Tasty
 import Tezos.Core
 
-import qualified Indigo.Contracts.FA2Sample as FA2
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 
 import Cleveland.Util
@@ -44,11 +43,9 @@ test_BasicWorkflow =
     liquidityProvider <- newAddress "liquidity-provider"
 
     -- Prepare token with reward
-    miningRewardTokenContract <- originateSimple "reward-token"
-      (simpleFA2Storage [rewardGiver] FA2.theTokenId)
-      (FA2.fa2Contract def)
-    let miningRewardToken = FA2Token (toAddress miningRewardTokenContract) FA2.theTokenId
-    let getRewardOf = balanceOf miningRewardTokenContract (fa2TokenId miningRewardToken)
+    (TokenInfo miningRewardTokenId miningRewardTokenContract) <- originateFA2 [rewardGiver] FA2.theTokenId
+    let miningRewardToken = FA2Token (toAddress miningRewardTokenContract) miningRewardTokenId
+    let getRewardOf = balanceOf miningRewardTokenContract miningRewardTokenId
 
     -- Prepare the contracts
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
@@ -60,7 +57,7 @@ test_BasicWorkflow =
       now <- getNow
       withSender rewardGiver do
         call miningRewardTokenContract (Call @"Update_operators")
-          [FA2.AddOperator $ FA2.OperatorParam rewardGiver (toAddress staker) FA2.theTokenId]
+          [FA2.AddOperator $ FA2.OperatorParam rewardGiver (toAddress staker) miningRewardTokenId]
         call staker (Call @"Create_incentive") IncentiveParams
           { ipRewardToken = miningRewardToken
           , ipTotalReward = 100

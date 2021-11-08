@@ -12,7 +12,6 @@ module Test.Util
   -- * FA2 helpers
   , TokenInfo(..)
   , defaultBalance
-  , simpleFA2Storage
   , originateFA2
   , balanceOf
   , balancesOf
@@ -95,13 +94,6 @@ evalJust = \case
 
 defaultBalance :: Natural
 defaultBalance = 1_e15
-
-simpleFA2Storage :: [Address] -> FA2.TokenId -> FA2.Storage
-simpleFA2Storage addresses tokenId = FA2.Storage
-  { sLedger = mkBigMap $ map (\addr -> ((addr,tokenId), 100000)) addresses
-  , sOperators = mempty
-  , sTokenMetadata = mempty
-  }
 
 originateFA2
   :: MonadNettest caps base m
