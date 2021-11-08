@@ -29,7 +29,7 @@ module Test.Util
   , updatePositionParamSimple
   , gettingCumulativesInsideDiff
   , convertTokens
-  , mkDeadline
+  , validDeadline
   , advanceSecs
   , mapToList
   , mapToListReverse
@@ -61,7 +61,6 @@ import Lorentz.Test (contractConsumer)
 import Morley.Nettest
 import Morley.Nettest.Pure (PureM, runEmulated)
 import Tezos.Address (ta)
-import Tezos.Core (timestampPlusSeconds)
 import Time (sec)
 
 import SegCFMM.Types as CFMM
@@ -279,7 +278,7 @@ setPositionParamSimple (sppLowerTickIndex, sppUpperTickIndex) sppLiquidity =
   , sppLowerTickWitness = minTickIndex
   , sppUpperTickWitness = minTickIndex
   , sppLiquidity
-  , sppDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
+  , sppDeadline = validDeadline
   , sppMaximumTokensContributed = 1e100
   }
 
@@ -290,7 +289,7 @@ updatePositionParamSimple uppPositionId uppLiquidityDelta =
   , uppLiquidityDelta
   , uppToX = receiver
   , uppToY = receiver
-  , uppDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
+  , uppDeadline = validDeadline
   , uppMaximumTokensContributed = 1e100
   }
   where
@@ -331,24 +330,21 @@ convertTokens cfmm tokens =
     EQ -> pass
     GT -> call cfmm (Call @"Y_to_x") YToXParam
       { ypDy = 2
-      , ypDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
+      , ypDeadline = validDeadline
       , ypMinDx = 0
       , ypToDx = receiver
       }
     LT -> call cfmm (Call @"X_to_y") XToYParam
       { xpDx = 2
-      , xpDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
+      , xpDeadline = validDeadline
       , xpMinDy = 0
       , xpToDy = receiver
       }
   where
     receiver = [ta|tz1QCtwyKA4S8USgYRJRghDNYLHkkQ3S1yAU|]
 
--- | Create a valid deadline
-mkDeadline :: MonadNettest caps base m => m Timestamp
-mkDeadline = do
-  currentTime <- getNow
-  pure $ currentTime `timestampPlusSeconds` 1000
+validDeadline :: Timestamp
+validDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
 
 -- | Advance time by @n@ seconds, while calling some view entrypoint to make sure
 -- the cumulative buffers are filled every second.
@@ -418,7 +414,6 @@ collectFees
   -> Address
   -> m ()
 collectFees cfmm receiver posId posOwner = do
-  deadline <- mkDeadline
   withSender posOwner do
     call cfmm (Call @"Update_position")
       UpdatePositionParam
@@ -426,7 +421,7 @@ collectFees cfmm receiver posId posOwner = do
         , uppLiquidityDelta = 0
         , uppToX = receiver
         , uppToY = receiver
-        , uppDeadline = deadline
+        , uppDeadline = validDeadline
         , uppMaximumTokensContributed = PerToken 0 0
         }
 

@@ -17,7 +17,7 @@ module Test.ProtocolFee.XToY
 
 import Prelude
 
-import Data.Map ((!), fromList)
+import Data.Map (fromList, (!))
 import Fmt (Buildable(build), indentF, unlinesF)
 import Hedgehog hiding (assert, failure)
 import qualified Hedgehog.Gen as Gen
@@ -127,7 +127,6 @@ test_swapping_within_a_single_tick_range =
           call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
           call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-      deadline <- mkDeadline
       withSender liquidityProvider do
         call cfmm (Call @"Set_position")
           SetPositionParam
@@ -136,7 +135,7 @@ test_swapping_within_a_single_tick_range =
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidity
-            , sppDeadline = deadline
+            , sppDeadline = validDeadline
             , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
             }
         checkAllInvariants cfmm
@@ -151,7 +150,7 @@ test_swapping_within_a_single_tick_range =
         withSender swapper do
           call cfmm (Call @"X_to_y") XToYParam
             { xpDx = dx
-            , xpDeadline = deadline
+            , xpDeadline = validDeadline
             , xpMinDy = 0
             , xpToDy = swapReceiver
             }
@@ -238,7 +237,6 @@ test_many_small_swaps =
           call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
           call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       for_ [cfmm1, cfmm2] \cfmm -> do
         call cfmm (Call @"Set_position")
@@ -248,7 +246,7 @@ test_many_small_swaps =
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidity
-            , sppDeadline = deadline
+            , sppDeadline = validDeadline
             , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
             }
     checkAllInvariants cfmm1
@@ -258,7 +256,7 @@ test_many_small_swaps =
       -- 1 big swap
       call cfmm1 (Call @"X_to_y") XToYParam
         { xpDx = (swapCount * swapAmount)
-        , xpDeadline = deadline
+        , xpDeadline = validDeadline
         , xpMinDy = 0
         , xpToDy = swapper
         }
@@ -267,7 +265,7 @@ test_many_small_swaps =
       for_ (genericReplicate swapCount swapAmount) \dx ->
         call cfmm2 (Call @"X_to_y") XToYParam
           { xpDx = dx
-          , xpDeadline = deadline
+          , xpDeadline = validDeadline
           , xpMinDy = 0
           , xpToDy = swapper
           }
@@ -345,7 +343,6 @@ test_crossing_ticks =
           call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
           call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       -- Place 1 big position
       call cfmm1 (Call @"Set_position")
@@ -355,7 +352,7 @@ test_crossing_ticks =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidity
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
           }
 
@@ -369,7 +366,7 @@ test_crossing_ticks =
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidity
-            , sppDeadline = deadline
+            , sppDeadline = validDeadline
             , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
             }
     checkAllInvariants cfmm1
@@ -386,7 +383,7 @@ test_crossing_ticks =
       for_ [cfmm1, cfmm2] \cfmm -> do
         call cfmm (Call @"X_to_y") XToYParam
           { xpDx = 200
-          , xpDeadline = deadline
+          , xpDeadline = validDeadline
           , xpMinDy = 0
           , xpToDy = swapper
           }
@@ -399,7 +396,7 @@ test_crossing_ticks =
       for_ [cfmm1, cfmm2] \cfmm -> do
         call cfmm (Call @"X_to_y") XToYParam
           { xpDx = 50_000
-          , xpDeadline = deadline
+          , xpDeadline = validDeadline
           , xpMinDy = 0
           , xpToDy = swapper
           }
@@ -501,7 +498,6 @@ test_fee_split =
         call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
         call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       for_ [position1Bounds, position2Bounds] \(lowerTickIndex, upperTickIndex) -> do
         call cfmm (Call @"Set_position")
@@ -511,7 +507,7 @@ test_fee_split =
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidityDelta
-            , sppDeadline = deadline
+            , sppDeadline = validDeadline
             , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
             }
 
@@ -521,7 +517,7 @@ test_fee_split =
       -- so the Y fee is paid to position1 only.
       call cfmm (Call @"Y_to_x") YToXParam
         { ypDy = 1_000
-        , ypDeadline = deadline
+        , ypDeadline = validDeadline
         , ypMinDx = 0
         , ypToDx = swapper
         }
@@ -531,7 +527,7 @@ test_fee_split =
       -- so the X fee is paid to both position1 and position2.
       call cfmm (Call @"X_to_y") XToYParam
         { xpDx = 20_000
-        , xpDeadline = deadline
+        , xpDeadline = validDeadline
         , xpMinDy = 0
         , xpToDy = swapper
         }
@@ -581,7 +577,6 @@ test_must_exceed_min_dy =
         call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
         call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -590,14 +585,14 @@ test_must_exceed_min_dy =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidity
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
           }
 
     withSender swapper do
       call cfmm (Call @"X_to_y") XToYParam
         { xpDx = 1
-        , xpDeadline = deadline
+        , xpDeadline = validDeadline
         , xpMinDy = 1000
         , xpToDy = swapper
         }
@@ -637,7 +632,6 @@ test_fails_if_its_past_the_deadline =
         call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
         call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -646,7 +640,7 @@ test_fails_if_its_past_the_deadline =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidity
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
           }
 
@@ -689,7 +683,6 @@ test_swaps_are_noops_when_liquidity_is_zero =
         call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
         call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -698,7 +691,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = 10_000
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
           }
 
@@ -706,7 +699,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
       -- Place a swpa big enough to exhaust the position's liquidity
       call cfmm (Call @"X_to_y") XToYParam
         { xpDx = 200
-        , xpDeadline = deadline
+        , xpDeadline = validDeadline
         , xpMinDy = 0
         , xpToDy = swapper
         }
@@ -723,13 +716,13 @@ test_swaps_are_noops_when_liquidity_is_zero =
 
       isNoOp $ call cfmm (Call @"X_to_y") XToYParam
         { xpDx = 100
-        , xpDeadline = deadline
+        , xpDeadline = validDeadline
         , xpMinDy = 0
         , xpToDy = swapper
         }
       isNoOp $ call cfmm (Call @"Y_to_x") YToXParam
         { ypDy = 100
-        , ypDeadline = deadline
+        , ypDeadline = validDeadline
         , ypMinDx = 0
         , ypToDx = swapper
         }
@@ -762,7 +755,6 @@ test_push_cur_tick_index_just_below_witness =
           call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
           call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-      deadline <- mkDeadline
       withSender liquidityProvider do
         call cfmm (Call @"Set_position")
           SetPositionParam
@@ -771,7 +763,7 @@ test_push_cur_tick_index_just_below_witness =
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = 10000
-            , sppDeadline = deadline
+            , sppDeadline = validDeadline
             , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
             }
         call cfmm (Call @"Set_position")
@@ -781,7 +773,7 @@ test_push_cur_tick_index_just_below_witness =
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = 30000
-            , sppDeadline = deadline
+            , sppDeadline = validDeadline
             , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
             }
 
@@ -801,7 +793,7 @@ test_push_cur_tick_index_just_below_witness =
         -- We want to make sure invariants are not broken when this edge case occurs.
         call cfmm (Call @"X_to_y") XToYParam
           { xpDx = 53
-          , xpDeadline = deadline
+          , xpDeadline = validDeadline
           , xpMinDy = 0
           , xpToDy = swapper
           }
@@ -843,7 +835,6 @@ test_protocol_fees_are_burned =
         call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
         call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -852,7 +843,7 @@ test_protocol_fees_are_burned =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = 10_000
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
           }
 
@@ -864,7 +855,7 @@ test_protocol_fees_are_burned =
     withSender swapper do
       call cfmm (Call @"X_to_y") XToYParam
         { xpDx = 10
-        , xpDeadline = deadline
+        , xpDeadline = validDeadline
         , xpMinDy = 1
         , xpToDy = swapper
         }
@@ -882,7 +873,7 @@ test_protocol_fees_are_burned =
     withSender swapper do
      call cfmm (Call @"X_to_y") XToYParam
        { xpDx = 100
-       , xpDeadline = deadline
+       , xpDeadline = validDeadline
        , xpMinDy = (cfmmBalance1 - 1) `div` 2
        , xpToDy = swapper
        } & expectFailedWith smallerThanMinAssetErr
@@ -891,7 +882,7 @@ test_protocol_fees_are_burned =
     withSender swapper do
       call cfmm (Call @"X_to_y") XToYParam
         { xpDx = 100
-        , xpDeadline = deadline
+        , xpDeadline = validDeadline
         , xpMinDy = 1
         , xpToDy = swapper
         }
@@ -904,7 +895,7 @@ test_protocol_fees_are_burned =
     withSender swapper do
       call cfmm (Call @"X_to_y") XToYParam
         { xpDx = 100
-        , xpDeadline = deadline
+        , xpDeadline = validDeadline
         , xpMinDy = 1
         , xpToDy = swapper
         } & expectFailedWith smallerThanMinAssetErr

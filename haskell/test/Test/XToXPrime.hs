@@ -48,7 +48,6 @@ test_swapping_x_for_x_prime =
       (cfmm1, _) <- prepareSomeSegCFMM' accounts (Just (x, y)) Nothing (set cFeeBpsL feeBps1)
       (cfmm2, _) <- prepareSomeSegCFMM' accounts (Just (z, y)) Nothing (set cFeeBpsL feeBps2)
 
-      deadline <- mkDeadline
       for_ [cfmm1, cfmm2] \cfmm -> do
         withSender liquidityProvider do
           call cfmm (Call @"Set_position")
@@ -58,7 +57,7 @@ test_swapping_x_for_x_prime =
               , sppLowerTickWitness = minTickIndex
               , sppUpperTickWitness = minTickIndex
               , sppLiquidity = liquidity
-              , sppDeadline = deadline
+              , sppDeadline = validDeadline
               , sppMaximumTokensContributed = PerToken 1_e15 1_e15
               }
 
@@ -75,7 +74,7 @@ test_swapping_x_for_x_prime =
         call cfmm1 (Call @"X_to_x_prime") XToXPrimeParam
           { xppDx = dx
           , xppX_PrimeContract = toAddress cfmm2
-          , xppDeadline = deadline
+          , xppDeadline = validDeadline
           , xppMinDxPrime = 0
           , xppToDxPrime = swapReceiver
           }
@@ -121,8 +120,6 @@ test_fails_when_y_doesnt_match =
     (cfmm1, _) <- prepareSomeSegCFMM accounts
     (cfmm2, _) <- prepareSomeSegCFMM accounts
 
-    deadline <- mkDeadline
-
     for_ [cfmm1, cfmm2] \cfmm -> do
       withSender liquidityProvider do
         call cfmm (Call @"Set_position")
@@ -132,7 +129,7 @@ test_fails_when_y_doesnt_match =
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidity
-            , sppDeadline = deadline
+            , sppDeadline = validDeadline
             , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
             }
 
@@ -140,7 +137,7 @@ test_fails_when_y_doesnt_match =
       call cfmm1 (Call @"X_to_x_prime") XToXPrimeParam
         { xppDx = 10
         , xppX_PrimeContract = toAddress cfmm2
-        , xppDeadline = deadline
+        , xppDeadline = validDeadline
         , xppMinDxPrime = 0
         , xppToDxPrime = swapReceiver
         }

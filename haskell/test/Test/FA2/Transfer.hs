@@ -67,7 +67,6 @@ test_removed_position =
     receiver <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
 
-    deadline <- mkDeadline
     withSender owner do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -76,7 +75,7 @@ test_removed_position =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
       call cfmm (Call @"Update_position")
@@ -85,7 +84,7 @@ test_removed_position =
           , uppLiquidityDelta = -(toInteger liquidityDelta)
           , uppToX = owner
           , uppToY = owner
-          , uppDeadline = deadline
+          , uppDeadline = validDeadline
           , uppMaximumTokensContributed = PerToken 1000000 1000000
           }
 
@@ -104,7 +103,6 @@ test_getting_position_back =
     foreigner <- newAddress "foreigner"
     cfmm <- fst <$> prepareSomeSegCFMM [owner]
 
-    deadline <- mkDeadline
     withSender owner $ do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -113,7 +111,7 @@ test_getting_position_back =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = 1000
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
       transferToken' cfmm owner foreigner (FA2.TokenId 0)
@@ -125,7 +123,7 @@ test_getting_position_back =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = 5
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
 

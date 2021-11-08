@@ -9,7 +9,7 @@ import Lorentz hiding (assert, map, not, now, (>>))
 import Morley.Nettest
 
 import SegCFMM.Types
-import Test.Util (mkDeadline)
+import Test.Util
 
 -- | Utility function to make a simple call to @Set_position@ between the two
 -- given 'TickIndex'.
@@ -26,8 +26,7 @@ setSimplePosition
 setSimplePosition cfmm liquidityProvider lowerTickIndex upperTickIndex = do
   let liquidity = 10000000
 
-  deadline <- mkDeadline
-  withSender liquidityProvider $ do
+  withSender liquidityProvider do
     call cfmm (Call @"Set_position")
       SetPositionParam
         { sppLowerTickIndex = lowerTickIndex
@@ -35,6 +34,6 @@ setSimplePosition cfmm liquidityProvider lowerTickIndex upperTickIndex = do
         , sppLowerTickWitness = minTickIndex
         , sppUpperTickWitness = minTickIndex
         , sppLiquidity = liquidity
-        , sppDeadline = deadline
+        , sppDeadline = validDeadline
         , sppMaximumTokensContributed = PerToken 1000000 1000000
         }

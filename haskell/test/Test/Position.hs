@@ -49,7 +49,6 @@ test_equal_ticks =
     liquidityProvider <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
 
-    deadline <- mkDeadline
     withSender liquidityProvider $
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -58,7 +57,7 @@ test_equal_ticks =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = 1
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
           & expectFailedWith tickOrderErr
@@ -71,7 +70,6 @@ test_wrong_tick_order =
     liquidityProvider <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
 
-    deadline <- mkDeadline
     withSender liquidityProvider $
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -80,7 +78,7 @@ test_wrong_tick_order =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = 1
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
           & expectFailedWith tickOrderErr
@@ -94,7 +92,6 @@ test_setting_a_position_with_zero_liquidity_is_a_noop =
     (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM [liquidityProvider]
     initialSt <- getFullStorage cfmm
 
-    deadline <- mkDeadline
     withSender liquidityProvider $
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -103,7 +100,7 @@ test_setting_a_position_with_zero_liquidity_is_a_noop =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = 0
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
 
@@ -125,7 +122,6 @@ test_deposit_and_withdrawal_is_a_noop =
     (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM [liquidityProvider]
     initialSt <- getFullStorage cfmm
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -134,7 +130,7 @@ test_deposit_and_withdrawal_is_a_noop =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
       call cfmm (Call @"Update_position")
@@ -143,7 +139,7 @@ test_deposit_and_withdrawal_is_a_noop =
           , uppLiquidityDelta = -(toInteger liquidityDelta)
           , uppToX = liquidityProvider
           , uppToY = liquidityProvider
-          , uppDeadline = deadline
+          , uppDeadline = validDeadline
           , uppMaximumTokensContributed = PerToken 1000000 1000000
           }
     -- The storage shouldn't have changed (with few exceptions).
@@ -171,7 +167,6 @@ test_adding_liquidity_twice =
     (cfmm1, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing id
     (cfmm2, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing id
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       -- Add liquidity twice to cfmm1
       call cfmm1 (Call @"Set_position")
@@ -181,7 +176,7 @@ test_adding_liquidity_twice =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
       call cfmm1 (Call @"Update_position")
@@ -190,7 +185,7 @@ test_adding_liquidity_twice =
           , uppLiquidityDelta = toInteger liquidityDelta
           , uppToX = liquidityProvider
           , uppToY = liquidityProvider
-          , uppDeadline = deadline
+          , uppDeadline = validDeadline
           , uppMaximumTokensContributed = PerToken 1000000 1000000
           }
       -- Add twice the liquidity once to cfmm2
@@ -201,7 +196,7 @@ test_adding_liquidity_twice =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta * 2
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
 
@@ -227,7 +222,6 @@ test_witnesses_must_be_valid =
     liquidityProvider <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       -- lower_tick_witness has not been initialized
       call cfmm (Call @"Set_position")
@@ -237,7 +231,7 @@ test_witnesses_must_be_valid =
           , sppLowerTickWitness = minTickIndex + 1
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
           & expectFailedWith tickNotExistErr
@@ -250,7 +244,7 @@ test_witnesses_must_be_valid =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex + 1
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
           & expectFailedWith tickNotExistErr
@@ -263,7 +257,7 @@ test_witnesses_must_be_valid =
           , sppLowerTickWitness = maxTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
           & expectFailedWith invalidWitnessErr
@@ -276,7 +270,7 @@ test_witnesses_must_be_valid =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = maxTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
           & expectFailedWith invalidWitnessErr
@@ -306,7 +300,6 @@ test_fails_if_its_past_the_deadline =
           }
           & expectFailedWith pastDeadlineErr
 
-      let validDeadline = now
       call cfmm (Call @"Set_position")
         SetPositionParam
           { sppLowerTickIndex = lowerTickIndex
@@ -314,7 +307,7 @@ test_fails_if_its_past_the_deadline =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = validDeadline
+          , sppDeadline = now
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
 
@@ -388,7 +381,6 @@ test_cannot_set_position_over_max_tick =
     liquidityProvider <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -397,7 +389,7 @@ test_cannot_set_position_over_max_tick =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
           & expectFailedWith tickNotExistErr
@@ -412,7 +404,6 @@ test_maximum_tokens_contributed =
     liquidityProvider <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
 
-    deadline <- mkDeadline
     withSender liquidityProvider $ do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -421,7 +412,7 @@ test_maximum_tokens_contributed =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1 1
           }
           & expectFailedWith highTokensErr
@@ -434,7 +425,7 @@ test_maximum_tokens_contributed =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
       call cfmm (Call @"Update_position")
@@ -443,7 +434,7 @@ test_maximum_tokens_contributed =
           , uppLiquidityDelta = toInteger liquidityDelta
           , uppToX = liquidityProvider
           , uppToY = liquidityProvider
-          , uppDeadline = deadline
+          , uppDeadline = validDeadline
           , uppMaximumTokensContributed = PerToken 1 1
           }
           & expectFailedWith highTokensErr
@@ -459,7 +450,6 @@ test_lowest_and_highest_ticks_cannot_be_garbage_collected =
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
     initialSt <- getFullStorage cfmm
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -468,7 +458,7 @@ test_lowest_and_highest_ticks_cannot_be_garbage_collected =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
       call cfmm (Call @"Update_position")
@@ -477,7 +467,7 @@ test_lowest_and_highest_ticks_cannot_be_garbage_collected =
           , uppLiquidityDelta = -(toInteger liquidityDelta)
           , uppToX = liquidityProvider
           , uppToY = liquidityProvider
-          , uppDeadline = deadline
+          , uppDeadline = validDeadline
           , uppMaximumTokensContributed = PerToken 1000000 1000000
           }
     -- The storage shouldn't have changed (with few exceptions).
@@ -498,7 +488,6 @@ test_withdrawal_overflow =
     liquidityProvider2 <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider1, liquidityProvider2]
 
-    deadline <- mkDeadline
     -- Add some liquidity with `liquidityProvider`
     withSender liquidityProvider1 do
       call cfmm (Call @"Set_position")
@@ -508,7 +497,7 @@ test_withdrawal_overflow =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
     withSender liquidityProvider2 do
@@ -524,7 +513,7 @@ test_withdrawal_overflow =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
       call cfmm (Call @"Update_position")
@@ -533,7 +522,7 @@ test_withdrawal_overflow =
           , uppLiquidityDelta = -(toInteger liquidityDelta) - 1
           , uppToX = liquidityProvider2
           , uppToY = liquidityProvider2
-          , uppDeadline = deadline
+          , uppDeadline = validDeadline
           , uppMaximumTokensContributed = PerToken 1000000 1000000
           }
           & expectFailedWith positionLiquidityBelowZeroErr
@@ -552,7 +541,6 @@ test_LPs_get_fees =
       let userFA2Balance = 1_e15
       (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
 
-      deadline <- mkDeadline
       withSender liquidityProvider $
         call cfmm (Call @"Set_position")
           SetPositionParam
@@ -561,7 +549,7 @@ test_LPs_get_fees =
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = 1_e7
-            , sppDeadline = deadline
+            , sppDeadline = validDeadline
             , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
             }
 
@@ -571,7 +559,7 @@ test_LPs_get_fees =
             XToY -> do
               call cfmm (Call @"X_to_y") XToYParam
                 { xpDx = swapAmt
-                , xpDeadline = deadline
+                , xpDeadline = validDeadline
                 , xpMinDy = 0
                 , xpToDy = swapper
                 }
@@ -579,7 +567,7 @@ test_LPs_get_fees =
             YToX -> do
               call cfmm (Call @"Y_to_x") YToXParam
                 { ypDy = swapAmt
-                , ypDeadline = deadline
+                , ypDeadline = validDeadline
                 , ypMinDx = 0
                 , ypToDx = swapper
                 }
@@ -617,7 +605,6 @@ test_fees_are_proportional_to_liquidity =
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
       (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM' accounts Nothing Nothing (set cFeeBpsL feeBps)
 
-      deadline <- mkDeadline
       for_ [(liquidityProvider1, position1Liquidity), (liquidityProvider2, position2Liquidity)] \(lp, liquidity) ->
         withSender lp do
           call cfmm (Call @"Set_position")
@@ -627,7 +614,7 @@ test_fees_are_proportional_to_liquidity =
               , sppLowerTickWitness = minTickIndex
               , sppUpperTickWitness = minTickIndex
               , sppLiquidity = liquidity
-              , sppDeadline = deadline
+              , sppDeadline = validDeadline
               , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
               }
 
@@ -637,7 +624,7 @@ test_fees_are_proportional_to_liquidity =
             XToY -> do
               call cfmm (Call @"X_to_y") XToYParam
                 { xpDx = swapAmt
-                , xpDeadline = deadline
+                , xpDeadline = validDeadline
                 , xpMinDy = 0
                 , xpToDy = swapper
                 }
@@ -645,7 +632,7 @@ test_fees_are_proportional_to_liquidity =
             YToX -> do
               call cfmm (Call @"Y_to_x") YToXParam
                 { ypDy = swapAmt
-                , ypDeadline = deadline
+                , ypDeadline = validDeadline
                 , ypMinDx = 0
                 , ypToDx = swapper
                 }
@@ -688,8 +675,6 @@ test_LPs_do_not_receive_past_fees =
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
       (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM' accounts Nothing Nothing (set cFeeBpsL feeBps)
 
-      deadline <- mkDeadline
-
       let setPosition lp =
             withSender lp do
               call cfmm (Call @"Set_position")
@@ -699,7 +684,7 @@ test_LPs_do_not_receive_past_fees =
                   , sppLowerTickWitness = minTickIndex
                   , sppUpperTickWitness = minTickIndex
                   , sppLiquidity = 1_e7
-                  , sppDeadline = deadline
+                  , sppDeadline = validDeadline
                   , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
                   }
 
@@ -712,7 +697,7 @@ test_LPs_do_not_receive_past_fees =
                     XToY -> do
                       call cfmm (Call @"X_to_y") XToYParam
                         { xpDx = swapAmt
-                        , xpDeadline = deadline
+                        , xpDeadline = validDeadline
                         , xpMinDy = 0
                         , xpToDy = swapper
                         }
@@ -720,7 +705,7 @@ test_LPs_do_not_receive_past_fees =
                     YToX -> do
                       call cfmm (Call @"Y_to_x") YToXParam
                         { ypDy = swapAmt
-                        , ypDeadline = deadline
+                        , ypDeadline = validDeadline
                         , ypMinDx = 0
                         , ypToDx = swapper
                         }
@@ -768,8 +753,6 @@ test_fees_are_discounted =
       let userFA2Balance = 1_e15
       (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
 
-      deadline <- mkDeadline
-
       withSender liquidityProvider do
         call cfmm (Call @"Set_position")
           SetPositionParam
@@ -778,7 +761,7 @@ test_fees_are_discounted =
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidityDelta
-            , sppDeadline = deadline
+            , sppDeadline = validDeadline
             , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
             }
 
@@ -791,7 +774,7 @@ test_fees_are_discounted =
                   XToY -> do
                     call cfmm (Call @"X_to_y") XToYParam
                       { xpDx = swapAmt
-                      , xpDeadline = deadline
+                      , xpDeadline = validDeadline
                       , xpMinDy = 0
                       , xpToDy = swapper
                       }
@@ -799,7 +782,7 @@ test_fees_are_discounted =
                   YToX -> do
                     call cfmm (Call @"Y_to_x") YToXParam
                       { ypDy = swapAmt
-                      , ypDeadline = deadline
+                      , ypDeadline = validDeadline
                       , ypMinDx = 0
                       , ypToDx = swapper
                       }
@@ -815,7 +798,7 @@ test_fees_are_discounted =
             , uppLiquidityDelta = fromIntegral @Natural @Integer liquidityDelta
             , uppToX = feeReceiver
             , uppToY = feeReceiver
-            , uppDeadline = deadline
+            , uppDeadline = validDeadline
             , uppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
             }
 
@@ -854,8 +837,6 @@ test_ticks_are_updated =
     let userFA2Balance = 1_e15
     (cfmm, _) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
 
-    deadline <- mkDeadline
-
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -864,7 +845,7 @@ test_ticks_are_updated =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
           }
       call cfmm (Call @"Set_position")
@@ -874,7 +855,7 @@ test_ticks_are_updated =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
           }
 
@@ -883,7 +864,7 @@ test_ticks_are_updated =
     withSender swapper do
       call cfmm (Call @"Y_to_x") YToXParam
         { ypDy = 100
-        , ypDeadline = deadline
+        , ypDeadline = validDeadline
         , ypMinDx = 0
         , ypToDx = swapper
         }
@@ -897,7 +878,7 @@ test_ticks_are_updated =
     withSender swapper do
       call cfmm (Call @"Y_to_x") YToXParam
         { ypDy = 1_000
-        , ypDeadline = deadline
+        , ypDeadline = validDeadline
         , ypMinDx = 0
         , ypToDx = swapper
         }
@@ -914,7 +895,7 @@ test_ticks_are_updated =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
           }
 
@@ -954,7 +935,6 @@ test_many_small_liquidations =
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
       (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM' accounts Nothing Nothing (set cFeeBpsL feeBps)
 
-      deadline <- mkDeadline
       for_ [liquidityProvider1, liquidityProvider2] \liquidityProvider ->
         withSender liquidityProvider do
           call cfmm (Call @"Set_position")
@@ -964,7 +944,7 @@ test_many_small_liquidations =
               , sppLowerTickWitness = minTickIndex
               , sppUpperTickWitness = minTickIndex
               , sppLiquidity = liquidityDelta
-              , sppDeadline = deadline
+              , sppDeadline = validDeadline
               , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
               }
 
@@ -974,7 +954,7 @@ test_many_small_liquidations =
             XToY -> do
               call cfmm (Call @"X_to_y") XToYParam
                 { xpDx = swapAmt
-                , xpDeadline = deadline
+                , xpDeadline = validDeadline
                 , xpMinDy = 0
                 , xpToDy = swapper
                 }
@@ -982,7 +962,7 @@ test_many_small_liquidations =
             YToX -> do
               call cfmm (Call @"Y_to_x") YToXParam
                 { ypDy = swapAmt
-                , ypDeadline = deadline
+                , ypDeadline = validDeadline
                 , ypMinDx = 0
                 , ypToDx = swapper
                 }
@@ -996,7 +976,7 @@ test_many_small_liquidations =
             , uppLiquidityDelta = - (fromIntegral @Natural @Integer liquidityDelta)
             , uppToX = receiver1
             , uppToY = receiver1
-            , uppDeadline = deadline
+            , uppDeadline = validDeadline
             , uppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
             }
       -- Liquidate the position in small steps
@@ -1008,7 +988,7 @@ test_many_small_liquidations =
               , uppLiquidityDelta = - (fromIntegral @Natural @Integer liquidityDelta) `div` 10
               , uppToX = receiver2
               , uppToY = receiver2
-              , uppDeadline = deadline
+              , uppDeadline = validDeadline
               , uppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
               }
 
@@ -1038,7 +1018,6 @@ test_position_initialization =
 
       for_ (createPositionData `zip` swapDirections) \(cpd, swapDirection) -> do
         let CreatePositionData lowerTickIndex upperTickIndex liquidityDelta waitTime = cpd
-        deadline <- mkDeadline
 
         -- Perform a swap to move the tick a bit.
         -- This ensures the global accumulators (like fee_growth) aren't always 0.
@@ -1050,7 +1029,7 @@ test_position_initialization =
               safeSwap amt \amt' ->
                 call cfmm (Call @"X_to_y") XToYParam
                   { xpDx = amt'
-                  , xpDeadline = deadline
+                  , xpDeadline = validDeadline
                   , xpMinDy = 0
                   , xpToDy = swapper
                   }
@@ -1060,7 +1039,7 @@ test_position_initialization =
               safeSwap amt \amt' ->
                 call cfmm (Call @"Y_to_x") YToXParam
                   { ypDy = amt'
-                  , ypDeadline = deadline
+                  , ypDeadline = validDeadline
                   , ypMinDx = 0
                   , ypToDx = swapper
                   }
@@ -1081,7 +1060,7 @@ test_position_initialization =
               , sppLowerTickWitness = minTickIndex
               , sppUpperTickWitness = minTickIndex
               , sppLiquidity = liquidityDelta
-              , sppDeadline = deadline
+              , sppDeadline = validDeadline
               , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
               }
         checkAllInvariants cfmm
@@ -1165,7 +1144,6 @@ test_updating_nonexisting_position =
     liquidityProvider <- newAddress auto
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
 
-    deadline <- mkDeadline
     withSender liquidityProvider $ do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -1174,7 +1152,7 @@ test_updating_nonexisting_position =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
       call cfmm (Call @"Update_position")
@@ -1183,7 +1161,7 @@ test_updating_nonexisting_position =
           , uppLiquidityDelta = toInteger liquidityDelta
           , uppToX = liquidityProvider
           , uppToY = liquidityProvider
-          , uppDeadline = deadline
+          , uppDeadline = validDeadline
           , uppMaximumTokensContributed = PerToken 1 1
           }
           & expectCustomError_ #fA2_TOKEN_UNDEFINED

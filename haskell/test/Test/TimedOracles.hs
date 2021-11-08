@@ -11,7 +11,6 @@ import qualified Data.List as List
 import Fmt ((+|), (|+))
 import Lorentz.Macro hiding (assert)
 import Lorentz.Test (contractConsumer, sec)
-import Lorentz.Value
 import Morley.Nettest
 import Morley.Nettest.Tasty
 import Test.Tasty (TestTree, testGroup)
@@ -317,7 +316,7 @@ test_ObservedValues = testGroup "Observed values are sane"
           -- Just to the end of position
           call cfmm (Call @"Y_to_x") YToXParam
             { ypDy = 2
-            , ypDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
+            , ypDeadline = validDeadline
             , ypMinDx = 0
             , ypToDx = alice
             }
@@ -333,7 +332,7 @@ test_ObservedValues = testGroup "Observed values are sane"
           -- Just to the start of position
           call cfmm (Call @"X_to_y") XToYParam
             { xpDx = 5
-            , xpDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
+            , xpDeadline = validDeadline
             , xpMinDy = 0
             , xpToDy = alice
             }
