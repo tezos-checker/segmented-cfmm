@@ -87,6 +87,9 @@ invalidInputErrors = errorsEnumerate 100
   , "position_liquidity_below_zero_err"
       :? "Liquidity of a position went below zero."
 
+  , "incorrect_tick_spacing_err"
+      :? "Tick indexes must be a multiple of the tick spacing."
+
   ]
 
 invalidConfigErrors :: [ErrorItem]

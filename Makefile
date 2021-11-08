@@ -87,6 +87,7 @@ $(OUT)/storage_%.tz : y_token_id = 0
 $(OUT)/storage_%.tz : x_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
 $(OUT)/storage_%.tz : y_token_address = KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
 $(OUT)/storage_%.tz : init_cumulatives_buffer_extra_slots = 0
+$(OUT)/storage_%.tz : tick_spacing = 1
 $(OUT)/storage_%.tz: $(shell find ligo -name '*.mligo')
 	# ============== Compiling default LIGO storage ============== #
 	$(BUILD_STORAGE) ligo/defaults.mligo entrypoint "default_storage( \
@@ -96,6 +97,7 @@ $(OUT)/storage_%.tz: $(shell find ligo -name '*.mligo')
 			; y_token_id = $(y_token_id)n \
 			; x_token_address = (\"$(x_token_address)\" : address) \
 			; y_token_address = (\"$(y_token_address)\" : address) \
+			; tick_spacing = $(tick_spacing)n \
 	    }) ($(init_cumulatives_buffer_extra_slots)n)" \
         --output-file $@
 

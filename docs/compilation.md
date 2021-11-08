@@ -60,7 +60,8 @@ make out/storage_default.tz \
   x_token_id=0 \
   y_token_id=0 \
   x_token_address=KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn \
-  y_token_address=KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn
+  y_token_address=KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn \
+  tick_spacing=1
 ```
 
 At the very least, you'll probably want to change the tokens' contract address.

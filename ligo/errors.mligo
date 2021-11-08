@@ -53,6 +53,9 @@
 (* Liquidity of a position went below zero. *)
 [@inline] let position_liquidity_below_zero_err = 112n
 
+(* Tick indexes must be a multiple of the tick spacing. *)
+[@inline] let incorrect_tick_spacing_err = 113n
+
 
 
 // ---------------------------------------------------------------------------
