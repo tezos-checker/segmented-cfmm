@@ -31,7 +31,6 @@ test_swapping_within_a_single_tick_range =
     let liquidity = 1_e7
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
-    let userFA2Balance = 1_e15
 
     -- With the liquidity above, we can deposit a little more than 500_000 X tokens.
     -- So we'll generate up to 10 swaps of 50_000 tokens each.
@@ -60,7 +59,7 @@ test_swapping_within_a_single_tick_range =
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidity
             , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
             }
         checkAllInvariants cfmm
 
@@ -126,7 +125,6 @@ test_many_small_swaps =
     let feeBps = 0
 
     let liquidity = 1_e7
-    let userFA2Balance = 1_e15
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
 
@@ -154,7 +152,7 @@ test_many_small_swaps =
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidity
             , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
             }
     checkAllInvariants cfmm1
     checkAllInvariants cfmm2
@@ -214,7 +212,6 @@ test_crossing_ticks =
     let waitTime = 3
 
     let liquidity = 1_e6
-    let userFA2Balance = 1_e15
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
 
@@ -241,7 +238,7 @@ test_crossing_ticks =
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidity
           , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
           }
 
       -- Place many small positions with the same liquidity
@@ -255,7 +252,7 @@ test_crossing_ticks =
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidity
             , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
             }
     checkAllInvariants cfmm1
     checkAllInvariants cfmm2
@@ -358,7 +355,6 @@ test_fee_split =
     let feeBps = 50_00 -- 50%
 
     let liquidityDelta = 1_e6
-    let userFA2Balance = 1_e15
 
     liquidityProvider <- newAddress auto
     let position1Bounds = (-100, 100)
@@ -379,7 +375,7 @@ test_fee_split =
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidityDelta
             , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
             }
 
     withSender swapper do
@@ -420,7 +416,6 @@ test_must_exceed_min_dx =
     let liquidity = 1_e7
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
-    let userFA2Balance = 1_e15
 
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
@@ -435,7 +430,7 @@ test_must_exceed_min_dx =
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidity
           , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
           }
 
     withSender swapper do
@@ -453,7 +448,6 @@ test_fails_if_its_past_the_deadline =
     let liquidity = 1_e7
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
-    let userFA2Balance = 1_e15
 
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
@@ -468,7 +462,7 @@ test_fails_if_its_past_the_deadline =
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidity
           , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
           }
 
     withSender swapper do
@@ -487,7 +481,6 @@ test_swaps_are_noops_when_liquidity_is_zero =
   nettestScenarioOnEmulatorCaps "After crossing into a 0-liquidity range, swaps are no-ops" do
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
-    let userFA2Balance = 1_e15
     (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM [liquidityProvider, swapper]
 
     withSender liquidityProvider do
@@ -499,7 +492,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = 10_000
           , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
           }
 
     withSender swapper do

@@ -538,7 +538,6 @@ test_LPs_get_fees =
       liquidityProvider <- newAddress auto
       swapper <- newAddress auto
       feeReceiver <- newAddress auto
-      let userFA2Balance = 1_e15
       (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
 
       withSender liquidityProvider $
@@ -550,7 +549,7 @@ test_LPs_get_fees =
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = 1_e7
             , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
             }
 
       (xFees, yFees) <- unzip <$> for swaps \(SwapData swapDirection swapAmt) -> do
@@ -601,7 +600,6 @@ test_fees_are_proportional_to_liquidity =
       swapper <- newAddress auto
       feeReceiver1 <- newAddress auto
       feeReceiver2 <- newAddress auto
-      let userFA2Balance = 1_e15
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
       (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM' accounts Nothing Nothing (set cFeeBpsL feeBps)
 
@@ -615,7 +613,7 @@ test_fees_are_proportional_to_liquidity =
               , sppUpperTickWitness = minTickIndex
               , sppLiquidity = liquidity
               , sppDeadline = validDeadline
-              , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+              , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
               }
 
       (xFees, yFees) <- unzip <$> for swaps \(SwapData swapDirection swapAmt) -> do
@@ -671,7 +669,6 @@ test_LPs_do_not_receive_past_fees =
       swapper <- newAddress auto
       feeReceiver1 <- newAddress auto
       feeReceiver2 <- newAddress auto
-      let userFA2Balance = 1_e15
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
       (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM' accounts Nothing Nothing (set cFeeBpsL feeBps)
 
@@ -685,7 +682,7 @@ test_LPs_do_not_receive_past_fees =
                   , sppUpperTickWitness = minTickIndex
                   , sppLiquidity = 1_e7
                   , sppDeadline = validDeadline
-                  , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+                  , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
                   }
 
       let placeSwaps swaps =
@@ -750,7 +747,6 @@ test_fees_are_discounted =
       let liquidityDelta = 1_e7
       let lowerTickIndex = -10_000
       let upperTickIndex = 10_000
-      let userFA2Balance = 1_e15
       (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
 
       withSender liquidityProvider do
@@ -762,7 +758,7 @@ test_fees_are_discounted =
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidityDelta
             , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
             }
 
       (xFees , yFees) <-
@@ -799,7 +795,7 @@ test_fees_are_discounted =
             , uppToX = feeReceiver
             , uppToY = feeReceiver
             , uppDeadline = validDeadline
-            , uppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+            , uppMaximumTokensContributed = PerToken defaultBalance defaultBalance
             }
 
       -- The fees earned during the swaps should be discounted from the
@@ -834,7 +830,6 @@ test_ticks_are_updated =
     let ti3 = 100
     let ti4 = 150
 
-    let userFA2Balance = 1_e15
     (cfmm, _) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
 
     withSender liquidityProvider do
@@ -846,7 +841,7 @@ test_ticks_are_updated =
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
           , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
           }
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -856,7 +851,7 @@ test_ticks_are_updated =
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
           , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
           }
 
     -- Place a small swap to move the tick a little bit
@@ -896,7 +891,7 @@ test_ticks_are_updated =
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidityDelta
           , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+          , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
           }
 
     -- Check that `ti2`'s state has been updated.
@@ -929,7 +924,6 @@ test_many_small_liquidations =
       receiver1 <- newAddress auto
       receiver2 <- newAddress auto
       let liquidityDelta = 1_e7
-      let userFA2Balance = 1_e15
       let lowerTickIndex = -10_000
       let upperTickIndex = 10_000
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
@@ -945,7 +939,7 @@ test_many_small_liquidations =
               , sppUpperTickWitness = minTickIndex
               , sppLiquidity = liquidityDelta
               , sppDeadline = validDeadline
-              , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+              , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
               }
 
       for_ swaps \(SwapData swapDirection swapAmt) -> do
@@ -977,7 +971,7 @@ test_many_small_liquidations =
             , uppToX = receiver1
             , uppToY = receiver1
             , uppDeadline = validDeadline
-            , uppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+            , uppMaximumTokensContributed = PerToken defaultBalance defaultBalance
             }
       -- Liquidate the position in small steps
       withSender liquidityProvider2 do
@@ -989,7 +983,7 @@ test_many_small_liquidations =
               , uppToX = receiver2
               , uppToY = receiver2
               , uppDeadline = validDeadline
-              , uppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+              , uppMaximumTokensContributed = PerToken defaultBalance defaultBalance
               }
 
       balanceReceiver1X <- balanceOf xToken xTokenId receiver1
@@ -1012,7 +1006,6 @@ test_position_initialization =
     clevelandProp do
       liquidityProvider <- newAddress auto
       swapper <- newAddress auto
-      let userFA2Balance = 1_e15
       (cfmm, (TokenInfo xTokenId xToken, TokenInfo yTokenId yToken)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
       checkAllInvariants cfmm
 
@@ -1061,7 +1054,7 @@ test_position_initialization =
               , sppUpperTickWitness = minTickIndex
               , sppLiquidity = liquidityDelta
               , sppDeadline = validDeadline
-              , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+              , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
               }
         checkAllInvariants cfmm
 

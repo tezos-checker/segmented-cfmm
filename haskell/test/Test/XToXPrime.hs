@@ -58,7 +58,7 @@ test_swapping_x_for_x_prime =
               , sppUpperTickWitness = minTickIndex
               , sppLiquidity = liquidity
               , sppDeadline = validDeadline
-              , sppMaximumTokensContributed = PerToken 1_e15 1_e15
+              , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
               }
 
       initialSt1 <- getFullStorage cfmm1
@@ -110,7 +110,6 @@ test_fails_when_y_doesnt_match =
     let liquidity = 1_e7
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
-    let userFA2Balance = 1_e15
 
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
@@ -130,7 +129,7 @@ test_fails_when_y_doesnt_match =
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidity
             , sppDeadline = validDeadline
-            , sppMaximumTokensContributed = PerToken userFA2Balance userFA2Balance
+            , sppMaximumTokensContributed = PerToken defaultBalance defaultBalance
             }
 
     withSender swapper do

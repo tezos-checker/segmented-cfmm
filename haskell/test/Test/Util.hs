@@ -11,6 +11,7 @@ module Test.Util
   , evalJust
   -- * FA2 helpers
   , TokenInfo(..)
+  , defaultBalance
   , simpleFA2Storage
   , originateFA2
   , balanceOf
@@ -92,6 +93,9 @@ evalJust = \case
 -- FA2 helpers
 ----------------------------------------------------------------------------
 
+defaultBalance :: Natural
+defaultBalance = 1_e15
+
 simpleFA2Storage :: [Address] -> FA2.TokenId -> FA2.Storage
 simpleFA2Storage addresses tokenId = FA2.Storage
   { sLedger = mkBigMap $ map (\addr -> ((addr,tokenId), 100000)) addresses
@@ -106,7 +110,7 @@ originateFA2
   -> m TokenInfo
 originateFA2 accounts tokenId@(FA2.TokenId tid) = do
   let st = FA2.Storage
-        { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, tokenId), 1_e15)
+        { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, tokenId), defaultBalance)
         , sOperators = mempty
         , sTokenMetadata = mempty
         }
