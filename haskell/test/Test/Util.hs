@@ -27,6 +27,8 @@ module Test.Util
   , observe
   , setPosition
   , updatePosition
+  , xtoy
+  , ytox
   , gettingCumulativesInsideDiff
   , convertTokens
   , validDeadline
@@ -305,6 +307,28 @@ updatePosition cfmm receiver liquidityDelta positionId = do
       , uppMaximumTokensContributed = PerToken defaultBalance defaultBalance
       }
 
+xtoy
+  :: (MonadNettest caps base m, HasCallStack)
+  => ContractHandler Parameter Storage -> Natural -> Address -> m ()
+xtoy cfmm dx receiver =
+  call cfmm (Call @"X_to_y") XToYParam
+    { xpDx = dx
+    , xpDeadline = validDeadline
+    , xpMinDy = 0
+    , xpToDy = receiver
+    }
+
+ytox
+  :: (MonadNettest caps base m, HasCallStack)
+  => ContractHandler Parameter Storage -> Natural -> Address -> m ()
+ytox cfmm dy receiver =
+  call cfmm (Call @"Y_to_x") YToXParam
+    { ypDy = dy
+    , ypDeadline = validDeadline
+    , ypMinDx = 0
+    , ypToDx = receiver
+    }
+
 -- | Get the diff of cumulatives_inside at given ticks range between two given
 -- timestamps.
 gettingCumulativesInsideDiff
@@ -338,18 +362,8 @@ convertTokens
 convertTokens cfmm tokens =
   case tokens `Prelude.compare` 0 of
     EQ -> pass
-    GT -> call cfmm (Call @"Y_to_x") YToXParam
-      { ypDy = 2
-      , ypDeadline = validDeadline
-      , ypMinDx = 0
-      , ypToDx = receiver
-      }
-    LT -> call cfmm (Call @"X_to_y") XToYParam
-      { xpDx = 2
-      , xpDeadline = validDeadline
-      , xpMinDy = 0
-      , xpToDy = receiver
-      }
+    GT -> ytox cfmm 2 receiver
+    LT -> xtoy cfmm 2 receiver
   where
     receiver = [ta|tz1QCtwyKA4S8USgYRJRghDNYLHkkQ3S1yAU|]
 

@@ -59,13 +59,8 @@ test_swapping_within_a_single_tick_range =
         initialBalanceSwapReceiverX <- balanceOf x swapReceiver
         initialBalanceSwapReceiverY <- balanceOf y swapReceiver
 
-        withSender swapper do
-          call cfmm (Call @"X_to_y") XToYParam
-            { xpDx = dx
-            , xpDeadline = validDeadline
-            , xpMinDy = 0
-            , xpToDy = swapReceiver
-            }
+        withSender swapper $ xtoy cfmm dx swapReceiver
+
         -- Advance the time 1 sec to make sure the buffer is updated to reflect the swaps.
         advanceSecs 1 [cfmm]
         checkAllInvariants cfmm
@@ -135,21 +130,10 @@ test_many_small_swaps =
 
     withSender swapper $ do
       -- 1 big swap
-      call cfmm1 (Call @"X_to_y") XToYParam
-        { xpDx = (swapCount * swapAmount)
-        , xpDeadline = validDeadline
-        , xpMinDy = 0
-        , xpToDy = swapper
-        }
-
+      xtoy cfmm1 (swapCount * swapAmount) swapper
       -- many small swaps
       replicateM_ (fromIntegral swapCount) do
-        call cfmm2 (Call @"X_to_y") XToYParam
-          { xpDx = swapAmount
-          , xpDeadline = validDeadline
-          , xpMinDy = 0
-          , xpToDy = swapper
-          }
+        xtoy cfmm2 swapAmount swapper
 
     -- Advance the time 1 sec to make sure the buffer is updated to reflect the swaps.
     advanceSecs 1 [cfmm1, cfmm2]
@@ -224,13 +208,7 @@ test_crossing_ticks =
     -- Place a small swap to move the tick past 0 and advance the time to fill the
     -- buffer with _something_ other than zeros.
     withSender swapper do
-      for_ [cfmm1, cfmm2] \cfmm -> do
-        call cfmm (Call @"X_to_y") XToYParam
-          { xpDx = 200
-          , xpDeadline = validDeadline
-          , xpMinDy = 0
-          , xpToDy = swapper
-          }
+      for_ [cfmm1, cfmm2] \cfmm -> xtoy cfmm 200 swapper
     advanceSecs waitTime [cfmm1, cfmm2]
 
 
@@ -238,12 +216,7 @@ test_crossing_ticks =
     initialSt2 <- getFullStorage cfmm2
     withSender swapper do
       for_ [cfmm1, cfmm2] \cfmm -> do
-        call cfmm (Call @"X_to_y") XToYParam
-          { xpDx = 50_000
-          , xpDeadline = validDeadline
-          , xpMinDy = 0
-          , xpToDy = swapper
-          }
+        xtoy cfmm 50_000 swapper
 
     -- Advance the time 1 sec to make sure the buffer is updated to reflect the swaps.
     advanceSecs 1 [cfmm1, cfmm2]
@@ -324,22 +297,13 @@ test_fee_split =
       -- Place a small y-to-x swap.
       -- It's small enough to be executed within the [-100, 100] range,
       -- so the Y fee is paid to position1 only.
-      call cfmm (Call @"Y_to_x") YToXParam
-        { ypDy = 1_000
-        , ypDeadline = validDeadline
-        , ypMinDx = 0
-        , ypToDx = swapper
-        }
+      ytox cfmm 1_000 swapper
 
       -- Place a big x-to-y swap.
       -- It's big enough to cross from the [-100, 100] range into the [-200, -100] range,
       -- so the X fee is paid to both position1 and position2.
-      call cfmm (Call @"X_to_y") XToYParam
-        { xpDx = 20_000
-        , xpDeadline = validDeadline
-        , xpMinDy = 0
-        , xpToDy = swapper
-        }
+      xtoy cfmm 20_000 swapper
+
     checkAllInvariants cfmm
 
     -- position1 should have earned both X and Y fees.
@@ -398,12 +362,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
 
     withSender swapper do
       -- Place a swap big enough to exhaust the position's liquidity
-      call cfmm (Call @"X_to_y") XToYParam
-        { xpDx = 200
-        , xpDeadline = validDeadline
-        , xpMinDy = 0
-        , xpToDy = swapper
-        }
+      xtoy cfmm 200 swapper
 
       let
         isNoOp op = do
@@ -415,18 +374,8 @@ test_swaps_are_noops_when_liquidity_is_zero =
           balanceOf x cfmm @@== initialBalanceX
           balanceOf y cfmm @@== initialBalanceY
 
-      isNoOp $ call cfmm (Call @"X_to_y") XToYParam
-        { xpDx = 100
-        , xpDeadline = validDeadline
-        , xpMinDy = 0
-        , xpToDy = swapper
-        }
-      isNoOp $ call cfmm (Call @"Y_to_x") YToXParam
-        { ypDy = 100
-        , ypDeadline = validDeadline
-        , ypMinDx = 0
-        , ypToDx = swapper
-        }
+      isNoOp $ xtoy cfmm 100 swapper
+      isNoOp $ ytox cfmm 100 swapper
 
 test_push_cur_tick_index_just_below_witness :: TestTree
 test_push_cur_tick_index_just_below_witness =
@@ -453,12 +402,7 @@ test_push_cur_tick_index_just_below_witness =
         -- deposited and 0 Y tokens will be withdrawn.
         --
         -- We want to make sure invariants are not broken when this edge case occurs.
-        call cfmm (Call @"X_to_y") XToYParam
-          { xpDx = 53
-          , xpDeadline = validDeadline
-          , xpMinDy = 0
-          , xpToDy = swapper
-          }
+        xtoy cfmm 53 swapper
 
         -- sanity check
         st <- getFullStorage cfmm

@@ -392,20 +392,10 @@ test_LPs_get_fees =
         withSender swapper do
           case swapDirection of
             XToY -> do
-              call cfmm (Call @"X_to_y") XToYParam
-                { xpDx = swapAmt
-                , xpDeadline = validDeadline
-                , xpMinDy = 0
-                , xpToDy = swapper
-                }
+              xtoy cfmm swapAmt swapper
               pure $ (calcSwapFee feeBps swapAmt, 0)
             YToX -> do
-              call cfmm (Call @"Y_to_x") YToXParam
-                { ypDy = swapAmt
-                , ypDeadline = validDeadline
-                , ypMinDx = 0
-                , ypToDx = swapper
-                }
+              ytox cfmm swapAmt swapper
               pure $ (0, calcSwapFee feeBps swapAmt)
       checkAllInvariants cfmm
 
@@ -446,20 +436,10 @@ test_fees_are_proportional_to_liquidity =
         withSender swapper do
           case swapDirection of
             XToY -> do
-              call cfmm (Call @"X_to_y") XToYParam
-                { xpDx = swapAmt
-                , xpDeadline = validDeadline
-                , xpMinDy = 0
-                , xpToDy = swapper
-                }
+              xtoy cfmm swapAmt swapper
               pure $ (calcSwapFee feeBps swapAmt, 0)
             YToX -> do
-              call cfmm (Call @"Y_to_x") YToXParam
-                { ypDy = swapAmt
-                , ypDeadline = validDeadline
-                , ypMinDx = 0
-                , ypToDx = swapper
-                }
+              ytox cfmm swapAmt swapper
               pure $ (0, calcSwapFee feeBps swapAmt)
       checkAllInvariants cfmm
 
@@ -505,20 +485,10 @@ test_LPs_do_not_receive_past_fees =
                 withSender swapper do
                   case swapDirection of
                     XToY -> do
-                      call cfmm (Call @"X_to_y") XToYParam
-                        { xpDx = swapAmt
-                        , xpDeadline = validDeadline
-                        , xpMinDy = 0
-                        , xpToDy = swapper
-                        }
+                      xtoy cfmm swapAmt swapper
                       pure $ (calcSwapFee feeBps swapAmt, 0)
                     YToX -> do
-                      call cfmm (Call @"Y_to_x") YToXParam
-                        { ypDy = swapAmt
-                        , ypDeadline = validDeadline
-                        , ypMinDx = 0
-                        , ypToDx = swapper
-                        }
+                      ytox cfmm swapAmt swapper
                       pure $ (0, calcSwapFee feeBps swapAmt)
 
       withSender liquidityProvider1 $ setPosition cfmm 1_e7 (-10_000, 10_000)
@@ -571,20 +541,10 @@ test_fees_are_discounted =
               withSender swapper do
                 case swapDirection of
                   XToY -> do
-                    call cfmm (Call @"X_to_y") XToYParam
-                      { xpDx = swapAmt
-                      , xpDeadline = validDeadline
-                      , xpMinDy = 0
-                      , xpToDy = swapper
-                      }
+                    xtoy cfmm swapAmt swapper
                     pure $ (calcSwapFee feeBps swapAmt, 0)
                   YToX -> do
-                    call cfmm (Call @"Y_to_x") YToXParam
-                      { ypDy = swapAmt
-                      , ypDeadline = validDeadline
-                      , ypMinDx = 0
-                      , ypToDx = swapper
-                      }
+                    ytox cfmm swapAmt swapper
                     pure $ (0, calcSwapFee feeBps swapAmt)
 
       initialBalanceX <- balanceOf x liquidityProvider
@@ -632,13 +592,7 @@ test_ticks_are_updated =
 
     -- Place a small swap to move the tick a little bit
     -- and make sure `tick_cumulative` is not 0.
-    withSender swapper do
-      call cfmm (Call @"Y_to_x") YToXParam
-        { ypDy = 100
-        , ypDeadline = validDeadline
-        , ypMinDx = 0
-        , ypToDx = swapper
-        }
+    withSender swapper $ ytox cfmm 100 swapper
 
     -- Advance the time a few secs to make sure accumulators
     -- like `seconds_per_liquidity_cumulative` change to non-zero values.
@@ -646,13 +600,7 @@ test_ticks_are_updated =
 
     -- Place a swap big enough to cross tick `ti2` and therefore
     -- change the value of the `*_outside` fields to something other than zero.
-    withSender swapper do
-      call cfmm (Call @"Y_to_x") YToXParam
-        { ypDy = 1_000
-        , ypDeadline = validDeadline
-        , ypMinDx = 0
-        , ypToDx = swapper
-        }
+    withSender swapper $ ytox cfmm 1_000 swapper
 
     initialStorage <- getFullStorage cfmm
     initialState <- initialStorage & sTicks & bmMap & Map.lookup ti2 & evalJust
@@ -701,20 +649,10 @@ test_many_small_liquidations =
         withSender swapper do
           case swapDirection of
             XToY -> do
-              call cfmm (Call @"X_to_y") XToYParam
-                { xpDx = swapAmt
-                , xpDeadline = validDeadline
-                , xpMinDy = 0
-                , xpToDy = swapper
-                }
+              xtoy cfmm swapAmt swapper
               pure $ (calcSwapFee feeBps swapAmt, 0)
             YToX -> do
-              call cfmm (Call @"Y_to_x") YToXParam
-                { ypDy = swapAmt
-                , ypDeadline = validDeadline
-                , ypMinDx = 0
-                , ypToDx = swapper
-                }
+              ytox cfmm swapAmt swapper
               pure $ (0, calcSwapFee feeBps swapAmt)
 
       -- Liquidate the position all at once
@@ -757,23 +695,11 @@ test_position_initialization =
             XToY -> do
               initialBalanceX <- balanceOf x cfmm
               let amt = initialBalanceX `div` 2
-              safeSwap amt \amt' ->
-                call cfmm (Call @"X_to_y") XToYParam
-                  { xpDx = amt'
-                  , xpDeadline = validDeadline
-                  , xpMinDy = 0
-                  , xpToDy = swapper
-                  }
+              safeSwap amt \amt' -> xtoy cfmm amt' swapper
             YToX -> do
               initialBalanceY <- balanceOf y cfmm
               let amt = initialBalanceY `div` 2
-              safeSwap amt \amt' ->
-                call cfmm (Call @"Y_to_x") YToXParam
-                  { ypDy = amt'
-                  , ypDeadline = validDeadline
-                  , ypMinDx = 0
-                  , ypToDx = swapper
-                  }
+              safeSwap amt \amt' -> ytox cfmm amt' swapper
 
         -- Advance the time a few secs to make sure the buffer is updated to reflect the swaps.
         advanceSecs waitTime [cfmm]

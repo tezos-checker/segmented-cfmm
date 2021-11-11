@@ -301,12 +301,7 @@ test_ObservedValues = testGroup "Observed values are sane"
         withSender alice do
           setPosition cfmm 10 (-10, 10)
           -- Just to the end of position
-          call cfmm (Call @"Y_to_x") YToXParam
-            { ypDy = 2
-            , ypDeadline = validDeadline
-            , ypMinDx = 0
-            , ypToDx = alice
-            }
+          ytox cfmm 2 alice
         sCurTickIndex <$> getFullStorage cfmm @@== TickIndex 10
         advanceTime (sec 10)
         now <- getNow
@@ -316,12 +311,7 @@ test_ObservedValues = testGroup "Observed values are sane"
         withSender alice do
           setPosition cfmm 10 (-20, 50)
           -- Just to the start of position
-          call cfmm (Call @"X_to_y") XToYParam
-            { xpDx = 5
-            , xpDeadline = validDeadline
-            , xpMinDy = 0
-            , xpToDy = alice
-            }
+          xtoy cfmm 5 alice
         sCurTickIndex <$> getFullStorage cfmm @@== TickIndex (-21)
         advanceTime (sec 100)
         now <- getNow
