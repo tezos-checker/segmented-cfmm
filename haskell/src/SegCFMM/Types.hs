@@ -465,6 +465,7 @@ data Constants = Constants
   , cYTokenId :: FA2.TokenId
   , cXTokenAddress :: Address
   , cYTokenAddress :: Address
+  , cTickSpacing :: Natural
   }
   deriving stock Eq
 

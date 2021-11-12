@@ -114,4 +114,11 @@ let get_last_cumulatives (buffer : timed_cumulatives_buffer) : timed_cumulatives
     get_registered_cumulatives_unsafe buffer buffer.last
 
 
+(* Ensure tick index is multiple of tick spacing. *)
+[@inline]
+let check_multiple_of_tick_spacing (tick_index, storage: tick_index * storage) : unit =
+    if (tick_index.i mod storage.constants.tick_spacing = 0n)
+        then unit
+        else failwith incorrect_tick_spacing_err
+
 #endif

@@ -220,6 +220,8 @@ let update_cur_tick_witness (s : storage) (tick_index : tick_index) : storage =
 
 let set_position (s : storage) (p : set_position_param) : result =
     let _: unit = check_deadline p.deadline in
+    let _: unit = check_multiple_of_tick_spacing (p.lower_tick_index, s) in
+    let _: unit = check_multiple_of_tick_spacing (p.upper_tick_index, s) in
     let _: unit = if p.lower_tick_index >= p.upper_tick_index then failwith tick_order_err else unit in
 
     // Creating position with 0 liquidity must result in no changes being made

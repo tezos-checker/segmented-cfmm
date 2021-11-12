@@ -66,6 +66,10 @@ tickOrderErr = 111
 positionLiquidityBelowZeroErr :: Natural
 positionLiquidityBelowZeroErr = 112
 
+-- | Tick indexes must be a multiple of the tick spacing.
+incorrectTickSpacingErr :: Natural
+incorrectTickSpacingErr = 113
+
 
 ----------------------------------------------------------------------------
 -- Contract Configuration Error Codes

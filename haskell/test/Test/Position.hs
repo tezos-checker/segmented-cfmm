@@ -37,8 +37,9 @@ mkStorage
   :: ContractHandler FA2.FA2SampleParameter FA2.Storage -> FA2.TokenId
   -> ContractHandler FA2.FA2SampleParameter FA2.Storage -> FA2.TokenId
   -> Natural
+  -> Natural
   -> Storage
-mkStorage xToken xTokenId yToken yTokenId feeBps =
+mkStorage xToken xTokenId yToken yTokenId feeBps tickSpacing =
   defaultStorage
     { sConstants = (sConstants defaultStorage)
       { cXTokenAddress = toAddress xToken
@@ -46,6 +47,7 @@ mkStorage xToken xTokenId yToken yTokenId feeBps =
       , cYTokenAddress = toAddress yToken
       , cYTokenId = yTokenId
       , cFeeBps = feeBps
+      , cTickSpacing = tickSpacing
       }
     }
 
@@ -83,7 +85,7 @@ test_equal_ticks =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0 1
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -125,7 +127,7 @@ test_wrong_tick_order =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0 1
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -167,7 +169,7 @@ test_setting_a_position_with_zero_liquidity_is_a_noop =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0 1
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -218,7 +220,7 @@ test_deposit_and_withdrawal_is_a_noop =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0 1
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -282,7 +284,7 @@ test_adding_liquidity_twice =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0 1
     cfmm1 <- originateSegCFMM FA2 FA2 initialSt
     cfmm2 <- originateSegCFMM FA2 FA2 initialSt
 
@@ -362,7 +364,7 @@ test_witnesses_must_be_valid =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0 1
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -446,7 +448,7 @@ test_fails_if_its_past_the_deadline =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0 1
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -491,6 +493,77 @@ test_fails_if_its_past_the_deadline =
           }
           & expectFailedWith pastDeadlineErr
 
+
+test_fails_if_its_not_multiple_tick_spacing :: TestTree
+test_fails_if_its_not_multiple_tick_spacing =
+  nettestScenarioOnEmulatorCaps "fails if it's not the multiple of tick spacing" $ do
+    let liquidityDelta = 10000000
+
+    liquidityProvider <- newAddress auto
+    let xTokenId = FA2.TokenId 0
+    let yTokenId = FA2.TokenId 1
+    let xFa2storage = FA2.Storage
+          { sLedger = mkBigMap [ ((liquidityProvider, xTokenId), 100000) ]
+          , sOperators = mempty
+          , sTokenMetadata = mempty
+          }
+    let yFa2storage = FA2.Storage
+          { sLedger = mkBigMap [ ((liquidityProvider, yTokenId), 100000) ]
+          , sOperators = mempty
+          , sTokenMetadata = mempty
+          }
+    xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
+    yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
+
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0 10
+    cfmm <- originateSegCFMM FA2 FA2 initialSt
+
+    withSender liquidityProvider do
+      call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) xTokenId]
+      call yToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) yTokenId]
+
+    withSender liquidityProvider do
+      now <- getNow
+
+      let lowerTickIndex = -10
+      let upperTickIndex = 20
+      let invalidLowerTickIndex = -9
+      let invalidUpperTickIndex = 11
+      call cfmm (Call @"Set_position")
+        SetPositionParam
+          { sppLowerTickIndex = invalidLowerTickIndex
+          , sppUpperTickIndex = upperTickIndex
+          , sppLowerTickWitness = minTickIndex
+          , sppUpperTickWitness = minTickIndex
+          , sppLiquidity = liquidityDelta
+          , sppDeadline = now
+          , sppMaximumTokensContributed = PerToken 1000000 1000000
+          }
+          & expectFailedWith incorrectTickSpacingErr
+
+      call cfmm (Call @"Set_position")
+        SetPositionParam
+          { sppLowerTickIndex = lowerTickIndex
+          , sppUpperTickIndex = invalidUpperTickIndex
+          , sppLowerTickWitness = minTickIndex
+          , sppUpperTickWitness = minTickIndex
+          , sppLiquidity = liquidityDelta
+          , sppDeadline = now
+          , sppMaximumTokensContributed = PerToken 1000000 1000000
+          }
+          & expectFailedWith incorrectTickSpacingErr
+
+      call cfmm (Call @"Set_position")
+        SetPositionParam
+          { sppLowerTickIndex = lowerTickIndex
+          , sppUpperTickIndex = upperTickIndex
+          , sppLowerTickWitness = minTickIndex
+          , sppUpperTickWitness = minTickIndex
+          , sppLiquidity = liquidityDelta
+          , sppDeadline = now
+          , sppMaximumTokensContributed = PerToken 1000000 1000000
+          }
+
 test_cannot_set_position_over_max_tick :: TestTree
 test_cannot_set_position_over_max_tick =
   nettestScenarioOnEmulatorCaps "cannot set a position with upper_tick > max_tick" $ do
@@ -513,7 +586,7 @@ test_cannot_set_position_over_max_tick =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0 1
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -557,7 +630,7 @@ test_maximum_tokens_contributed =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0 1
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -623,7 +696,7 @@ test_lowest_and_highest_ticks_cannot_be_garbage_collected =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0
+    let initialSt = mkStorage xToken xTokenId yToken yTokenId 0 1
     cfmm <- originateSegCFMM FA2 FA2 initialSt
 
     withSender liquidityProvider do
@@ -687,7 +760,7 @@ test_withdrawal_overflow =
           }
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
-    cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId 0
+    cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId 0 1
 
     withSender liquidityProvider do
       call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) xTokenId]
@@ -763,7 +836,7 @@ test_LPs_get_fees =
             }
       xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
       yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
-      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
+      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps 1
 
       for_ accounts \account ->
         withSender account do
@@ -847,7 +920,7 @@ test_fees_are_proportional_to_liquidity =
             }
       xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
       yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
-      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
+      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps 1
 
       for_ accounts \account ->
         withSender account do
@@ -937,7 +1010,7 @@ test_LPs_do_not_receive_past_fees =
             }
       xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
       yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
-      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
+      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps 1
 
       for_ accounts \account ->
         withSender account do
@@ -1039,7 +1112,7 @@ test_fees_are_discounted =
             }
       xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
       yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
-      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
+      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps 1
 
       for_ accounts \account ->
         withSender account do
@@ -1146,7 +1219,7 @@ test_ticks_are_updated =
           }
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
-    cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
+    cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps 1
 
     for_ accounts \account ->
       withSender account do
@@ -1265,7 +1338,7 @@ test_many_small_liquidations =
             }
       xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
       yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
-      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
+      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps 1
 
       for_ accounts \account ->
         withSender account do
@@ -1367,7 +1440,7 @@ test_position_initialization =
       xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
       yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps
+      cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId feeBps 1
       checkAllInvariants cfmm
 
       for_ accounts \account ->
@@ -1517,7 +1590,7 @@ test_updating_nonexisting_position =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "fa2" yFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [yTokenId] })
 
-    cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId 0
+    cfmm <- originateSegCFMM FA2 FA2 $ mkStorage xToken xTokenId yToken yTokenId 0 1
 
     withSender liquidityProvider do
       call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress cfmm) xTokenId]

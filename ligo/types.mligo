@@ -293,6 +293,7 @@ type constants = {
     y_token_id : token_id ;
     x_token_address : address ;
     y_token_address : address ;
+    tick_spacing : nat ;
 }
 
 
