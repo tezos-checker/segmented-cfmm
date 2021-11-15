@@ -3,7 +3,15 @@
 
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 
-module Test.ProtocolFee.YToX where
+module Test.ProtocolFee.YToX
+  ( test_swapping_within_a_single_tick_range
+  , test_many_small_swaps
+  , test_crossing_ticks
+  , test_fee_split
+  , test_must_exceed_min_dx
+  , test_fails_if_its_past_the_deadline
+  , test_swaps_are_noops_when_liquidity_is_zero
+  ) where
 
 import Prelude
 
@@ -102,7 +110,7 @@ test_swapping_within_a_single_tick_range =
             }
       ctezAdmin <- newAddress auto
       let yCtezStorage = FA1_2.mkStorage ctezAdmin $
-            fromList $ accounts <&> \acct -> (acct, userTokenBalance)
+            fromList $ accounts <&> (, userTokenBalance)
       xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
       yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
@@ -215,7 +223,7 @@ test_many_small_swaps =
           }
     ctezAdmin <- newAddress auto
     let yCtezStorage = FA1_2.mkStorage ctezAdmin $
-          fromList $ accounts <&> \acct -> (acct, userTokenBalance)
+          fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
@@ -320,7 +328,7 @@ test_crossing_ticks =
           }
     ctezAdmin <- newAddress auto
     let yCtezStorage = FA1_2.mkStorage ctezAdmin $
-          fromList $ accounts <&> \acct -> (acct, userTokenBalance)
+          fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
@@ -487,7 +495,7 @@ test_fee_split =
           }
     ctezAdmin <- newAddress auto
     let yCtezStorage = FA1_2.mkStorage ctezAdmin $
-          fromList $ accounts <&> \acct -> (acct, userTokenBalance)
+          fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
@@ -567,7 +575,7 @@ test_must_exceed_min_dx =
           }
     ctezAdmin <- newAddress auto
     let yCtezStorage = FA1_2.mkStorage ctezAdmin $
-          fromList $ accounts <&> \acct -> (acct, userTokenBalance)
+          fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
@@ -623,7 +631,7 @@ test_fails_if_its_past_the_deadline =
           }
     ctezAdmin <- newAddress auto
     let yCtezStorage = FA1_2.mkStorage ctezAdmin $
-          fromList $ accounts <&> \acct -> (acct, userTokenBalance)
+          fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
@@ -674,7 +682,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
           }
     ctezAdmin <- newAddress auto
     let yCtezStorage = FA1_2.mkStorage ctezAdmin $
-          fromList $ accounts <&> \acct -> (acct, userTokenBalance)
+          fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
