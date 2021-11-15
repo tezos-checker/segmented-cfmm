@@ -226,7 +226,7 @@ let rec y_to_x_rec (p : y_to_x_rec_param) : y_to_x_rec_param =
         * This contract will continue to hold these 'Y' tokens indefinitely, but
         * this amount won't be part of the usable balance.
         *)
-        let dy_to_convert = ceildiv (dy_minus_fee * (one_minus_ctez_burn_fee_bps(p.s.constants))) 10000n in
+        let dy_to_convert = floordiv (dy_minus_fee * (one_minus_ctez_burn_fee_bps(p.s.constants))) 10000n in
 #else
         let dy_to_convert = dy_minus_fee in
 #endif
@@ -329,7 +329,7 @@ let update_storage_x_to_y (s : storage) (dx : nat) : (nat * nat * storage) =
     * to hold these tokens indefinitely, but this amount won't be part of the
     * usable balance.
     *)
-    let dy_received = ceildiv (r.dy * one_minus_ctez_burn_fee_bps(s.constants)) 10000n in
+    let dy_received = floordiv (r.dy * one_minus_ctez_burn_fee_bps(s.constants)) 10000n in
 #else
     let dy_received = r.dy in
 #endif

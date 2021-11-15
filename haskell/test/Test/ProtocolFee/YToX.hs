@@ -84,6 +84,7 @@ test_swapping_within_a_single_tick_range =
         Gen.integral (Range.linear 0 50_000)
 
     feeBps <- forAll $ Gen.integral (Range.linear 0 10_000)
+    protoFeeBps <- forAll $ Gen.integral (Range.linear 0 10_000)
 
     clevelandProp do
       liquidityProvider <- newAddress auto
@@ -105,7 +106,7 @@ test_swapping_within_a_single_tick_range =
       xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
       yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-      cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
+      cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
       -- Add some slots to the buffers to make the tests more meaningful.
       call cfmm (Call @"Increase_observation_count") 10
 
@@ -149,8 +150,11 @@ test_swapping_within_a_single_tick_range =
         finalSt <- getFullStorage cfmm
 
         -- The contract's `sqrt_price` has moved accordingly.
+        -- Note: protocol fees do not affect swap fees, however, since they are
+        -- subtracted before the conversion from @Y@ to @X@ tokens they do
+        -- affect the price variation.
         let expectedFee = calcSwapFee feeBps dy
-        let expectedNewPrice = calcNewPriceY (sSqrtPrice initialSt) (sLiquidity initialSt) (dy - expectedFee)
+        let expectedNewPrice = calcNewPriceY' (sSqrtPrice initialSt) (sLiquidity initialSt) (dy - expectedFee) protoFeeBps
         adjustScale @30 (sSqrtPrice finalSt) @== expectedNewPrice
         when (dy > 0 && feeBps > 0) do checkCompares expectedFee (>=) 1
 
@@ -187,7 +191,9 @@ test_many_small_swaps =
     -- the fee is rounded up to 1 token.
     -- Over the course of many small swaps, this effect compounds and ends up
     -- making a big difference.
+    -- Note: this is true for protocol fees as well.
     let feeBps = 0
+    let protoFeeBps = 0
 
     let liquidity = 1_e7
     let userTokenBalance = 1_e15
@@ -213,8 +219,8 @@ test_many_small_swaps =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-    cfmm1 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
-    cfmm2 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
+    cfmm1 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
+    cfmm2 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
     -- Add some slots to the buffers to make the tests more meaningful.
     for_ [cfmm1, cfmm2] \cfmm -> call cfmm (Call @"Increase_observation_count") 10
 
@@ -290,6 +296,7 @@ test_crossing_ticks :: TestTree
 test_crossing_ticks =
   nettestScenarioOnEmulatorCaps "executing a swap within a single tick range or across many ticks should be (mostly) equivalent" do
     let feeBps = 200 -- 2%
+    let protoFeeBps = 100 -- 1%
 
     -- The number of seconds to wait before executing the swap
     let waitTime = 3
@@ -317,8 +324,8 @@ test_crossing_ticks =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-    cfmm1 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
-    cfmm2 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
+    cfmm1 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
+    cfmm2 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
     -- Add some slots to the buffers to make the tests more meaningful.
     for_ [cfmm1, cfmm2] \cfmm -> call cfmm (Call @"Increase_observation_count") 10
 
@@ -399,8 +406,11 @@ test_crossing_ticks =
     -- to have moved close to `upperTickIndex` and have crossed several initialized ticks.
     sCurTickIndex st1 `isInRange` upperTickIndex $ (50, 0)
 
-    -- Current tick should be the same.
-    sCurTickIndex st1 @== sCurTickIndex st2
+    -- Note: current tick is not guaranteed to be the same with a protocol fee.
+    -- Because the protocol fee is subtracted before the conversion, only the
+    -- remaining @dy@ will affect the price change.
+    -- Due to this remaining @dy@ being rounded down at every tick crossing, the
+    -- resulting price and tick index will be different.
 
     -- "Fee growth" should be fairly similar.
     -- It can be slightly higher for the 2nd contract,
@@ -421,11 +431,12 @@ test_crossing_ticks =
     cfmm2BalanceDeltaY <- getFA12Balance yToken cfmm2 <&> calcBalanceDelta cfmm2InitialBalanceY
     -- The two contract should have received the exact same amount of Y tokens
     cfmm1BalanceDeltaY @== cfmm2BalanceDeltaY
-    -- The 2nd contract may have given out fewer X tokens for two reasons:
+    -- The 2nd contract may have given out fewer X tokens for three reasons:
     --   1. due to the potential increase in fees explained above
     --   2. due to the rounding up of `dy` when crossing a tick
+    --   3. due to the rounding down of `dy` after taking the protocol fee
     -- We had a margin error of 10 for each possible cause.
-    cfmm2BalanceDeltaX `isInRange` cfmm1BalanceDeltaX $ (0, 10 + 10)
+    cfmm2BalanceDeltaX `isInRange` cfmm1BalanceDeltaX $ (0, 10 + 10 + 10)
 
     -- Collected fees should be fairly similar.
     -- As explained above, the contract may charge up to 10 extra tokens.
@@ -439,10 +450,10 @@ test_crossing_ticks =
     feeReceiver2BalanceY <- getFA12Balance yToken feeReceiver2
     feeReceiver2BalanceY `isInRangeNat` feeReceiver1BalanceY $ (10, 10)
 
-    -- The global accumulators of both contracts should be the same.
-    sCumulativesBuffer st1 @== sCumulativesBuffer st2
+    -- Note: the global accumulators of both contracts might not be the same, due
+    -- to the tick index being affected by the protocol fee (see above).
 
-        -- Check that the ticks' states were updated correctly after being crossed.
+    -- Check that the ticks' states were updated correctly after being crossed.
     let crossedTicks = [100, 200 .. 900] <&> \idx -> bmMap (sTicks st2) ! idx
     for_ crossedTicks \ts -> do
       tsSecondsPerLiquidityOutside ts @== mkX waitTime `div` X liquidity
@@ -454,6 +465,7 @@ test_fee_split :: TestTree
 test_fee_split =
   nettestScenarioOnEmulatorCaps "fees are correctly assigned to each position" do
     let feeBps = 5000 -- 50%
+    let protoFeeBps = 1000 -- 10%
 
     let liquidityDelta = 1_e6
     let userTokenBalance = 1_e15
@@ -479,7 +491,7 @@ test_fee_split =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
+    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
 
     for_ accounts \account ->
       withSender account do
@@ -540,6 +552,7 @@ test_must_exceed_min_dx =
     let upperTickIndex = 1000
     let userTokenBalance = 1_e15
     let feeBps = 100
+    let protoFeeBps = 100
 
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
@@ -558,7 +571,7 @@ test_must_exceed_min_dx =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
+    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
 
     for_ accounts \account ->
       withSender account do
@@ -595,6 +608,7 @@ test_fails_if_its_past_the_deadline =
     let upperTickIndex = 1000
     let userTokenBalance = 1_e15
     let feeBps = 100
+    let protoFeeBps = 100
 
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
@@ -613,7 +627,7 @@ test_fails_if_its_past_the_deadline =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
+    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
 
     for_ accounts \account ->
       withSender account do
@@ -664,7 +678,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId 200 0
+    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId 200 100
     checkAllInvariants cfmm
 
     for_ accounts \account ->

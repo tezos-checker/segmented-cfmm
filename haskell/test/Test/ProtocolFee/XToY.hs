@@ -86,6 +86,7 @@ test_swapping_within_a_single_tick_range =
         Gen.integral (Range.linear 0 50_000)
 
     feeBps <- forAll $ Gen.integral (Range.linear 0 10_000)
+    protoFeeBps <- forAll $ Gen.integral (Range.linear 0 10_000)
 
     clevelandProp do
       liquidityProvider <- newAddress auto
@@ -107,7 +108,7 @@ test_swapping_within_a_single_tick_range =
       xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
       yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-      cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
+      cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
       -- Add some slots to the buffers to make the tests more meaningful.
       call cfmm (Call @"Increase_observation_count") 10
 
@@ -151,6 +152,8 @@ test_swapping_within_a_single_tick_range =
         finalSt <- getFullStorage cfmm
 
         -- The contract's `sqrt_price` has moved accordingly.
+        -- Note: because protocol fees are subtracted after conversion, their
+        -- presence does not affect swap fees nor price variations.
         let expectedFee = calcSwapFee feeBps dx
         let expectedNewPrice = calcNewPriceX (sSqrtPrice initialSt) (sLiquidity initialSt) (dx - expectedFee)
         adjustScale @30 (sSqrtPrice finalSt) @== expectedNewPrice
@@ -163,7 +166,7 @@ test_swapping_within_a_single_tick_range =
         sFeeGrowth finalSt @== expectedFeeGrowth
 
         -- The right amount of tokens was subtracted from the `swapper`'s balance
-        let expectedDy = receivedY (sSqrtPrice initialSt) (sSqrtPrice finalSt) (sLiquidity initialSt)
+        let expectedDy = receivedY' (sSqrtPrice initialSt) (sSqrtPrice finalSt) (sLiquidity initialSt) protoFeeBps
         balanceOf xToken xTokenId swapper @@== initialBalanceSwapperX - dx
         getFA12Balance yToken swapper @@== initialBalanceSwapperY
         -- The right amount of tokens was sent to the `receiver`.
@@ -189,6 +192,7 @@ test_many_small_swaps =
     -- the fee is rounded up to 1 token.
     -- Over the course of many small swaps, this effect compounds and ends up
     -- making a big difference.
+    -- Note: this is true for protocol fees as well.
     let liquidity = 1_e7
     let userTokenBalance = 1_e15
     let lowerTickIndex = -1000
@@ -292,6 +296,7 @@ test_crossing_ticks :: TestTree
 test_crossing_ticks =
   nettestScenarioOnEmulatorCaps "executing a swap within a single tick range or across many ticks should be (mostly) equivalent" do
     let feeBps = 200 -- 2%
+    let protoFeeBps = 100 -- 1%
 
     -- The number of seconds to wait before executing the swap
     let waitTime = 3
@@ -319,8 +324,8 @@ test_crossing_ticks =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-    cfmm1 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
-    cfmm2 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
+    cfmm1 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
+    cfmm2 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
     -- Add some slots to the buffers to make the tests more meaningful.
     for_ [cfmm1, cfmm2] \cfmm -> call cfmm (Call @"Increase_observation_count") 10
 
@@ -453,6 +458,7 @@ test_fee_split :: TestTree
 test_fee_split =
   nettestScenarioOnEmulatorCaps "fees are correctly assigned to each position" do
     let feeBps = 5000 -- 50%
+    let protoFeeBps = 1000 -- 10%
 
     let liquidityDelta = 1_e6
     let userTokenBalance = 1_e15
@@ -478,7 +484,7 @@ test_fee_split =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
+    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
 
     for_ accounts \account ->
       withSender account do
@@ -539,6 +545,7 @@ test_must_exceed_min_dy =
     let upperTickIndex = 1000
     let userTokenBalance = 1_e15
     let feeBps = 100
+    let protoFeeBps = 100
 
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
@@ -557,7 +564,7 @@ test_must_exceed_min_dy =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
+    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
 
     for_ accounts \account ->
       withSender account do
@@ -594,6 +601,7 @@ test_fails_if_its_past_the_deadline =
     let upperTickIndex = 1000
     let userTokenBalance = 1_e15
     let feeBps = 100
+    let protoFeeBps = 100
 
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
@@ -612,7 +620,7 @@ test_fails_if_its_past_the_deadline =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps 0
+    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
 
     for_ accounts \account ->
       withSender account do
@@ -663,7 +671,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId 200 0
+    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId 200 100
     checkAllInvariants cfmm
 
     for_ accounts \account ->
@@ -736,7 +744,7 @@ test_push_cur_tick_index_just_below_witness =
       xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
       yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
 
-      cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId 200 0
+      cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId 200 100
       checkAllInvariants cfmm
 
       for_ accounts \account ->
@@ -793,3 +801,100 @@ test_push_cur_tick_index_just_below_witness =
         sCurTickIndex st @== -101
 
         checkAllInvariants cfmm
+
+test_protocol_fees_are_burned :: TestTree
+test_protocol_fees_are_burned =
+  nettestScenarioOnEmulatorCaps "protocol fees are effectively burned" do
+    let feeBps = 0
+    let protoFeeBps = 5_000 -- 50%
+
+    liquidityProvider <- newAddress auto
+    swapper <- newAddress auto
+    let userTokenBalance = 1_e15
+    let accounts = [liquidityProvider, swapper]
+    let xTokenId = FA2.TokenId 0
+    let yTokenId = FA2.TokenId 0 -- doesn't actually matter
+    let xFa2storage = FA2.Storage
+          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, xTokenId), userTokenBalance)
+          , sOperators = mempty
+          , sTokenMetadata = mempty
+          }
+    ctezAdmin <- newAddress auto
+    let yCtezStorage = FA1_2.mkStorage ctezAdmin $
+          fromList $ accounts <&> \acct -> (acct, userTokenBalance)
+    xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
+    yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
+
+    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
+    checkAllInvariants cfmm
+
+    for_ accounts \account ->
+      withSender account do
+        call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
+        call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
+
+    deadline <- mkDeadline
+    withSender liquidityProvider do
+      call cfmm (Call @"Set_position")
+        SetPositionParam
+          { sppLowerTickIndex = -100
+          , sppUpperTickIndex = 100
+          , sppLowerTickWitness = minTickIndex
+          , sppUpperTickWitness = minTickIndex
+          , sppLiquidity = 10_000
+          , sppDeadline = deadline
+          , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
+          }
+
+    -- The cfmm contract has a non-zero initial CTEZ balance
+    cfmmBalance0 <- getFA12Balance yToken cfmm
+    checkCompares cfmmBalance0 (>=) 1
+
+    -- Perform a swap that does not exhaust the position's liquidity
+    withSender swapper do
+      call cfmm (Call @"X_to_y") XToYParam
+        { xpDx = 10
+        , xpDeadline = deadline
+        , xpMinDy = 1
+        , xpToDy = swapper
+        }
+
+    -- The cfmm contract still has a CTEZ balance that we can use to make a swap
+    -- Note: the reason why at least 4 tokens are required here is simply because
+    -- otherwise the test might be invalidated by the rounding involved
+    cfmmBalance1 <- getFA12Balance yToken cfmm
+    checkCompares cfmmBalance1 (>=) 4
+
+    -- This swap would exhaust the position liquidity and take ~50% of the
+    -- remaining CTEZ balance, but it will fail because some of that balance are
+    -- protocol fees put aside from the previous swaps.
+    -- Note: this would have succeeded if the previous swap didn't happen.
+    withSender swapper do
+     call cfmm (Call @"X_to_y") XToYParam
+       { xpDx = 100
+       , xpDeadline = deadline
+       , xpMinDy = (cfmmBalance1 - 1) `div` 2
+       , xpToDy = swapper
+       } & expectFailedWith smallerThanMinAssetErr
+
+    -- Trying to only exhaust the position liquidity however is still possible
+    withSender swapper do
+      call cfmm (Call @"X_to_y") XToYParam
+        { xpDx = 100
+        , xpDeadline = deadline
+        , xpMinDy = 1
+        , xpToDy = swapper
+        }
+
+    -- The cfmm contract now has ~50% of the initial balance...
+    cfmmBalance2 <- getFA12Balance yToken cfmm
+    checkCompares cfmmBalance2 (>=) (cfmmBalance0 `div` 2)
+
+    -- ... none of which can be swapped, as it's all protocol fees
+    withSender swapper do
+      call cfmm (Call @"X_to_y") XToYParam
+        { xpDx = 100
+        , xpDeadline = deadline
+        , xpMinDy = 1
+        , xpToDy = swapper
+        } & expectFailedWith smallerThanMinAssetErr

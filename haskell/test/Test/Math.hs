@@ -11,8 +11,10 @@ module Test.Math
   , calcSwapFee
   , calcNewPriceX
   , calcNewPriceY
+  , calcNewPriceY'
   , receivedX
   , receivedY
+  , receivedY'
   ) where
 
 import Prelude
@@ -219,10 +221,20 @@ Equation 6.13
     sqrt_price_new = 2^80 * dy / liquidity + sqrt_price_old
  -}
 calcNewPriceY :: X 80 Natural -> Natural -> Natural -> X 30 Natural
-calcNewPriceY (X sqrtPriceOld) liquidity dy =
+calcNewPriceY sqrtPriceOldX liquidity dy =
+  calcNewPriceY' sqrtPriceOldX liquidity dy 0
+
+-- TODO TCFMM-41: likely worth merging this with 'calcNewPriceY'
+--
+-- | Like 'calcNewPriceY', but taking into account the protocol fee.
+--
+-- Keep in mind that the protocol fee is subtracted before the conversion, so
+-- those tokens do not contribute to the price change.
+calcNewPriceY' :: X 80 Natural -> Natural -> Natural -> Natural -> X 30 Natural
+calcNewPriceY' (X sqrtPriceOld) liquidity dy protoFeeBps =
   adjustScale @30 $
     X @80 $
-      _280 * dy `div` liquidity + sqrtPriceOld
+      _280 * (removeProtocolFee dy protoFeeBps) `div` liquidity + sqrtPriceOld
 
 {- | Calculate how many X tokens should be given to the user after depositing Y tokens.
 
@@ -259,11 +271,32 @@ Since sqrtPrice = √P * 2^80, we can subtitute √P with sqrtPrice / 2^80:
   dy = (sqrtPriceNew / 2^80 - sqrtPriceOld / 2^80) * L
 -}
 receivedY :: X 80 Natural -> X 80 Natural -> Natural -> Integer
-receivedY (X sqrtPriceOld) (X sqrtPriceNew) liquidity =
-  let dy :: Double =
-        (fromIntegral sqrtPriceNew / _280 - fromIntegral sqrtPriceOld / _280) * fromIntegral liquidity
+receivedY sqrtPriceOldX sqrtPriceNewX liquidity =
+  receivedY' sqrtPriceOldX sqrtPriceNewX liquidity 0
 
-  -- dy is the amount of tokens to add to the pool.
-  -- To calculate how many tokens will be sent to the user, we flip the sign.
-  in
-    floor @Double @Integer (-dy)
+-- TODO TCFMM-41: likely worth merging this with 'receivedY'
+--
+-- | Like 'receivedY', but taking into account the protocol fee.
+--
+-- Keep in mind that the protocol fee is subtracted after the conversion, so the
+-- received @Y@s can be calculated from the same price difference.
+receivedY' :: X 80 Natural -> X 80 Natural -> Natural -> Natural -> Integer
+receivedY' (X sqrtPriceOld) (X sqrtPriceNew) liquidity protoFeeBps = received
+  where
+    dy :: Double =
+      (fromIntegral sqrtPriceNew / _280 - fromIntegral sqrtPriceOld / _280) * fromIntegral liquidity
+    -- dy is the amount of tokens to add to the pool.
+    -- To calculate how many tokens will be removed from the pool we need to
+    -- flip the sign and round this value down.
+    dyOut = floor @Double @Natural (-dy)
+    -- To calculate how many tokens will be sent to the user, we also need to
+    -- remove the protocol fee.
+    -- Note: because the protocol fee is subtracted after the conversion this
+    -- is rounded down once again.
+    received = toInteger $ removeProtocolFee dyOut protoFeeBps
+
+-- | Subtract the protocol fee from an amount of @Y@ tokens.
+-- Note that this rounds down, as we always want to risk giving the user a bit
+-- less rather than giving more than we have.
+removeProtocolFee :: Natural -> Natural -> Natural
+removeProtocolFee dy protoFeeBps = dy * (10_000 - protoFeeBps) `div` 10_000
