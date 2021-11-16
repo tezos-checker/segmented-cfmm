@@ -35,29 +35,26 @@
 (* The amount of tokens that needs to be transferred to the contract is higher than `maximum_tokens_contributed`. *)
 [@inline] let high_tokens_err = 106n
 
-(* Some of the timestamps passed to the `observe` entrypoint are too far back in the past. *)
-[@inline] let invalid_timestamp_err = 107n
-
 (* The X prime contract address provided is not a segmented-cfmm contract. *)
-[@inline] let invalid_x_prime_contract_err = 108n
+[@inline] let invalid_x_prime_contract_err = 107n
 
 (* Some of the timestamps passed to the `observe` entrypoint are too far back in the past. *)
-[@inline] let observe_outdated_timestamp_err = 109n
+[@inline] let observe_outdated_timestamp_err = 108n
 
 (* Some of the timestamps passed to the `observe` entrypoint are yet in the future. *)
-[@inline] let observe_future_timestamp_err = 110n
+[@inline] let observe_future_timestamp_err = 109n
 
 (* When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. When observing cumulative values at range, `upper_tick_index` must be greater or equal than `lower_tick_index`. *)
-[@inline] let tick_order_err = 111n
+[@inline] let tick_order_err = 110n
 
 (* Liquidity of a position went below zero. *)
-[@inline] let position_liquidity_below_zero_err = 112n
+[@inline] let position_liquidity_below_zero_err = 111n
 
 (* Tick indexes must be a multiple of the tick spacing. *)
-[@inline] let incorrect_tick_spacing_err = 113n
+[@inline] let incorrect_tick_spacing_err = 112n
 
 (* Contract call also transfers some XTZ; this is not allowed, it would be stuck. *)
-[@inline] let non_zero_transfer_err = 114n
+[@inline] let non_zero_transfer_err = 113n
 
 
 

@@ -26,14 +26,13 @@ Here is a summary of all the error codes thrown by the contract.
 | 104 | `smaller_than_min_asset_err` | Threshold on amount of bought tokens violated: `dx` received < `min_dx` or `dy` received < `min_dy`. |
 | 105 | `tick_not_exist_err` | User provided tick is not initialized. |
 | 106 | `high_tokens_err` | The amount of tokens that needs to be transferred to the contract is higher than `maximum_tokens_contributed`. |
-| 107 | `invalid_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are too far back in the past. |
-| 108 | `invalid_x_prime_contract_err` | The X prime contract address provided is not a segmented-cfmm contract. |
-| 109 | `observe_outdated_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are too far back in the past. |
-| 110 | `observe_future_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are yet in the future. |
-| 111 | `tick_order_err` | When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. When observing cumulative values at range, `upper_tick_index` must be greater or equal than `lower_tick_index`. |
-| 112 | `position_liquidity_below_zero_err` | Liquidity of a position went below zero. |
-| 113 | `incorrect_tick_spacing_err` | Tick indexes must be a multiple of the tick spacing. |
-| 114 | `non_zero_transfer_err` | Contract call also transfers some XTZ; this is not allowed, it would be stuck. |
+| 107 | `invalid_x_prime_contract_err` | The X prime contract address provided is not a segmented-cfmm contract. |
+| 108 | `observe_outdated_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are too far back in the past. |
+| 109 | `observe_future_timestamp_err` | Some of the timestamps passed to the `observe` entrypoint are yet in the future. |
+| 110 | `tick_order_err` | When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. When observing cumulative values at range, `upper_tick_index` must be greater or equal than `lower_tick_index`. |
+| 111 | `position_liquidity_below_zero_err` | Liquidity of a position went below zero. |
+| 112 | `incorrect_tick_spacing_err` | Tick indexes must be a multiple of the tick spacing. |
+| 113 | `non_zero_transfer_err` | Contract call also transfers some XTZ; this is not allowed, it would be stuck. |
 
 
 #### Contract Configuration Error Codes

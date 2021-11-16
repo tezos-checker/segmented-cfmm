@@ -42,37 +42,33 @@ tickNotExistErr = 105
 highTokensErr :: Natural
 highTokensErr = 106
 
--- | Some of the timestamps passed to the `observe` entrypoint are too far back in the past.
-invalidTimestampErr :: Natural
-invalidTimestampErr = 107
-
 -- | The X prime contract address provided is not a segmented-cfmm contract.
 invalidXPrimeContractErr :: Natural
-invalidXPrimeContractErr = 108
+invalidXPrimeContractErr = 107
 
 -- | Some of the timestamps passed to the `observe` entrypoint are too far back in the past.
 observeOutdatedTimestampErr :: Natural
-observeOutdatedTimestampErr = 109
+observeOutdatedTimestampErr = 108
 
 -- | Some of the timestamps passed to the `observe` entrypoint are yet in the future.
 observeFutureTimestampErr :: Natural
-observeFutureTimestampErr = 110
+observeFutureTimestampErr = 109
 
 -- | When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. When observing cumulative values at range, `upper_tick_index` must be greater or equal than `lower_tick_index`.
 tickOrderErr :: Natural
-tickOrderErr = 111
+tickOrderErr = 110
 
 -- | Liquidity of a position went below zero.
 positionLiquidityBelowZeroErr :: Natural
-positionLiquidityBelowZeroErr = 112
+positionLiquidityBelowZeroErr = 111
 
 -- | Tick indexes must be a multiple of the tick spacing.
 incorrectTickSpacingErr :: Natural
-incorrectTickSpacingErr = 113
+incorrectTickSpacingErr = 112
 
 -- | Contract call also transfers some XTZ; this is not allowed, it would be stuck.
 nonZeroTransferErr :: Natural
-nonZeroTransferErr = 114
+nonZeroTransferErr = 113
 
 
 ----------------------------------------------------------------------------

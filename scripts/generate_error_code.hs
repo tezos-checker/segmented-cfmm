@@ -68,9 +68,6 @@ invalidInputErrors = errorsEnumerate 100
   , "high_tokens_err"
       :? "The amount of tokens that needs to be transferred to the contract is higher than `maximum_tokens_contributed`."
 
-  , "invalid_timestamp_err"
-      :? "Some of the timestamps passed to the `observe` entrypoint are too far back in the past."
-
   , "invalid_x_prime_contract_err"
       :? "The X prime contract address provided is not a segmented-cfmm contract."
 
