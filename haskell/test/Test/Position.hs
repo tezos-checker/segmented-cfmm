@@ -27,6 +27,7 @@ import SegCFMM.Types
 import Test.Invariants
 import Test.Math
 import Test.Util
+import Util.Named
 
 -- | Cumulatives buffer after some calls to contract that do not
 -- change \"much\".
@@ -223,7 +224,7 @@ test_fails_if_its_past_the_deadline =
           , sppDeadline = expiredDeadline
           , sppMaximumTokensContributed = PerToken 1000000 1000000
           }
-          & expectFailedWith pastDeadlineErr
+          & expectFailedWith (pastDeadlineErr (#deadline .! expiredDeadline, #executed_at .! now))
 
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -245,7 +246,7 @@ test_fails_if_its_past_the_deadline =
           , uppDeadline = expiredDeadline
           , uppMaximumTokensContributed = PerToken 1000000 1000000
           }
-          & expectFailedWith pastDeadlineErr
+          & expectFailedWith (pastDeadlineErr (#deadline .! expiredDeadline, #executed_at .! now))
 
 test_fails_if_its_not_multiple_tick_spacing :: TestTree
 test_fails_if_its_not_multiple_tick_spacing =
@@ -327,7 +328,7 @@ test_maximum_tokens_contributed =
           , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken 1 1
           }
-          & expectFailedWith highTokensErr
+          & expectFailedWith (highTokensErr (#max .! 1, #actual 4999))
 
       -- Also check "Update_position"
       setPosition cfmm 1 (-10, 10)
@@ -340,7 +341,7 @@ test_maximum_tokens_contributed =
           , uppDeadline = validDeadline
           , uppMaximumTokensContributed = PerToken 1 1
           }
-          & expectFailedWith highTokensErr
+          & expectFailedWith (highTokensErr (#max .! 1, #actual 4999))
 
 test_lowest_and_highest_ticks_cannot_be_garbage_collected :: TestTree
 test_lowest_and_highest_ticks_cannot_be_garbage_collected =

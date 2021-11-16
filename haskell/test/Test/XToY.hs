@@ -25,6 +25,7 @@ import Test.Invariants
 import Test.Math
 import Test.SegCFMM.Contract (TokenType(..), xTokenTypes)
 import Test.Util
+import Util.Named
 
 test_swapping_within_a_single_tick_range :: TestTree
 test_swapping_within_a_single_tick_range =
@@ -347,7 +348,7 @@ test_must_exceed_min_dy =
         , xpMinDy = 1000
         , xpToDy = swapper
         }
-        & expectFailedWith smallerThanMinAssetErr
+        & expectFailedWith (smallerThanMinAssetErr (#min .! 1000, #actual .! 0))
 
 test_fails_if_its_past_the_deadline :: TestTree
 test_fails_if_its_past_the_deadline =
@@ -367,7 +368,7 @@ test_fails_if_its_past_the_deadline =
         , xpMinDy = 0
         , xpToDy = swapper
         }
-        & expectFailedWith pastDeadlineErr
+        & expectFailedWith (pastDeadlineErr (#deadline .! expiredDeadline, #executed_at .! now))
 
 test_swaps_are_noops_when_liquidity_is_zero :: TestTree
 test_swaps_are_noops_when_liquidity_is_zero =
@@ -468,7 +469,7 @@ test_protocol_fees_are_burned =
        , xpDeadline = validDeadline
        , xpMinDy = (cfmmBalance1 - 1) `div` 2
        , xpToDy = swapper
-       } & expectFailedWith smallerThanMinAssetErr
+       } & expectFailedWith (smallerThanMinAssetErr (#min .! ((cfmmBalance1 - 1) `div` 2), #actual .! 19))
 
     -- Trying to only exhaust the position liquidity however is still possible
     withSender swapper do
@@ -490,4 +491,4 @@ test_protocol_fees_are_burned =
         , xpDeadline = validDeadline
         , xpMinDy = 1
         , xpToDy = swapper
-        } & expectFailedWith smallerThanMinAssetErr
+        } & expectFailedWith (smallerThanMinAssetErr (#min .! 1, #actual .! 0))

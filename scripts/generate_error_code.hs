@@ -7,6 +7,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 -- | Script for adding new error to ligo and also update the docs.
 module GenerateErrorCode where
@@ -16,23 +18,54 @@ import Data.Text.Manipulate (toCamel)
 import Prelude ()
 import Universum
 
+data Var = Var
+  { vName :: Text
+  , vType :: Text
+  } deriving (Eq)
+
+pattern (:::) :: Text -> Text -> Var
+pattern n ::: t = Var n t
+
 data ErrorItem = ErrorItem
   { eiLabel :: Text
+    -- ^ Error name.
+  , eiArgument :: Maybe [Var]
+    -- ^ Type of additional data carried by the error.
   , eiCode :: Integer
+    -- ^ Numeric code assigned.
   , eiDesc :: Text
+    -- ^ Explanation of the error.
   }
 
-data ShortErrorItem = Text :? Text
-  deriving (Eq)
+data ShortErrorItem = ShortErrorItem
+  { seiLabel :: Text
+  , seiArgument :: Maybe [Var]
+  , seiDesc :: Text
+  } deriving (Eq)
+
+pattern (:?) :: Text -> Text -> ShortErrorItem
+pattern seiLabel :? seiDesc = ShortErrorItem{seiArgument = Nothing, ..}
+infixl 5 :?
 
 removedError :: ShortErrorItem
 removedError = "" :? ""
 
 errorsEnumerate :: Integer -> [ShortErrorItem] -> [ErrorItem]
 errorsEnumerate start =
-  map (\(eiCode, eiLabel :? eiDesc) -> ErrorItem{..}) .
+  map
+    (\(eiCode, ShortErrorItem{..}) -> ErrorItem
+      { eiLabel = seiLabel
+      , eiArgument = seiArgument
+      , eiCode
+      , eiDesc = seiDesc
+      }
+    ) .
   filter ((/= removedError) . snd) .
   zip [start..]
+
+(+?) :: ShortErrorItem -> [Var] -> ShortErrorItem
+(+?) ShortErrorItem{..} arg = ShortErrorItem{seiArgument = Just arg, ..}
+infixl 2 +?
 
 invalidInputErrors :: [ErrorItem]
 invalidInputErrors = errorsEnumerate 100
@@ -56,9 +89,11 @@ invalidInputErrors = errorsEnumerate 100
 
   , "past_deadline_err"
       :? "Swap has expired: now > deadline."
+      +? ["deadline" ::: "timestamp", "executed_at" ::: "timestamp"]
 
   , "smaller_than_min_asset_err"
       :? "Threshold on amount of bought tokens violated: `dx` received < `min_dx` or `dy` received < `min_dy`."
+      +? ["min" ::: "nat", "actual" ::: "nat"]
 
   , "tick_not_exist_err"
       :? "User provided tick is not initialized."
@@ -67,15 +102,18 @@ invalidInputErrors = errorsEnumerate 100
 
   , "high_tokens_err"
       :? "The amount of tokens that needs to be transferred to the contract is higher than `maximum_tokens_contributed`."
+      +? ["max" ::: "nat", "actual" ::: "int"]
 
   , "invalid_x_prime_contract_err"
       :? "The X prime contract address provided is not a segmented-cfmm contract."
 
   , "observe_outdated_timestamp_err"
       :? "Some of the timestamps passed to the `observe` entrypoint are too far back in the past."
+      +? ["oldest_stored" ::: "timestamp", "requested" ::: "timestamp"]
 
   , "observe_future_timestamp_err"
       :? "Some of the timestamps passed to the `observe` entrypoint are yet in the future."
+      +? ["newest_available" ::: "timestamp", "requested" ::: "timestamp"]
 
   , "tick_order_err"
       :? "When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. \
@@ -243,7 +281,15 @@ ligoErrorsTemplate =
 
 errorItemToMdText :: ErrorItem -> Text
 errorItemToMdText ErrorItem{..} =
-  "| " <> (show @Text eiCode) <> " | `" <> eiLabel <> "` | " <> eiDesc <> " |"
+  "| " <> (show @Text eiCode) <> " | `" <> eiLabel <> "` | `" <>
+  maybe "-" renderArgs eiArgument <> "` | " <> eiDesc <> " |"
+  where
+    renderArgs [] = "()"
+    renderArgs [var] = renderVar var
+    renderArgs vars =
+      "(" <> mconcat (intersperse ", " $ map renderVar vars) <> ")"
+
+    renderVar (name ::: ty) = name <> " :" <> ty
 
 mdErrorsTemplate :: Text
 mdErrorsTemplate =
@@ -266,21 +312,21 @@ Here is a summary of all the error codes thrown by the contract.
 
 \#\#\#\# Invalid Input Error Codes
 
-| Error Code       | Error Label      | Description                                           |
-|------------------|------------------|-------------------------------------------------------|
+| Error Code       | Error Label  | Error Argument  | Description                             |
+|------------------|--------------|-----------------|-----------------------------------------|
 #{unlines $ errorItemToMdText <$> invalidInputErrors}
 
 \#\#\#\# Contract Configuration Error Codes
 
-| Error Code       | Error Label      | Description                                           |
-|------------------|------------------|-------------------------------------------------------|
+| Error Code       | Error Label  | Error Argument  | Description                             |
+|------------------|--------------|-----------------|-----------------------------------------|
 #{unlines $ errorItemToMdText <$> invalidConfigErrors}
 
 
 \#\#\#\# Internal Error Codes
 
-| Error Code       | Error Label      | Description                                           |
-|------------------|------------------|-------------------------------------------------------|
+| Error Code       | Error Label  | Error Argument  | Description                             |
+|------------------|--------------|-----------------|-----------------------------------------|
 #{unlines $ errorItemToMdText <$> internalErrors}
 
 |]
@@ -293,13 +339,31 @@ haskellFnName :: ErrorItem -> Text
 haskellFnName = toCamel . eiLabel
 
 errorItemToHaskellText :: ErrorItem -> Text
-errorItemToHaskellText err@ErrorItem{eiDesc, eiCode} =
-  [i|
+errorItemToHaskellText err@ErrorItem{..} = case eiArgument of
+
+  Nothing -> [i|
 -- | #{eiDesc}
 #{fnName} :: Natural
 #{fnName} = #{eiCode}|]
+
+  Just args ->
+    let renderedArgs = ("(" <> ) $ (<> ")") $ mconcat $ intersperse ", " $
+          args <&> \(name ::: ty) -> "\"" <> name <> "\"" <> " :! " <> toHsType ty
+    in [i|
+-- | #{eiDesc}
+#{fnName}
+  :: #{renderedArgs}
+  -> (Natural, #{renderedArgs})
+#{fnName} = (#{eiCode}, )|]
+
   where
     fnName = haskellFnName err
+
+    toHsType = \case
+      "int" -> "Integer"
+      "nat" -> "Natural"
+      "timestamp" -> "Timestamp"
+      other -> error $ "Unknown type in error argument: " <> other
 
 haskellErrorsTemplate :: Text
 haskellErrorsTemplate =
@@ -310,10 +374,13 @@ haskellErrorsTemplate =
 -- Use @stack scripts/generate_error_code.hs@ instead.
 
 {-\# OPTIONS_GHC -Wno-missing-export-lists \#-}
+{-\# OPTIONS_GHC -Wno-unused-imports \#-}
 
 module SegCFMM.Errors where
 
 import Universum
+import Util.Named
+import Lorentz.Value
 
 ----------------------------------------------------------------------------
 -- Invalid Input Error Codes

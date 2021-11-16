@@ -341,7 +341,8 @@ let x_to_y (s : storage) (p : x_to_y_param) : result =
     let _: unit = check_deadline p.deadline in
     let (dx_spent, dy_received, s_new) = update_storage_x_to_y s p.dx in
     if dy_received < p.min_dy then
-        (failwith smaller_than_min_asset_err : result)
+        ([%Michelson ({| { FAILWITH } |} : nat * (nat * nat) -> result)]
+          (smaller_than_min_asset_err, (p.min_dy, dy_received)) : result)
     else
         let op_receive_x = x_transfer Tezos.sender Tezos.self_address dx_spent s.constants in
         let op_send_y = y_transfer Tezos.self_address p.to_dy dy_received s.constants in
@@ -355,7 +356,8 @@ let y_to_x (s : storage) (p : y_to_x_param) : result =
     let dy_spent = assert_nat (p.dy - r.dy, internal_309) in
     let dx_received = r.dx in
     if dx_received < p.min_dx then
-        (failwith smaller_than_min_asset_err : result)
+        ([%Michelson ({| { FAILWITH } |} : nat * (nat * nat) -> result)]
+          (smaller_than_min_asset_err, (p.min_dx, dx_received)) : result)
     else
         let op_receive_y = y_transfer Tezos.sender Tezos.self_address dy_spent s.constants in
         let op_send_x = x_transfer Tezos.self_address p.to_dx dx_received s.constants in
