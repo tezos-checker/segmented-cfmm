@@ -102,7 +102,7 @@
 [@inline] let internal_307 = 307n
 
 (* Liquidity of a tick went below zero. *)
-[@inline] let internal_tick_liquidity_below_zero_err = 308n
+[@inline] let internal_liquidity_below_zero_err = 308n
 
 (* Thrown when `(p.dx - r.dx)` is not nat. *)
 [@inline] let internal_309 = 309n

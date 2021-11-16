@@ -125,8 +125,8 @@ internal307 :: Natural
 internal307 = 307
 
 -- | Liquidity of a tick went below zero.
-internalTickLiquidityBelowZeroErr :: Natural
-internalTickLiquidityBelowZeroErr = 308
+internalLiquidityBelowZeroErr :: Natural
+internalLiquidityBelowZeroErr = 308
 
 -- | Thrown when `(p.dx - r.dx)` is not nat.
 internal309 :: Natural

@@ -135,7 +135,7 @@ internalErrors = errorsEnumerate 300
   , "internal_307"
       :? "Thrown when `(p.dx - dx_consumed)` or `(p.dy - dy_consumed)` is not nat."
 
-  , "internal_tick_liquidity_below_zero_err"
+  , "internal_liquidity_below_zero_err"
       :? "Liquidity of a tick went below zero."
 
   , "internal_309"
