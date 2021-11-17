@@ -68,15 +68,48 @@ make out/storage_default.tz \
 
 At the very least, you'll probably want to change the tokens' contract address.
 
-If you generate the `metadata_map` to be used in storage via:
+If you don't want to use the `Makefile`, you can use the `ligo compile-storage`
+command. The `default_storage` is located in the [`defaults` LIGO module](../ligo/defaults.mligo).
+
+### Generating the contract metadata
+
+You can generate the `metadata_map` compliant with [TZIP-16](https://gitlab.com/tzip/tzip/-/blob/master/proposals/tzip-16/tzip-16.md)
+to be used in the storage via the [`Makefile`](../Makefile) as well.
+
+However, to do so you'll need the `stack` tool installed, see
+[The Haskell Tool Stack](https://docs.haskellstack.org/en/stable/README/)
+tutorial for instructions on how to obtain it.
+
+This is a `make` invocation with the default values for its options:
 ```
-make out/metadata_map
+make out/metadata_map \
+  x_token_symbol=x \
+  x_token_name="Token X" \
+  x_token_decimals=1 \
+  y_token_symbol=y \
+  y_token_name="Token Y" \
+  y_token_decimals=1
 ```
-You can also include it in the storage by using:
+Which you can then include in the storage by using the `metadata_map` option,
+for example:
 ```
 make out/storage_default.tz \
     metadata_map="$(cat out/metadata_map)"
 ```
 
-If you don't want to use the `Makefile`, you can use the `ligo compile-storage`
-command. The `default_storage` is located in the [`defaults` LIGO module](../ligo/defaults.mligo).
+Alternatively, you can also produce the metadata in JSON format with:
+```bash
+make metadata \
+    x_token_symbol=X x_token_name="Token X" x_token_decimals=1 \
+    y_token_symbol=Y y_token_name="Token Y" y_token_decimals=1 \
+    output=metadata.json
+```
+that can then be modified `metadata.json` with more information.
+
+To use this metadata, follow the [TZIP-16 Contract storage](https://gitlab.com/tzip/tzip/-/blob/master/proposals/tzip-16/tzip-16.md#contract-storage)
+documentation, in particular:
+> The encoding of the values must be the direct stream
+of bytes of the data being stored. For instance, an URI starting with `http:`
+will start with the 5 bytes `0x687474703a` (`h` is `0x68`, `t` is `0x74`,
+etc.). There is no implicit conversion to Michelson's binary format (`PACK`) nor
+quoting mechanism.
