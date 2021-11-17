@@ -36,7 +36,7 @@ build:
 test:
 	$(call call_test,"",$(STACK_DEV_TEST_OPTIONS))
 
-exec:
+exec: build
 	stack exec -- $(PACKAGE) $(EXEC_ARGUMENTS) > "../$(EXEC_OUTPUT)"
 
 # Like 'test' command, but enforces dumb terminal which may be useful to

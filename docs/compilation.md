@@ -99,10 +99,13 @@ make out/storage_default.tz \
 
 Alternatively, you can also produce the metadata in JSON format with:
 ```bash
-make metadata \
-    x_token_symbol=X x_token_name="Token X" x_token_decimals=1 \
-    y_token_symbol=Y y_token_name="Token Y" y_token_decimals=1 \
-    output=metadata.json
+make out/metadata.json \
+  x_token_symbol=x \
+  x_token_name="Token X" \
+  x_token_decimals=1 \
+  y_token_symbol=y \
+  y_token_name="Token Y" \
+  y_token_decimals=1
 ```
 that can then be modified `metadata.json` with more information.
 
