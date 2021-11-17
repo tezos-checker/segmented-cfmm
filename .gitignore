@@ -54,6 +54,7 @@ dune-project
 
 # Ligo output
 out/
+ligo/total-*.mligo
 
 # Haskell
 .stack-work/
