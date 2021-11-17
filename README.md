@@ -22,6 +22,7 @@ implementation of a smart-contract.
 For instructions on how to compile the contract and/or its storage, please refer
 to the [compilation document](docs/compilation.md).
 
+
 ## Generating a contract metadata
 
 The contract metadata should be compliant with [TZIP-16](https://gitlab.com/tzip/tzip/-/blob/master/proposals/tzip-16/tzip-16.md).

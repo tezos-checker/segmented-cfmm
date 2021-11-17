@@ -61,10 +61,22 @@ make out/storage_default.tz \
   y_token_id=0 \
   x_token_address=KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn \
   y_token_address=KT1PWx2mnDueood7fEmfbBDKx1D9BAnnXitn \
-  tick_spacing=1
+  tick_spacing=1 \
+  init_cumulatives_buffer_extra_slots=0 \
+  metadata_map="(Big_map.empty : metadata_map)"
 ```
 
 At the very least, you'll probably want to change the tokens' contract address.
+
+If you generate the `metadata_map` to be used in storage via:
+```
+make out/metadata_map
+```
+You can also include it in the storage by using:
+```
+make out/storage_default.tz \
+    metadata_map="$(cat out/metadata_map)"
+```
 
 If you don't want to use the `Makefile`, you can use the `ligo compile-storage`
 command. The `default_storage` is located in the [`defaults` LIGO module](../ligo/defaults.mligo).

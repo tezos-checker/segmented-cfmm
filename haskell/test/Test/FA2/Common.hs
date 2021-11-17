@@ -27,7 +27,7 @@ setSimplePosition cfmm liquidityProvider lowerTickIndex upperTickIndex = do
   let liquidity = 10000000
 
   deadline <- mkDeadline
-  withSender liquidityProvider do
+  withSender liquidityProvider $ do
     call cfmm (Call @"Set_position")
       SetPositionParam
         { sppLowerTickIndex = lowerTickIndex

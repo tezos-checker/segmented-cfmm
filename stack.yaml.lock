@@ -188,6 +188,19 @@ packages:
     git: https://gitlab.com/morley-framework/morley-metadata.git
     commit: cf434b81bd54939855541abc320552adcefd1715
 - completed:
+    subdir: code/morley-metadata-test
+    name: morley-metadata-test
+    version: '0'
+    git: https://gitlab.com/morley-framework/morley-metadata.git
+    pantry-tree:
+      size: 359
+      sha256: fe8953708d0cddda023cff3ef5131824f90a890884c1730f8c0038f4f659d071
+    commit: cf434b81bd54939855541abc320552adcefd1715
+  original:
+    subdir: code/morley-metadata-test
+    git: https://gitlab.com/morley-framework/morley-metadata.git
+    commit: cf434b81bd54939855541abc320552adcefd1715
+- completed:
     hackage: tasty-1.4@sha256:6b28c0512f83255dc07cc2ef6a1fc7922076c1d9ba03a1083f3e66b672ce9388,2518
     pantry-tree:
       size: 1804

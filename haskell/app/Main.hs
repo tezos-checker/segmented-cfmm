@@ -9,12 +9,17 @@ module Main
 import Universum
 
 import Data.Aeson.Encode.Pretty (encodePretty)
+import Data.Aeson (encode)
+import qualified Data.ByteString.Lazy as BSL
 import Fmt (pretty)
 import Data.Version (showVersion)
 import qualified Options.Applicative as Opt
 import Paths_segmented_cfmm (version)
+import Text.Hex (encodeHex)
 
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
+import qualified Lorentz.Contracts.Spec.TZIP16Interface as TZIP
+import Michelson.Text (MText, mkMText)
 import Util.CLI
 import Util.Main
 import Util.Named
@@ -30,6 +35,11 @@ main = wrapMain $ do
     PrintMetadata mc ->
       putTextLn . decodeUtf8 . encodePretty $
         mkSegCfmmMetadata (mkMetadataSettings mc)
+    PrintMetadataByte mc ->
+      putTextLn . encodeHex . BSL.toStrict . encode $
+        mkSegCfmmMetadata (mkMetadataSettings mc)
+    GenerateMetadataUri key ->
+      putTextLn . encodeHex . TZIP.encodeURI $ TZIP.tezosStorageUri TZIP.selfHost key
     GenerateTypescript fp ->
       void $ generateTs @Parameter fp
 
@@ -39,6 +49,8 @@ main = wrapMain $ do
 
 data CmdArgs
   = PrintMetadata MetadataConfig
+  | PrintMetadataByte MetadataConfig
+  | GenerateMetadataUri MText
   | GenerateTypescript FilePath
 
 cmdArgsParser :: Opt.Parser CmdArgs
@@ -47,6 +59,14 @@ cmdArgsParser = asum
       mkCommandParser "print-metadata"
         (PrintMetadata <$> metadataConfigParser)
         "Print the TZIP-16 metadata."
+  , Opt.hsubparser $
+      mkCommandParser "print-metadata-byte"
+        (PrintMetadataByte <$> metadataConfigParser)
+        "Output TZIP-16 metadata in bytes."
+  , Opt.hsubparser $
+      mkCommandParser "generate-metadata-uri"
+        (GenerateMetadataUri <$> metadataUriParser)
+        "Generate metadata URI."
   , Opt.hsubparser $
       mkCommandParser "generate-typescript"
         (GenerateTypescript <$> (mkCLOptionParser Nothing (#name  .! "target") (#help .! "Path to which generated files should be written.")))
@@ -89,3 +109,11 @@ metadataConfigParser = do
   mcTokenYMetadata <-
     tokenMetadataParser "y" "token_y" "Token Y" 2
   return MetadataConfig{..}
+
+metadataUriParser :: Opt.Parser MText
+metadataUriParser =
+  mkCLOptionParser (Just "sub_metadata") (#name .! "metadata-uri-key") (#help .! "Key to access metadata.")
+  & fmap (\a -> case mkMText a of
+        Right keyText -> keyText
+        Left err -> error ("Invalid URI key: " <> err)
+    )
