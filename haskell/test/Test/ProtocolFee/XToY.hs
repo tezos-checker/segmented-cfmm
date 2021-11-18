@@ -30,7 +30,7 @@ import qualified Lorentz.Contracts.Spec.ManagedLedgerInterface as FA1_2
 import Lorentz.Test (contractConsumer)
 import Morley.Nettest
 import Morley.Nettest.Tasty
-import Test.Tasty (TestTree)
+import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.Hedgehog (testProperty)
 import Tezos.Core (timestampPlusSeconds)
 import Util.Named ((.!))
@@ -39,7 +39,7 @@ import SegCFMM.Errors
 import SegCFMM.Types
 import Test.Invariants
 import Test.Math
-import Test.SegCFMM.Contract (TokenType(..))
+import Test.SegCFMM.Contract (TokenType(..), xTokenTypes)
 import Test.SegCFMM.Storage (defaultStorage)
 import Test.Util
 
@@ -811,64 +811,30 @@ test_push_cur_tick_index_just_below_witness =
 
 test_protocol_fees_are_burned :: TestTree
 test_protocol_fees_are_burned =
-  nettestScenarioOnEmulatorCaps "protocol fees are effectively burned" do
+  testGroup "protocol fees are effectively burned" $
+  xTokenTypes <&> \xTokenType -> do
+  nettestScenarioOnEmulatorCaps (show xTokenType) do
     let feeBps = 0
-    let protoFeeBps = 5_000 -- 50%
+    let protoFeeBps = 50_00 -- 50%
 
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
-    let userTokenBalance = 1_e15
     let accounts = [liquidityProvider, swapper]
-    let xTokenId = FA2.TokenId 0
-    let yTokenId = FA2.TokenId 0 -- doesn't actually matter
-    let xFa2storage = FA2.Storage
-          { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, xTokenId), userTokenBalance)
-          , sOperators = mempty
-          , sTokenMetadata = mempty
-          }
-    ctezAdmin <- newAddress auto
-    let yCtezStorage = FA1_2.mkStorage ctezAdmin $
-          fromList $ accounts <&> (, userTokenBalance)
-    xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
-    yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
+    (cfmm, (_, y)) <- prepareSomeSegCFMM' accounts (xTokenType, CTEZ) Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
 
-    cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
-    checkAllInvariants cfmm
-
-    for_ accounts \account ->
-      withSender account do
-        call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
-        call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
-
-    withSender liquidityProvider do
-      call cfmm (Call @"Set_position")
-        SetPositionParam
-          { sppLowerTickIndex = -100
-          , sppUpperTickIndex = 100
-          , sppLowerTickWitness = minTickIndex
-          , sppUpperTickWitness = minTickIndex
-          , sppLiquidity = 10_000
-          , sppDeadline = validDeadline
-          , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
-          }
+    withSender liquidityProvider $ setPosition cfmm 10_000 (-100, 100)
 
     -- The cfmm contract has a non-zero initial CTEZ balance
-    cfmmBalance0 <- getFA12Balance yToken cfmm
+    cfmmBalance0 <- balanceOf y cfmm
     checkCompares cfmmBalance0 (>=) 1
 
     -- Perform a swap that does not exhaust the position's liquidity
-    withSender swapper do
-      call cfmm (Call @"X_to_y") XToYParam
-        { xpDx = 10
-        , xpDeadline = validDeadline
-        , xpMinDy = 1
-        , xpToDy = swapper
-        }
+    withSender swapper $ xtoy cfmm 10 swapper
 
     -- The cfmm contract still has a CTEZ balance that we can use to make a swap
     -- Note: the reason why at least 4 tokens are required here is simply because
     -- otherwise the test might be invalidated by the rounding involved
-    cfmmBalance1 <- getFA12Balance yToken cfmm
+    cfmmBalance1 <- balanceOf y cfmm
     checkCompares cfmmBalance1 (>=) 4
 
     -- This swap would exhaust the position liquidity and take ~50% of the
@@ -893,7 +859,7 @@ test_protocol_fees_are_burned =
         }
 
     -- The cfmm contract now has ~50% of the initial balance...
-    cfmmBalance2 <- getFA12Balance yToken cfmm
+    cfmmBalance2 <- balanceOf y cfmm
     checkCompares cfmmBalance2 (>=) (cfmmBalance0 `div` 2)
 
     -- ... none of which can be swapped, as it's all protocol fees
