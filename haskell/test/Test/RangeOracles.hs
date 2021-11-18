@@ -26,9 +26,10 @@ import Test.Util
 
 test_CornerCases :: TestTree
 test_CornerCases = testGroup "Corner cases"
-  [ nettestScenarioOnEmulatorCaps "Asking at uninitialized tick causes an error" do
+  [ forAllTokenTypeCombinations "Asking at uninitialized tick causes an error" \tokenTypes ->
+    nettestScenarioOnEmulatorCaps (show tokenTypes) do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice]
+      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes
 
       withSender alice $ setPosition cfmm 1 (-100, 100)
 
@@ -37,9 +38,10 @@ test_CornerCases = testGroup "Corner cases"
         call cfmm (Call @"Snapshot_cumulatives_inside") $
           SnapshotCumulativesInsideParam (TickIndex (-10)) (TickIndex 100) (toContractRef consumer)
 
-  , nettestScenarioOnEmulatorCaps "Asking at empty range works as expected" do
+  , forAllTokenTypeCombinations "Asking at empty range works as expected" \tokenTypes ->
+    nettestScenarioOnEmulatorCaps (show tokenTypes) do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice]
+      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes
 
       withSender alice $ setPosition cfmm 1 (0, 10)
 
@@ -51,9 +53,10 @@ test_CornerCases = testGroup "Corner cases"
 
       getStorage consumer @@== [CumulativesInsideSnapshot 0 (X 0) 0]
 
-  , nettestScenarioOnEmulatorCaps "Reversed ranges cause an error" do
+  , forAllTokenTypeCombinations "Reversed ranges cause an error" \tokenTypes ->
+    nettestScenarioOnEmulatorCaps (show tokenTypes) do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice]
+      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes
 
       withSender alice $ setPosition cfmm 1 (0, 10)
 
@@ -68,12 +71,13 @@ test_CornerCases = testGroup "Corner cases"
 
 test_ValuesSanity :: TestTree
 test_ValuesSanity = testGroup "Values are sane"
-  [ nettestScenarioOnEmulatorCaps "One position, jumping right" do
+  [ forAllTokenTypeCombinations "One position, jumping right" \tokenTypes ->
+    nettestScenarioOnEmulatorCaps (show tokenTypes) do
       let tickIndicesRange@(lowerTickIndex, upperTickIndex) =
             (TickIndex -100, TickIndex 100)
 
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice]
+      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes
 
       withSender alice $ setPosition cfmm 1000 (lowerTickIndex, upperTickIndex)
 
@@ -108,7 +112,8 @@ test_ValuesSanity = testGroup "Values are sane"
         }
 
 
-  , testProperty "Interleaving positions creation, jumps over them and tracking" $ H.property do
+  , forAllTokenTypeCombinations "Interleaving positions creation, jumps over them and tracking" \tokenTypes ->
+    testProperty (show tokenTypes) $ H.property do
 
       -- Further go test constants - they were tuned up manually using
       -- @runIO . fmt@ printer. Some of them are left as comments.
@@ -180,7 +185,7 @@ test_ValuesSanity = testGroup "Values are sane"
         -- runIO . fmt $ "\n\n---------\n\n"
 
         alice <- newAddress "alice"
-        (cfmm, _) <- prepareSomeSegCFMM [alice]
+        (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes
 
         withSender alice do
           setPosition cfmm (mkLiquidity 10) baseTickRange

@@ -36,19 +36,21 @@ mkStorage = initStorage theConfig . toTAddress
 
 test_BasicWorkflow :: TestTree
 test_BasicWorkflow =
-  nettestScenarioOnEmulatorCaps "Basic workflow works" do
+  forAllTokenTypeCombinations "Basic workflow works" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
 
     -- Actors
     rewardGiver <- newAddress "reward-keeper"
     liquidityProvider <- newAddress "liquidity-provider"
 
     -- Prepare token with reward
-    miningRewardTokenInfo@(TokenInfo miningRewardTokenId miningRewardTokenContract) <- originateFA2 [rewardGiver] FA2.theTokenId
+    let miningRewardTokenId = FA2.TokenId 10
+    miningRewardTokenContract <- originateFA2 [rewardGiver] miningRewardTokenId
     let miningRewardToken = FA2Token (toAddress miningRewardTokenContract) miningRewardTokenId
-    let getRewardOf = balanceOf miningRewardTokenInfo
+    let getRewardOf = balanceOf (TokenInfo miningRewardTokenId miningRewardTokenContract)
 
     -- Prepare the contracts
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
     staker <- originateSimple "LM" (mkStorage cfmm) liquidityMiningContract
 
     -- Step I: incentive creation

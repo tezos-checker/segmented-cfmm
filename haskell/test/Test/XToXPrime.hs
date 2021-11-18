@@ -17,17 +17,20 @@ import Lorentz hiding (assert, not, now, (>>))
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Morley.Nettest
 import Morley.Nettest.Tasty
-import Test.Tasty (TestTree)
+import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.Hedgehog (testProperty)
 
 import SegCFMM.Types
 import Test.Invariants
 import Test.Math
+import Test.SegCFMM.Contract
 import Test.Util
 
 test_swapping_x_for_x_prime :: TestTree
 test_swapping_x_for_x_prime =
-  testProperty "allows swapping X for X'" $ property do
+  testGroup "allows swapping X for X'" $
+  ((,,) <$> xTokenTypes <*> yTokenTypes <*> xTokenTypes) <&> \tokenTypes@(xType, yType, zType) ->
+  testProperty (show tokenTypes) $ property do
     let liquidity = 1_e7
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
@@ -35,6 +38,12 @@ test_swapping_x_for_x_prime =
     dx <- forAll $ Gen.integral (Range.linear 0 300_000)
     feeBps1 <- forAll $ Gen.integral (Range.linear 0 10_000)
     feeBps2 <- forAll $ Gen.integral (Range.linear 0 10_000)
+    protoFeeBps1 <- forAll $ Gen.integral (Range.linear 0 10_000)
+    protoFeeBps2 <- forAll $ Gen.integral (Range.linear 0 10_000)
+
+    -- When the Y token is not CTEZ, we expect the contract to behave as if the protocol fee had been set to zero.
+    let effectiveProtoFeeBps1 = if yType == CTEZ then protoFeeBps1 else 0
+    let effectiveProtoFeeBps2 = if yType == CTEZ then protoFeeBps2 else 0
 
     clevelandProp do
       liquidityProvider <- newAddress auto
@@ -42,10 +51,11 @@ test_swapping_x_for_x_prime =
       swapReceiver <- newAddress auto
       let accounts = [liquidityProvider, swapper]
 
-      (x, y, z) <- forEach (FA2.TokenId 0, FA2.TokenId 1, FA2.TokenId 2) $ originateFA2 accounts
-
-      (cfmm1, _) <- prepareSomeSegCFMM' accounts (Just (x, y)) Nothing (set cFeeBpsL feeBps1)
-      (cfmm2, _) <- prepareSomeSegCFMM' accounts (Just (z, y)) Nothing (set cFeeBpsL feeBps2)
+      x <- originateTokenContract accounts xType (FA2.TokenId 0)
+      y <- originateTokenContract accounts yType (FA2.TokenId 1)
+      z <- originateTokenContract accounts zType (FA2.TokenId 2)
+      (cfmm1, _) <- prepareSomeSegCFMM' accounts (xType, yType) (Just (x, y)) Nothing (set cFeeBpsL feeBps1 . set cCtezBurnFeeBpsL protoFeeBps1)
+      (cfmm2, _) <- prepareSomeSegCFMM' accounts (zType, yType) (Just (z, y)) Nothing (set cFeeBpsL feeBps2 . set cCtezBurnFeeBpsL protoFeeBps2)
 
       for_ [cfmm1, cfmm2] \cfmm -> do
         withSender liquidityProvider $ setPosition cfmm liquidity (lowerTickIndex, upperTickIndex)
@@ -79,9 +89,9 @@ test_swapping_x_for_x_prime =
 
       let expectedFee1 = calcSwapFee feeBps1 dx
       let expectedNewPrice1 = calcNewPriceX (sSqrtPrice initialSt1) (sLiquidity initialSt1) (dx - expectedFee1)
-      let expectedDy = fromIntegral @Integer @Natural $ receivedY (sSqrtPrice initialSt1) (adjustScale @80 expectedNewPrice1) (sLiquidity initialSt1)
+      let expectedDy = fromIntegral @Integer @Natural $ receivedY' (sSqrtPrice initialSt1) (adjustScale @80 expectedNewPrice1) (sLiquidity initialSt1) effectiveProtoFeeBps1
       let expectedFee2 = calcSwapFee feeBps2 expectedDy
-      let expectedNewPrice2 = calcNewPriceY (sSqrtPrice initialSt2) (sLiquidity initialSt2) (expectedDy - expectedFee2)
+      let expectedNewPrice2 = calcNewPriceY' (sSqrtPrice initialSt2) (sLiquidity initialSt2) (expectedDy - expectedFee2) effectiveProtoFeeBps2
       let expectedDz = fromIntegral @Integer @Natural $ receivedX (sSqrtPrice initialSt2) (adjustScale @80 expectedNewPrice2) (sLiquidity initialSt2)
 
       finalBalanceSwapperX @== initialBalanceSwapperX - dx
@@ -95,7 +105,8 @@ test_swapping_x_for_x_prime =
 
 test_fails_when_y_doesnt_match :: TestTree
 test_fails_when_y_doesnt_match =
-  nettestScenarioOnEmulatorCaps "fails when the 2 contracts have different Y tokens" do
+  forAllTokenTypeCombinations "fails when the 2 contracts have different Y tokens" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     let liquidity = 1_e7
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
@@ -105,11 +116,16 @@ test_fails_when_y_doesnt_match =
     swapReceiver <- newAddress auto
     let accounts = [liquidityProvider, swapper]
 
-    (cfmm1, _) <- prepareSomeSegCFMM accounts
-    (cfmm2, _) <- prepareSomeSegCFMM accounts
+    (cfmm1, _) <- prepareSomeSegCFMM' accounts tokenTypes Nothing Nothing (set cFeeBpsL 0 . set cCtezBurnFeeBpsL 0)
+    (cfmm2, _) <- prepareSomeSegCFMM' accounts tokenTypes Nothing Nothing (set cFeeBpsL 0 . set cCtezBurnFeeBpsL 0)
 
     for_ [cfmm1, cfmm2] \cfmm -> do
       withSender liquidityProvider $ setPosition cfmm liquidity (lowerTickIndex, upperTickIndex)
+
+    let expectedErrors =
+          ( failedWith (customError_ #fA2_NOT_OPERATOR) ||
+            failedWith (constant @(MText, Natural, Natural) ("NotEnoughAllowance", 9, 0))
+          )
 
     withSender swapper do
       call cfmm1 (Call @"X_to_x_prime") XToXPrimeParam
@@ -119,4 +135,4 @@ test_fails_when_y_doesnt_match =
         , xppMinDxPrime = 0
         , xppToDxPrime = swapReceiver
         }
-        & expectCustomError_ #fA2_NOT_OPERATOR
+        & expectTransferFailure expectedErrors

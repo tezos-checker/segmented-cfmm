@@ -30,7 +30,8 @@ data OwnershipType
 -- | Generic property tests for FA2-compliant position handling.
 test_FA2_positions :: TestTree
 test_FA2_positions =
-  testProperty "FA2 position are transferred correctly" $ property $ do
+  forAllTokenTypeCombinations "FA2 position are transferred correctly" \tokenTypes ->
+  testProperty (show tokenTypes) $ property $ do
     -- generate up to 20 unique positions (owner type + indexes)
     positionIndexes <- fmap Set.toList . forAll . Gen.set (Range.linear 0 20) $ do
       lowerTickIndex <- Gen.integral (Range.linearFrom 0 -10000 9990)
@@ -48,7 +49,7 @@ test_FA2_positions =
       ownerOnly <- newAddress auto
       -- may own some position and eventually will own all of them
       finalOwner <- newAddress auto
-      cfmm <- fst <$> prepareSomeSegCFMM [ownerAndOperator, ownerOnly, finalOwner]
+      cfmm <- fst <$> prepareSomeSegCFMM [ownerAndOperator, ownerOnly, finalOwner] tokenTypes
       -- create positions
       let ownerFor ownerType = case ownerType of
             FullyOwned -> ownerAndOperator

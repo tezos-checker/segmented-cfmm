@@ -43,27 +43,30 @@ cumulativesBuffer1 now =
 
 test_equal_ticks :: TestTree
 test_equal_ticks =
-  nettestScenarioOnEmulatorCaps "setting a position with lower_tick=upper_tick fails" do
+  forAllTokenTypeCombinations "setting a position with lower_tick=upper_tick fails" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
 
     withSender liquidityProvider $ setPosition cfmm 1 (100, 100)
       & expectFailedWith tickOrderErr
 
 test_wrong_tick_order :: TestTree
 test_wrong_tick_order =
-  nettestScenarioOnEmulatorCaps "setting a position with lower_tick>upper_tick fails" do
+  forAllTokenTypeCombinations "setting a position with lower_tick>upper_tick fails" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
 
     withSender liquidityProvider $ setPosition cfmm 1 (100, 99)
       & expectFailedWith tickOrderErr
 
 test_setting_a_position_with_zero_liquidity_is_a_noop :: TestTree
 test_setting_a_position_with_zero_liquidity_is_a_noop =
-  nettestScenarioOnEmulatorCaps "setting a position with zero liquidity is a no-op" do
+  forAllTokenTypeCombinations "setting a position with zero liquidity is a no-op" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider]
+    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
     initialSt <- getFullStorage cfmm
 
     withSender liquidityProvider $ setPosition cfmm 0 (-100, 100)
@@ -78,9 +81,10 @@ test_setting_a_position_with_zero_liquidity_is_a_noop =
 
 test_deposit_and_withdrawal_is_a_noop :: TestTree
 test_deposit_and_withdrawal_is_a_noop =
-  nettestScenarioOnEmulatorCaps "depositing and withdrawing the same amount of liquidity is a no-op" $ do
+  forAllTokenTypeCombinations "depositing and withdrawing the same amount of liquidity is a no-op" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider]
+    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
     initialSt <- getFullStorage cfmm
 
     withSender liquidityProvider do
@@ -102,13 +106,15 @@ test_deposit_and_withdrawal_is_a_noop =
 
 test_adding_liquidity_twice :: TestTree
 test_adding_liquidity_twice =
-  nettestScenarioOnEmulatorCaps "adding liquidity twice is the same as adding it once" $ do
+  forAllTokenTypeCombinations "adding liquidity twice is the same as adding it once" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) $ do
     let liquidityDelta = 1_e5
     liquidityProvider <- newAddress auto
     let accounts = [liquidityProvider]
-    tokens@(x, y) <- forEach (FA2.TokenId 0, FA2.TokenId 1) $ originateFA2 accounts
-    (cfmm1, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing id
-    (cfmm2, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing id
+    x <- originateTokenContract accounts (fst tokenTypes) (FA2.TokenId 0)
+    y <- originateTokenContract accounts (snd tokenTypes) (FA2.TokenId 1)
+    (cfmm1, _) <- prepareSomeSegCFMM' accounts tokenTypes (Just (x, y)) Nothing id
+    (cfmm2, _) <- prepareSomeSegCFMM' accounts tokenTypes (Just (x, y)) Nothing id
 
     withSender liquidityProvider do
       -- Add liquidity twice to cfmm1
@@ -132,12 +138,13 @@ test_adding_liquidity_twice =
 
 test_witnesses_must_be_valid :: TestTree
 test_witnesses_must_be_valid =
-  nettestScenarioOnEmulatorCaps "witnesses must be valid" $ do
+  forAllTokenTypeCombinations "witnesses must be valid" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     let liquidityDelta = 10000000
     let lowerTickIndex = -10
     let upperTickIndex = 15
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
 
     withSender liquidityProvider do
       -- lower_tick_witness has not been initialized
@@ -194,13 +201,14 @@ test_witnesses_must_be_valid =
 
 test_fails_if_its_past_the_deadline :: TestTree
 test_fails_if_its_past_the_deadline =
-  nettestScenarioOnEmulatorCaps "fails if it's past the deadline" $ do
+  forAllTokenTypeCombinations "fails if it's past the deadline" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     let liquidityDelta = 10000000
     let lowerTickIndex = -10
     let upperTickIndex = 15
 
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
 
     withSender liquidityProvider do
       now <- getNow
@@ -241,11 +249,12 @@ test_fails_if_its_past_the_deadline =
 
 test_fails_if_its_not_multiple_tick_spacing :: TestTree
 test_fails_if_its_not_multiple_tick_spacing =
-  nettestScenarioOnEmulatorCaps "fails if a tick index is not a multiple of 'tick_spacing'" $ do
+  forAllTokenTypeCombinations "fails if a tick index is not a multiple of 'tick_spacing'" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     let liquidityDelta = 10000000
 
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM' [liquidityProvider] Nothing Nothing (set cTickSpacingL 10)
+    (cfmm, _) <- prepareSomeSegCFMM' [liquidityProvider] tokenTypes Nothing Nothing (set cTickSpacingL 10)
 
     withSender liquidityProvider do
       now <- getNow
@@ -291,19 +300,21 @@ test_fails_if_its_not_multiple_tick_spacing =
 
 test_cannot_set_position_over_max_tick :: TestTree
 test_cannot_set_position_over_max_tick =
-  nettestScenarioOnEmulatorCaps "cannot set a position with upper_tick > max_tick" $ do
+  forAllTokenTypeCombinations "cannot set a position with upper_tick > max_tick" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
 
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
 
     withSender liquidityProvider $ setPosition cfmm 1 (-10, maxTickIndex + 1)
       & expectFailedWith tickNotExistErr
 
 test_maximum_tokens_contributed :: TestTree
 test_maximum_tokens_contributed =
-  nettestScenarioOnEmulatorCaps "cannot transfer more than maximum_tokens_contributed" $ do
+  forAllTokenTypeCombinations "cannot transfer more than maximum_tokens_contributed" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
 
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
@@ -333,9 +344,10 @@ test_maximum_tokens_contributed =
 
 test_lowest_and_highest_ticks_cannot_be_garbage_collected :: TestTree
 test_lowest_and_highest_ticks_cannot_be_garbage_collected =
-  nettestScenarioOnEmulatorCaps "lowest and highest ticks cannot be garbage collected" $ do
+  forAllTokenTypeCombinations "lowest and highest ticks cannot be garbage collected" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
     initialSt <- getFullStorage cfmm
 
     withSender liquidityProvider do
@@ -351,14 +363,15 @@ test_lowest_and_highest_ticks_cannot_be_garbage_collected =
 
 test_withdrawal_overflow :: TestTree
 test_withdrawal_overflow =
-  nettestScenarioOnEmulatorCaps "cannot withdraw more liquidity from a position than it currently has" $ do
+  forAllTokenTypeCombinations "cannot withdraw more liquidity from a position than it currently has" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     let liquidityDelta = 10_000
     let lowerTickIndex = -10
     let upperTickIndex = 10
 
     liquidityProvider1 <- newAddress auto
     liquidityProvider2 <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider1, liquidityProvider2]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider1, liquidityProvider2] tokenTypes
 
     -- Add some liquidity with `liquidityProvider1`
     withSender liquidityProvider1 $ setPosition cfmm liquidityDelta (lowerTickIndex, upperTickIndex)
@@ -375,16 +388,18 @@ test_withdrawal_overflow =
 
 test_LPs_get_fees :: TestTree
 test_LPs_get_fees =
-  testProperty "Liquidity Providers earn fees from swaps" $ property do
+  forAllTokenTypeCombinations "Liquidity Providers earn fees from swaps" \tokenTypes ->
+  testProperty (show tokenTypes) $ property do
 
     feeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
+    protoFeeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
     swaps <- forAll $ Gen.list (Range.linear 1 5) genSwapData
 
     clevelandProp do
       liquidityProvider <- newAddress auto
       swapper <- newAddress auto
       feeReceiver <- newAddress auto
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
 
       withSender liquidityProvider $ setPosition cfmm 1_e7 (-10000, 10000)
 
@@ -411,12 +426,14 @@ test_LPs_get_fees =
 
 test_fees_are_proportional_to_liquidity :: TestTree
 test_fees_are_proportional_to_liquidity =
-  testProperty "Liquidity Providers earn fees proportional to their liquidity" $ property do
+  forAllTokenTypeCombinations "Liquidity Providers earn fees proportional to their liquidity" \tokenTypes ->
+  testProperty (show tokenTypes) $ property do
 
     let position1Liquidity = 1_e7
     let position2Liquidity = position1Liquidity * 3
 
     feeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
+    protoFeeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
     swaps <- forAll $ Gen.list (Range.linear 1 5) genSwapData
 
     clevelandProp do
@@ -427,7 +444,7 @@ test_fees_are_proportional_to_liquidity =
       feeReceiver1 <- newAddress auto
       feeReceiver2 <- newAddress auto
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' accounts Nothing Nothing (set cFeeBpsL feeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM' accounts tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
 
       for_ [(liquidityProvider1, position1Liquidity), (liquidityProvider2, position2Liquidity)] \(lp, liquidity) ->
         withSender lp $ setPosition cfmm liquidity (-10_000, 10_000)
@@ -462,9 +479,11 @@ test_fees_are_proportional_to_liquidity =
 
 test_LPs_do_not_receive_past_fees :: TestTree
 test_LPs_do_not_receive_past_fees =
-  testProperty "Liquidity Providers do not receive past fees" $ property do
+  forAllTokenTypeCombinations "Liquidity Providers do not receive past fees" \tokenTypes ->
+  testProperty (show tokenTypes) $ property do
 
     feeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
+    protoFeeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
     beforeSwaps <- forAll $ Gen.list (Range.linear 1 5) genSwapData
     afterSwaps <- forAll $ Gen.list (Range.linear 1 5) genSwapData
 
@@ -476,7 +495,7 @@ test_LPs_do_not_receive_past_fees =
       feeReceiver1 <- newAddress auto
       feeReceiver2 <- newAddress auto
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' accounts Nothing Nothing (set cFeeBpsL feeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM' accounts tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
 
       let placeSwaps swaps =
             bimap sum sum .
@@ -517,9 +536,11 @@ test_LPs_do_not_receive_past_fees =
 
 test_fees_are_discounted :: TestTree
 test_fees_are_discounted =
-  testProperty "Accrued fees are discounted when adding liquidity to an existing position" $ property do
+  forAllTokenTypeCombinations "Accrued fees are discounted when adding liquidity to an existing position" \tokenTypes ->
+  testProperty (show tokenTypes) $ property do
 
     feeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
+    protoFeeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
     swaps <- forAll $ Gen.list (Range.linear 1 5) genSwapData
 
     clevelandProp do
@@ -530,7 +551,7 @@ test_fees_are_discounted =
       let liquidityDelta = 1_e7
       let lowerTickIndex = -10_000
       let upperTickIndex = 10_000
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
 
       withSender liquidityProvider $ setPosition cfmm liquidityDelta (lowerTickIndex, upperTickIndex)
 
@@ -573,7 +594,8 @@ test_fees_are_discounted =
 
 test_ticks_are_updated :: TestTree
 test_ticks_are_updated =
-  nettestScenarioOnEmulatorCaps "Ticks' states are updated correctly when an overlapping position is created" do
+  forAllTokenTypeCombinations "Ticks' states are updated correctly when an overlapping position is created" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
     let liquidityDelta = 1_e5
@@ -584,7 +606,7 @@ test_ticks_are_updated =
     let ti3 = 100
     let ti4 = 150
 
-    (cfmm, _) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
+    (cfmm, _) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL feeBps)
 
     withSender liquidityProvider do
       setPosition cfmm liquidityDelta (ti1, ti3)
@@ -626,9 +648,11 @@ test_ticks_are_updated =
 
 test_many_small_liquidations :: TestTree
 test_many_small_liquidations =
-  testProperty "Liquidating a position in small steps is (mostly) equivalent to doing it all at once" $ property do
+  forAllTokenTypeCombinations "Liquidating a position in small steps is (mostly) equivalent to doing it all at once" \tokenTypes ->
+  testProperty (show tokenTypes) $ property do
 
     feeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
+    protoFeeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
     swaps <- forAll $ Gen.list (Range.linear 1 5) genSwapData
 
     clevelandProp do
@@ -639,7 +663,7 @@ test_many_small_liquidations =
       receiver2 <- newAddress auto
       let liquidityDelta = 1_e7
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' accounts Nothing Nothing (set cFeeBpsL feeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM' accounts tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
 
       for_ [liquidityProvider1, liquidityProvider2] \liquidityProvider ->
         withSender liquidityProvider do
@@ -674,15 +698,18 @@ test_many_small_liquidations =
 
 test_position_initialization :: TestTree
 test_position_initialization =
-  testProperty "position is initialized correctly" $ property do
+  forAllTokenTypeCombinations "position is initialized correctly" \tokenTypes ->
+  testProperty (show tokenTypes) $ property do
     createPositionData <- forAll genNonOverlappingPositions
-    feeBps <- forAll $ Gen.integral (Range.exponential 0 10_000)
+    feeBps <- forAll $ Gen.integral (Range.exponential 0 100_00)
+    protoFeeBps <- forAll $ Gen.integral (Range.exponential 0 100_00)
+
     swapDirections <- forAll $ replicateM (length createPositionData) genSwapDirection
 
     clevelandProp do
       liquidityProvider <- newAddress auto
       swapper <- newAddress auto
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
       checkAllInvariants cfmm
 
       for_ (createPositionData `zip` swapDirections) \(cpd, swapDirection) -> do
@@ -783,9 +810,10 @@ test_position_initialization =
 
 test_updating_nonexisting_position :: TestTree
 test_updating_nonexisting_position =
-  nettestScenarioOnEmulatorCaps "attempt to update a non-existing position properly fails" $ do
+  forAllTokenTypeCombinations "attempt to update a non-existing position properly fails" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
 
     withSender liquidityProvider do
       setPosition cfmm 1_e7 (-10, 10)

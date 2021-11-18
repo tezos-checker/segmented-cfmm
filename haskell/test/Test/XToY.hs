@@ -23,11 +23,13 @@ import SegCFMM.Errors
 import SegCFMM.Types
 import Test.Invariants
 import Test.Math
+import Test.SegCFMM.Contract (TokenType(..))
 import Test.Util
 
 test_swapping_within_a_single_tick_range :: TestTree
 test_swapping_within_a_single_tick_range =
-  testProperty "swapping within a single tick range" $ property do
+  forAllTokenTypeCombinations "swapping within a single tick range" \tokenTypes ->
+  testProperty (show tokenTypes) $ property do
     let liquidity = 1_e7
     let lowerTickIndex = -1000
     let upperTickIndex = 1000
@@ -38,7 +40,11 @@ test_swapping_within_a_single_tick_range =
       Gen.list (Range.linear 1 10) $
         Gen.integral (Range.linear 0 50_000)
 
-    feeBps <- forAll $ Gen.integral (Range.linear 0 10_000)
+    feeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
+    protoFeeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
+
+    -- When the Y token is not CTEZ, we expect the contract to behave as if the protocol fee had been set to zero.
+    let effectiveProtoFeeBps = if snd tokenTypes == CTEZ then protoFeeBps else 0
 
     clevelandProp do
       liquidityProvider <- newAddress auto
@@ -46,7 +52,7 @@ test_swapping_within_a_single_tick_range =
       swapReceiver <- newAddress auto
       feeReceiver <- newAddress auto
 
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
       -- Add some slots to the buffers to make the tests more meaningful.
       call cfmm (Call @"Increase_observation_count") 10
 
@@ -80,7 +86,7 @@ test_swapping_within_a_single_tick_range =
         sFeeGrowth finalSt @== expectedFeeGrowth
 
         -- The right amount of tokens was subtracted from the `swapper`'s balance
-        let expectedDy = receivedY (sSqrtPrice initialSt) (sSqrtPrice finalSt) (sLiquidity initialSt)
+        let expectedDy = receivedY' (sSqrtPrice initialSt) (sSqrtPrice finalSt) (sLiquidity initialSt) effectiveProtoFeeBps
         balanceOf x swapper @@== initialBalanceSwapperX - dx
         balanceOf y swapper @@== initialBalanceSwapperY
         -- The right amount of tokens was sent to the `receiver`.
@@ -100,13 +106,15 @@ test_swapping_within_a_single_tick_range =
 
 test_many_small_swaps :: TestTree
 test_many_small_swaps =
-  nettestScenarioOnEmulatorCaps "placing many small swaps is (mostly) equivalent to placing 1 big swap" do
+  forAllTokenTypeCombinations "placing many small swaps is (mostly) equivalent to placing 1 big swap" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     -- Note that this property only holds in the absence of fees.
     -- When there _is_ a fee and a user swaps a very small amount of tokens,
     -- the fee is rounded up to 1 token.
     -- Over the course of many small swaps, this effect compounds and ends up
     -- making a big difference.
     let feeBps = 0
+    let protoFeeBps = 0
 
     let liquidity = 1_e7
     let lowerTickIndex = -1000
@@ -119,9 +127,10 @@ test_many_small_swaps =
     swapper <- newAddress auto
 
     let accounts = [liquidityProvider, swapper]
-    tokens@(x, y) <- forEach (FA2.TokenId 0, FA2.TokenId 1) $ originateFA2 accounts
-    (cfmm1, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing (set cFeeBpsL feeBps)
-    (cfmm2, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing (set cFeeBpsL feeBps)
+    x <- originateTokenContract accounts (fst tokenTypes) (FA2.TokenId 0)
+    y <- originateTokenContract accounts (snd tokenTypes) (FA2.TokenId 1)
+    (cfmm1, _) <- prepareSomeSegCFMM' accounts tokenTypes (Just (x, y)) Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
+    (cfmm2, _) <- prepareSomeSegCFMM' accounts tokenTypes (Just (x, y)) Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
 
     for_ [cfmm1, cfmm2] \cfmm -> do
       -- Add some slots to the buffers to make the tests more meaningful.
@@ -167,7 +176,8 @@ test_many_small_swaps =
 
 test_crossing_ticks :: TestTree
 test_crossing_ticks =
-  nettestScenarioOnEmulatorCaps "executing a swap within a single tick range or across many ticks should be (mostly) equivalent" do
+  forAllTokenTypeCombinations "executing a swap within a single tick range or across many ticks should be (mostly) equivalent" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     let feeBps = 200 -- 2%
 
     -- The number of seconds to wait before executing the swap
@@ -183,9 +193,10 @@ test_crossing_ticks =
     feeReceiver2 <- newAddress auto
 
     let accounts = [liquidityProvider, swapper]
-    tokens@(x, y) <- forEach (FA2.TokenId 0, FA2.TokenId 1) $ originateFA2 accounts
-    (cfmm1, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing (set cFeeBpsL feeBps)
-    (cfmm2, _) <- prepareSomeSegCFMM' accounts (Just tokens) Nothing (set cFeeBpsL feeBps)
+    x <- originateTokenContract accounts (fst tokenTypes) (FA2.TokenId 0)
+    y <- originateTokenContract accounts (snd tokenTypes) (FA2.TokenId 1)
+    (cfmm1, _) <- prepareSomeSegCFMM' accounts tokenTypes (Just (x, y)) Nothing (set cFeeBpsL feeBps)
+    (cfmm2, _) <- prepareSomeSegCFMM' accounts tokenTypes (Just (x, y)) Nothing (set cFeeBpsL feeBps)
 
     -- Add some slots to the buffers to make the tests more meaningful.
     for_ [cfmm1, cfmm2] \cfmm -> call cfmm (Call @"Increase_observation_count") 10
@@ -280,14 +291,15 @@ test_crossing_ticks =
 
 test_fee_split :: TestTree
 test_fee_split =
-  nettestScenarioOnEmulatorCaps "fees are correctly assigned to each position" do
+  forAllTokenTypeCombinations "fees are correctly assigned to each position" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     let feeBps = 50_00 -- 50%
 
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
     feeReceiver1 <- newAddress auto
     feeReceiver2 <- newAddress auto
-    (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL feeBps)
+    (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL feeBps)
 
     withSender liquidityProvider do
       setPosition cfmm 1_e6 (-100, 100)
@@ -318,10 +330,11 @@ test_fee_split =
 
 test_must_exceed_min_dy :: TestTree
 test_must_exceed_min_dy =
-  nettestScenarioOnEmulatorCaps "swap fails if the user would receiver less than min_dy" do
+  forAllTokenTypeCombinations "swap fails if the user would receiver less than min_dy" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes
     withSender liquidityProvider $ setPosition cfmm 1_e7 (-1000, 1000)
 
     withSender swapper do
@@ -335,10 +348,11 @@ test_must_exceed_min_dy =
 
 test_fails_if_its_past_the_deadline :: TestTree
 test_fails_if_its_past_the_deadline =
-  nettestScenarioOnEmulatorCaps "swap fails if it's past the deadline" do
+  forAllTokenTypeCombinations "swap fails if it's past the deadline" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper]
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes
     withSender liquidityProvider $ setPosition cfmm 1_e7 (-1000, 1000)
 
     withSender swapper do
@@ -354,10 +368,11 @@ test_fails_if_its_past_the_deadline =
 
 test_swaps_are_noops_when_liquidity_is_zero :: TestTree
 test_swaps_are_noops_when_liquidity_is_zero =
-  nettestScenarioOnEmulatorCaps "After crossing into a 0-liquidity range, swaps are no-ops" do
+  forAllTokenTypeCombinations "After crossing into a 0-liquidity range, swaps are no-ops" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
-    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper]
+    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes
     withSender liquidityProvider $ setPosition cfmm 10_000 (-100, 100)
 
     withSender swapper do
@@ -379,10 +394,11 @@ test_swaps_are_noops_when_liquidity_is_zero =
 
 test_push_cur_tick_index_just_below_witness :: TestTree
 test_push_cur_tick_index_just_below_witness =
-  nettestScenarioOnEmulatorCaps "invariants hold when pushing the cur_tick_index just below cur_tick_witness" do
+  forAllTokenTypeCombinations "invariants hold when pushing the cur_tick_index just below cur_tick_witness" \tokenTypes ->
+  nettestScenarioOnEmulatorCaps (show tokenTypes) do
       liquidityProvider <- newAddress auto
       swapper <- newAddress auto
-      (cfmm, _) <- prepareSomeSegCFMM' [liquidityProvider, swapper] Nothing Nothing (set cFeeBpsL 200)
+      (cfmm, _) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL 200)
 
       withSender liquidityProvider do
         setPosition cfmm 10_000 (-100, 100)
