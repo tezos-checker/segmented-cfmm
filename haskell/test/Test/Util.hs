@@ -11,7 +11,6 @@ module Test.Util
   , evalJust
   -- * FA2 helpers
   , TokenInfo(..)
-  , defaultBalance
   , originateFA2
   , balanceOf
   , balancesOf
