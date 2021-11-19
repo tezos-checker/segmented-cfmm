@@ -15,7 +15,7 @@ import Lorentz hiding (assert, not, now, (>>))
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Morley.Nettest
 import Morley.Nettest.Tasty
-import Test.Tasty (TestTree)
+import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.Hedgehog (testProperty)
 import Tezos.Core (timestampPlusSeconds)
 
@@ -23,7 +23,7 @@ import SegCFMM.Errors
 import SegCFMM.Types
 import Test.Invariants
 import Test.Math
-import Test.SegCFMM.Contract (TokenType(..))
+import Test.SegCFMM.Contract (TokenType(..), xTokenTypes)
 import Test.Util
 
 test_swapping_within_a_single_tick_range :: TestTree
@@ -425,3 +425,65 @@ test_push_cur_tick_index_just_below_witness =
         sCurTickIndex st @== -101
 
         checkAllInvariants cfmm
+
+test_protocol_fees_are_burned :: TestTree
+test_protocol_fees_are_burned =
+  testGroup "protocol fees are effectively burned" $
+  xTokenTypes <&> \xTokenType -> do
+  nettestScenarioOnEmulatorCaps (show xTokenType) do
+    let feeBps = 0
+    let protoFeeBps = 50_00 -- 50%
+
+    liquidityProvider <- newAddress auto
+    swapper <- newAddress auto
+    let accounts = [liquidityProvider, swapper]
+    (cfmm, (_, y)) <- prepareSomeSegCFMM' accounts (xTokenType, CTEZ) Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
+
+    withSender liquidityProvider $ setPosition cfmm 10_000 (-100, 100)
+
+    -- The cfmm contract has a non-zero initial CTEZ balance
+    cfmmBalance0 <- balanceOf y cfmm
+    checkCompares cfmmBalance0 (>=) 1
+
+    -- Perform a swap that does not exhaust the position's liquidity
+    withSender swapper $ xtoy cfmm 10 swapper
+
+    -- The cfmm contract still has a CTEZ balance that we can use to make a swap
+    -- Note: the reason why at least 4 tokens are required here is simply because
+    -- otherwise the test might be invalidated by the rounding involved
+    cfmmBalance1 <- balanceOf y cfmm
+    checkCompares cfmmBalance1 (>=) 4
+
+    -- This swap would exhaust the position liquidity and take ~50% of the
+    -- remaining CTEZ balance, but it will fail because some of that balance are
+    -- protocol fees put aside from the previous swaps.
+    -- Note: this would have succeeded if the previous swap didn't happen.
+    withSender swapper do
+     call cfmm (Call @"X_to_y") XToYParam
+       { xpDx = 100
+       , xpDeadline = validDeadline
+       , xpMinDy = (cfmmBalance1 - 1) `div` 2
+       , xpToDy = swapper
+       } & expectFailedWith smallerThanMinAssetErr
+
+    -- Trying to only exhaust the position liquidity however is still possible
+    withSender swapper do
+      call cfmm (Call @"X_to_y") XToYParam
+        { xpDx = 100
+        , xpDeadline = validDeadline
+        , xpMinDy = 1
+        , xpToDy = swapper
+        }
+
+    -- The cfmm contract now has ~50% of the initial balance...
+    cfmmBalance2 <- balanceOf y cfmm
+    checkCompares cfmmBalance2 (>=) (cfmmBalance0 `div` 2)
+
+    -- ... none of which can be swapped, as it's all protocol fees
+    withSender swapper do
+      call cfmm (Call @"X_to_y") XToYParam
+        { xpDx = 100
+        , xpDeadline = validDeadline
+        , xpMinDy = 1
+        , xpToDy = swapper
+        } & expectFailedWith smallerThanMinAssetErr
