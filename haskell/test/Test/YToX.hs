@@ -75,7 +75,7 @@ test_swapping_within_a_single_tick_range =
 
         -- The contract's `sqrt_price` has moved accordingly.
         let expectedFee = calcSwapFee feeBps dy
-        let expectedNewPrice = calcNewPriceY' (sSqrtPrice initialSt) (sLiquidity initialSt) (dy - expectedFee) effectiveProtoFeeBps
+        let expectedNewPrice = calcNewPriceY (sSqrtPrice initialSt) (sLiquidity initialSt) (dy - expectedFee) effectiveProtoFeeBps
         adjustScale @30 (sSqrtPrice finalSt) @== expectedNewPrice
         when (dy > 0 && feeBps > 0) do checkCompares expectedFee (>=) 1
 

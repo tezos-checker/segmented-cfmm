@@ -89,9 +89,9 @@ test_swapping_x_for_x_prime =
 
       let expectedFee1 = calcSwapFee feeBps1 dx
       let expectedNewPrice1 = calcNewPriceX (sSqrtPrice initialSt1) (sLiquidity initialSt1) (dx - expectedFee1)
-      let expectedDy = fromIntegral @Integer @Natural $ receivedY' (sSqrtPrice initialSt1) (adjustScale @80 expectedNewPrice1) (sLiquidity initialSt1) effectiveProtoFeeBps1
+      let expectedDy = fromIntegral @Integer @Natural $ receivedY (sSqrtPrice initialSt1) (adjustScale @80 expectedNewPrice1) (sLiquidity initialSt1) effectiveProtoFeeBps1
       let expectedFee2 = calcSwapFee feeBps2 expectedDy
-      let expectedNewPrice2 = calcNewPriceY' (sSqrtPrice initialSt2) (sLiquidity initialSt2) (expectedDy - expectedFee2) effectiveProtoFeeBps2
+      let expectedNewPrice2 = calcNewPriceY (sSqrtPrice initialSt2) (sLiquidity initialSt2) (expectedDy - expectedFee2) effectiveProtoFeeBps2
       let expectedDz = fromIntegral @Integer @Natural $ receivedX (sSqrtPrice initialSt2) (adjustScale @80 expectedNewPrice2) (sLiquidity initialSt2)
 
       finalBalanceSwapperX @== initialBalanceSwapperX - dx

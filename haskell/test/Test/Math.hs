@@ -11,10 +11,8 @@ module Test.Math
   , calcSwapFee
   , calcNewPriceX
   , calcNewPriceY
-  , calcNewPriceY'
   , receivedX
   , receivedY
-  , receivedY'
   ) where
 
 import Prelude
@@ -219,19 +217,12 @@ Equation 6.13
     sqrt_price_new / 2^80 = dy / liquidity + sqrt_price_old / 2^80
   Multiplying both sides by 2^80:
     sqrt_price_new = 2^80 * dy / liquidity + sqrt_price_old
- -}
-calcNewPriceY :: X 80 Natural -> Natural -> Natural -> X 30 Natural
-calcNewPriceY sqrtPriceOldX liquidity dy =
-  calcNewPriceY' sqrtPriceOldX liquidity dy 0
 
--- TODO TCFMM-41: likely worth merging this with 'calcNewPriceY'
---
--- | Like 'calcNewPriceY', but taking into account the protocol fee.
---
--- Keep in mind that the protocol fee is subtracted before the conversion, so
--- those tokens do not contribute to the price change.
-calcNewPriceY' :: X 80 Natural -> Natural -> Natural -> Natural -> X 30 Natural
-calcNewPriceY' (X sqrtPriceOld) liquidity dy protoFeeBps =
+Keep in mind that the protocol fee is subtracted before the conversion, so
+those tokens do not contribute to the price change.
+-}
+calcNewPriceY :: X 80 Natural -> Natural -> Natural -> Natural -> X 30 Natural
+calcNewPriceY (X sqrtPriceOld) liquidity dy protoFeeBps =
   adjustScale @30 $
     X @80 $
       _280 * (removeProtocolFee dy protoFeeBps) `div` liquidity + sqrtPriceOld
@@ -269,19 +260,12 @@ Equation 6.14
   Δy = (√P_new - √P_old) * L
 Since sqrtPrice = √P * 2^80, we can subtitute √P with sqrtPrice / 2^80:
   dy = (sqrtPriceNew / 2^80 - sqrtPriceOld / 2^80) * L
--}
-receivedY :: X 80 Natural -> X 80 Natural -> Natural -> Integer
-receivedY sqrtPriceOldX sqrtPriceNewX liquidity =
-  receivedY' sqrtPriceOldX sqrtPriceNewX liquidity 0
 
--- TODO TCFMM-41: likely worth merging this with 'receivedY'
---
--- | Like 'receivedY', but taking into account the protocol fee.
---
--- Keep in mind that the protocol fee is subtracted after the conversion, so the
--- received @Y@s can be calculated from the same price difference.
-receivedY' :: X 80 Natural -> X 80 Natural -> Natural -> Natural -> Integer
-receivedY' (X sqrtPriceOld) (X sqrtPriceNew) liquidity protoFeeBps = received
+Keep in mind that the protocol fee is subtracted after the conversion, so the
+received @Y@s can be calculated from the same price difference.
+-}
+receivedY :: X 80 Natural -> X 80 Natural -> Natural -> Natural -> Integer
+receivedY (X sqrtPriceOld) (X sqrtPriceNew) liquidity protoFeeBps = received
   where
     dy :: Double =
       (fromIntegral sqrtPriceNew / _280 - fromIntegral sqrtPriceOld / _280) * fromIntegral liquidity

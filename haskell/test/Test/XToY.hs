@@ -86,7 +86,7 @@ test_swapping_within_a_single_tick_range =
         sFeeGrowth finalSt @== expectedFeeGrowth
 
         -- The right amount of tokens was subtracted from the `swapper`'s balance
-        let expectedDy = receivedY' (sSqrtPrice initialSt) (sSqrtPrice finalSt) (sLiquidity initialSt) effectiveProtoFeeBps
+        let expectedDy = receivedY (sSqrtPrice initialSt) (sSqrtPrice finalSt) (sLiquidity initialSt) effectiveProtoFeeBps
         balanceOf x swapper @@== initialBalanceSwapperX - dx
         balanceOf y swapper @@== initialBalanceSwapperY
         -- The right amount of tokens was sent to the `receiver`.
