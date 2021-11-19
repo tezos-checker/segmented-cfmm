@@ -7,7 +7,6 @@ module Test.TimedOracles
 
 import Prelude
 
-import qualified Data.List as List
 import Fmt ((+|), (|+))
 import Lorentz.Macro hiding (assert)
 import Lorentz.Test (contractConsumer, sec)
@@ -65,9 +64,9 @@ test_Continuity =
 
     let adjacents = groupAdjacent cumulatives
     let diffs = uncurry (-) <$> adjacents
-    assert (length (List.group diffs) == 1) $
+    assert (length (group diffs) == 1) $
       "Got irregular cumulatives growth:\n\
-      \  " +| List.group diffs |+ "\n\
+      \  " +| group diffs |+ "\n\
       \Cumulative values:\n" +| "\n\
       \  " +| cumulatives |+ ""
 
