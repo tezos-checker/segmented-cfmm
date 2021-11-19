@@ -22,7 +22,6 @@ module Test.Util
   , transferToken'
   , transferTokens
   -- * Segmented CFMM helpers
-  , originateSegCFMM
   , prepareSomeSegCFMM
   , prepareSomeSegCFMM'
   , observe
@@ -31,7 +30,6 @@ module Test.Util
   , xtoy
   , ytox
   , gettingCumulativesInsideDiff
-  , convertTokens
   , validDeadline
   , advanceSecs
   , mapToList
@@ -65,7 +63,6 @@ import Lorentz.Test (contractConsumer)
 import Morley.Nettest
 import Morley.Nettest.Pure (PureM, runEmulated)
 import Test.Tasty (TestName, TestTree, testGroup)
-import Tezos.Address (ta)
 import Time (sec)
 import Util.Named ((.!))
 
@@ -243,13 +240,6 @@ transferTokens fa2 transferParams = call fa2 (Call @"Transfer") transferParams
 -- Segmented CFMM helpers
 ----------------------------------------------------------------------------
 
-originateSegCFMM
-  :: MonadNettest caps base m
-  => TokenType -> TokenType -> Storage
-  -> m (ContractHandler Parameter Storage)
-originateSegCFMM xTokenType yTokenType storage = do
-  originateSimple "Segmented CFMM" storage $ segCFMMContract xTokenType yTokenType
-
 -- | Originate some CFMM contract.
 --
 -- This will originate the necessary FA2 tokens and the CFMM contract itself
@@ -396,23 +386,6 @@ gettingCumulativesInsideDiff cfmm (loTick, hiTick) action = do
   getFullStorage consumer >>= \case
     [s2, s1] -> return (subCumulativesInsideSnapshot s2 s1)
     _ -> failure "Expected exactly 2 elements"
-
--- | Convert given amount of X or Y tokens
---
--- Positive value will increase the current tick index, and negative value will
--- decrease it.
-convertTokens
-  :: (MonadEmulated caps base m, HasCallStack)
-  => ContractHandler Parameter Storage
-  -> Integer
-  -> m ()
-convertTokens cfmm tokens =
-  case tokens `Prelude.compare` 0 of
-    EQ -> pass
-    GT -> ytox cfmm 2 receiver
-    LT -> xtoy cfmm 2 receiver
-  where
-    receiver = [ta|tz1QCtwyKA4S8USgYRJRghDNYLHkkQ3S1yAU|]
 
 validDeadline :: Timestamp
 validDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]

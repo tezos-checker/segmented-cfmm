@@ -93,7 +93,7 @@ test_ValuesSanity = testGroup "Values are sane"
       sums <- gettingCumulativesInsideDiff cfmm tickIndicesRange $ do
         advanceTime (sec 2000)
 
-        withSender alice $ convertTokens cfmm 2
+        withSender alice $ ytox cfmm 2 alice
 
         curTickIndex <- sCurTickIndex <$> getFullStorage cfmm
         gettingCumulativesInsideDiff cfmm tickIndicesRange
@@ -162,7 +162,7 @@ test_ValuesSanity = testGroup "Values are sane"
 
         -- How many tokens to convert during tick index jumps.
         -- We aim at cur tick index change by 1-5 points
-        jump <- mkTokensJump <$> Gen.integral (Range.linearFrom 0 -3 3)
+        jump <- mkTokensJump <$> Gen.integral (Range.linearFrom @Integer 0 -3 3)
         -- Time at which we will measure cumulative values diff
         -- (each separate value does not make much sense on itself)
         checkedTimePeriod <- mkTimePeriod <$> Gen.integral (Range.linear 0 10)
@@ -185,6 +185,7 @@ test_ValuesSanity = testGroup "Values are sane"
         -- runIO . fmt $ "\n\n---------\n\n"
 
         alice <- newAddress "alice"
+        receiver <- newAddress auto
         (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes
 
         withSender alice do
@@ -197,7 +198,10 @@ test_ValuesSanity = testGroup "Values are sane"
             for_ positions $ \(boundaries, liquidity) ->
               setPosition cfmm liquidity boundaries
 
-            convertTokens cfmm jump
+            case jump `Prelude.compare` 0 of
+              EQ -> pass
+              GT -> ytox cfmm (fromIntegral @Integer @Natural jump) receiver
+              LT -> xtoy cfmm (fromIntegral @Integer @Natural $ Prelude.abs jump) receiver
 
             checkAllInvariants cfmm
 
