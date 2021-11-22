@@ -11,7 +11,7 @@ module Test.Util
   , evalJust
   , forAllTokenTypeCombinations
   -- * FA2 helpers
-  , TokenInfo(..)
+  , TokenInfo(TokenInfo)
   , originateFA2
   , originateTokenContract
   , balanceOf
