@@ -27,7 +27,7 @@ test_sender_owner =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
     operator <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner, operator] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner, operator] tokenTypes def
 
     expectCustomError_ #fA2_NOT_OWNER $
       updateOperator cfmm owner operator (FA2.TokenId 0) True
@@ -43,7 +43,7 @@ test_unknown_position =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
     operator <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner, operator] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner, operator] tokenTypes def
 
     withSender owner $ updateOperator cfmm owner operator (FA2.TokenId 0) True
     -- The transfer can be performed even if the token_id is added later
@@ -55,7 +55,7 @@ test_unknown_operator :: TestTree
 test_unknown_operator =
   forAllTokenTypeCombinations "update_operators allows unknown operators and owners" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
-    cfmm <- fst <$> prepareSomeSegCFMM [] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [] tokenTypes def
 
     owner <- newAddress auto
     operator <- newAddress auto
@@ -65,7 +65,7 @@ test_empty_updates :: TestTree
 test_empty_updates =
   forAllTokenTypeCombinations "update_operators accepts empty updates" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
-    cfmm <- fst <$> prepareSomeSegCFMM [] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [] tokenTypes def
     updateOperators cfmm []
 
 test_remove_unset :: TestTree
@@ -74,7 +74,7 @@ test_remove_unset =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
     operator <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner, operator] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner, operator] tokenTypes def
 
     withSender owner $ updateOperator cfmm owner operator (FA2.TokenId 4) False
 
@@ -84,7 +84,7 @@ test_overriding_updates =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
     operator <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner, operator] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner, operator] tokenTypes def
 
     let addTheOperator = FA2.AddOperator $ FA2.OperatorParam owner operator (FA2.TokenId 0)
         removeTheOperator = FA2.RemoveOperator $ FA2.OperatorParam owner operator (FA2.TokenId 0)
@@ -99,7 +99,7 @@ test_multiple_updates =
     owner <- newAddress auto
     operator1 <- newAddress auto
     operator2 <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner, operator1, operator2] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner, operator1, operator2] tokenTypes def
     withSender owner do
       setPosition cfmm 1_e7 (-10, 15)
       setPosition cfmm 1_e7 (-20, -15)

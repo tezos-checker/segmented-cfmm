@@ -28,7 +28,7 @@ test_unknown_position =
   forAllTokenTypeCombinations "balance_of requires exising positions" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes def
 
     expectCustomError_ #fA2_TOKEN_UNDEFINED $ balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner
     expectCustomError_ #fA2_TOKEN_UNDEFINED $ balanceOf (TokenInfo (FA2.TokenId 1) cfmm) owner
@@ -39,7 +39,7 @@ test_empty_requests =
   forAllTokenTypeCombinations "balance_of accepts empty requests" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes def
     balancesOf cfmm [] owner @@== []
 
 test_owned_position :: TestTree
@@ -47,7 +47,7 @@ test_owned_position =
   forAllTokenTypeCombinations "balance_of is 1 for an owned position" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes def
     withSender owner $ setPosition cfmm liquidity (-10, 10)
     balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 1
 
@@ -57,7 +57,7 @@ test_unowned_position =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
     nonOwner <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner, nonOwner] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner, nonOwner] tokenTypes def
     withSender owner $ setPosition cfmm liquidity (-10, 15)
 
     balanceOf (TokenInfo (FA2.TokenId 0) cfmm) nonOwner @@== 0
@@ -67,7 +67,7 @@ test_exisiting_position =
   forAllTokenTypeCombinations "balance_of is 0 if caller is unknown" \tokenTypes ->
     nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes def
     withSender owner $ setPosition cfmm liquidity (10, 15)
 
     nonOwner <- newAddress auto
@@ -82,7 +82,7 @@ test_multiple_positions =
     owner3 <- newAddress auto
     nonOwner1 <- newAddress auto
     nonOwner2 <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner1, owner2, owner3, nonOwner1] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner1, owner2, owner3, nonOwner1] tokenTypes def
     withSender owner1 $ setPosition cfmm liquidity (-20, -15)   -- TokenId 0
     withSender owner1 $ setPosition cfmm liquidity (-10, 1)     -- TokenId 1
     withSender owner1 $ setPosition cfmm liquidity (6, 17)      -- TokenId 2

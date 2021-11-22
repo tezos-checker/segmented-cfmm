@@ -52,7 +52,8 @@ test_swapping_within_a_single_tick_range =
       swapReceiver <- newAddress auto
       feeReceiver <- newAddress auto
 
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
+        { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
       -- Add some slots to the buffers to make the tests more meaningful.
       call cfmm (Call @"Increase_observation_count") 10
 
@@ -129,8 +130,9 @@ test_many_small_swaps =
     let accounts = [liquidityProvider, swapper]
     x <- originateTokenContract accounts (fst tokenTypes) (FA2.TokenId 0)
     y <- originateTokenContract accounts (snd tokenTypes) (FA2.TokenId 1)
-    (cfmm1, _) <- prepareSomeSegCFMM' accounts tokenTypes (Just (x, y)) Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
-    (cfmm2, _) <- prepareSomeSegCFMM' accounts tokenTypes (Just (x, y)) Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
+    let origParams = def { opTokens = Just (x, y), opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
+    (cfmm1, _) <- prepareSomeSegCFMM accounts tokenTypes origParams
+    (cfmm2, _) <- prepareSomeSegCFMM accounts tokenTypes origParams
 
     for_ [cfmm1, cfmm2] \cfmm -> do
       -- Add some slots to the buffers to make the tests more meaningful.
@@ -195,8 +197,9 @@ test_crossing_ticks =
     let accounts = [liquidityProvider, swapper]
     x <- originateTokenContract accounts (fst tokenTypes) (FA2.TokenId 0)
     y <- originateTokenContract accounts (snd tokenTypes) (FA2.TokenId 1)
-    (cfmm1, _) <- prepareSomeSegCFMM' accounts tokenTypes (Just (x, y)) Nothing (set cFeeBpsL feeBps)
-    (cfmm2, _) <- prepareSomeSegCFMM' accounts tokenTypes (Just (x, y)) Nothing (set cFeeBpsL feeBps)
+    let origParams = def { opTokens = Just (x, y), opModifyConstants = set cFeeBpsL feeBps }
+    (cfmm1, _) <- prepareSomeSegCFMM accounts tokenTypes origParams
+    (cfmm2, _) <- prepareSomeSegCFMM accounts tokenTypes origParams
 
     -- Add some slots to the buffers to make the tests more meaningful.
     for_ [cfmm1, cfmm2] \cfmm -> call cfmm (Call @"Increase_observation_count") 10
@@ -299,7 +302,7 @@ test_fee_split =
     swapper <- newAddress auto
     feeReceiver1 <- newAddress auto
     feeReceiver2 <- newAddress auto
-    (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL feeBps)
+    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def { opModifyConstants = set cFeeBpsL feeBps }
 
     withSender liquidityProvider do
       setPosition cfmm 1_e6 (-100, 100)
@@ -334,7 +337,7 @@ test_must_exceed_min_dy =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
     withSender liquidityProvider $ setPosition cfmm 1_e7 (-1000, 1000)
 
     withSender swapper do
@@ -352,7 +355,7 @@ test_fails_if_its_past_the_deadline =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
     withSender liquidityProvider $ setPosition cfmm 1_e7 (-1000, 1000)
 
     withSender swapper do
@@ -372,7 +375,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
-    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes
+    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
     withSender liquidityProvider $ setPosition cfmm 10_000 (-100, 100)
 
     withSender swapper do
@@ -398,7 +401,7 @@ test_push_cur_tick_index_just_below_witness =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
       liquidityProvider <- newAddress auto
       swapper <- newAddress auto
-      (cfmm, _) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL 200)
+      (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def { opModifyConstants = set cFeeBpsL 200 }
 
       withSender liquidityProvider do
         setPosition cfmm 10_000 (-100, 100)
@@ -437,7 +440,8 @@ test_protocol_fees_are_burned =
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
     let accounts = [liquidityProvider, swapper]
-    (cfmm, (_, y)) <- prepareSomeSegCFMM' accounts (xTokenType, CTEZ) Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
+    (cfmm, (_, y)) <- prepareSomeSegCFMM accounts (xTokenType, CTEZ) def
+      { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
 
     withSender liquidityProvider $ setPosition cfmm 10_000 (-100, 100)
 

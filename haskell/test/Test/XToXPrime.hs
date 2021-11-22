@@ -54,8 +54,10 @@ test_swapping_x_for_x_prime =
       x <- originateTokenContract accounts xType (FA2.TokenId 0)
       y <- originateTokenContract accounts yType (FA2.TokenId 1)
       z <- originateTokenContract accounts zType (FA2.TokenId 2)
-      (cfmm1, _) <- prepareSomeSegCFMM' accounts (xType, yType) (Just (x, y)) Nothing (set cFeeBpsL feeBps1 . set cCtezBurnFeeBpsL protoFeeBps1)
-      (cfmm2, _) <- prepareSomeSegCFMM' accounts (zType, yType) (Just (z, y)) Nothing (set cFeeBpsL feeBps2 . set cCtezBurnFeeBpsL protoFeeBps2)
+      (cfmm1, _) <- prepareSomeSegCFMM accounts (xType, yType) def
+        { opTokens = Just (x, y), opModifyConstants = set cFeeBpsL feeBps1 . set cCtezBurnFeeBpsL protoFeeBps1 }
+      (cfmm2, _) <- prepareSomeSegCFMM accounts (zType, yType) def
+        { opTokens = Just (z, y), opModifyConstants = set cFeeBpsL feeBps2 . set cCtezBurnFeeBpsL protoFeeBps2 }
 
       for_ [cfmm1, cfmm2] \cfmm -> do
         withSender liquidityProvider $ setPosition cfmm liquidity (lowerTickIndex, upperTickIndex)
@@ -116,8 +118,8 @@ test_fails_when_y_doesnt_match =
     swapReceiver <- newAddress auto
     let accounts = [liquidityProvider, swapper]
 
-    (cfmm1, _) <- prepareSomeSegCFMM' accounts tokenTypes Nothing Nothing (set cFeeBpsL 0 . set cCtezBurnFeeBpsL 0)
-    (cfmm2, _) <- prepareSomeSegCFMM' accounts tokenTypes Nothing Nothing (set cFeeBpsL 0 . set cCtezBurnFeeBpsL 0)
+    (cfmm1, _) <- prepareSomeSegCFMM accounts tokenTypes def { opModifyConstants = set cFeeBpsL 0 . set cCtezBurnFeeBpsL 0 }
+    (cfmm2, _) <- prepareSomeSegCFMM accounts tokenTypes def { opModifyConstants = set cFeeBpsL 0 . set cCtezBurnFeeBpsL 0 }
 
     for_ [cfmm1, cfmm2] \cfmm -> do
       withSender liquidityProvider $ setPosition cfmm liquidity (lowerTickIndex, upperTickIndex)

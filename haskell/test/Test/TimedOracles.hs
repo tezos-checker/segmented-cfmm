@@ -39,9 +39,8 @@ test_Continuity =
   forAllTokenTypeCombinations "Returned cumulative values continuously grow over time" \tokenTypes ->
   nettestScenarioCaps (show tokenTypes) do
     alice <- newAddress "alice"
-    (cfmm, _) <- prepareSomeSegCFMM' [alice] tokenTypes Nothing
-      (Just defaultStorage { sCumulativesBuffer = initCumulativesBuffer 100 })
-      id
+    (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
+      { opModifyStorage = set sCumulativesBufferL $ initCumulativesBuffer 100 }
 
     advanceTime (sec 3)
 
@@ -76,9 +75,8 @@ test_TimeOutOfBounds =
   forAllTokenTypeCombinations "Observing time out of bounds" \tokenTypes ->
   nettestScenarioCaps (show tokenTypes) do
     alice <- newAddress "alice"
-    (cfmm, _) <- prepareSomeSegCFMM' [alice] tokenTypes Nothing
-      (Just defaultStorage { sCumulativesBuffer = initCumulativesBuffer 100 })
-      id
+    (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
+      { opModifyStorage = set sCumulativesBufferL $ initCumulativesBuffer 100 }
 
     now <- getNow
     consumer <- originateSimple "consumer" [] contractConsumer
@@ -94,7 +92,7 @@ test_IncreaseObservationCount =
   forAllTokenTypeCombinations "Increasing observation count works as expected" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     alice <- newAddress "alice"
-    (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes
+    (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
 
     -- This helps to distinguish dummy and true values in the buffer
     -- Note: this also triggers the contract to record a value in the buffer
@@ -181,9 +179,8 @@ test_LargeInitialBuffer =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     alice <- newAddress "alice"
     let incr = 10
-    (cfmm, _) <- prepareSomeSegCFMM' [alice] tokenTypes Nothing
-      (Just defaultStorage { sCumulativesBuffer = initCumulativesBuffer incr })
-      id
+    (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
+      { opModifyStorage = set sCumulativesBufferL $ initCumulativesBuffer incr }
 
     -- Note: this also triggers the contract to record a value in the buffer
     withSender alice $ setPosition cfmm 100 (-100, 100)
@@ -252,7 +249,7 @@ test_ObservedValues = testGroup "Observed values are sane"
   [ forAllTokenTypeCombinations "Seconds per liquidity cumulative" \tokenTypes ->
     nettestScenarioOnEmulatorCaps (show tokenTypes) do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes
+      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
 
       consumer <- originateSimple "consumer" [] contractConsumer
 
@@ -294,7 +291,7 @@ test_ObservedValues = testGroup "Observed values are sane"
   , forAllTokenTypeCombinations "Tick cumulative" \tokenTypes ->
     nettestScenarioOnEmulatorCaps (show tokenTypes) do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM' [alice] tokenTypes Nothing Nothing (set cCtezBurnFeeBpsL 0)
+      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def { opModifyConstants = set cCtezBurnFeeBpsL 0 }
 
       consumer <- originateSimple "consumer" [] contractConsumer
 

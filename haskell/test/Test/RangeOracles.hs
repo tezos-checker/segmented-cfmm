@@ -29,7 +29,7 @@ test_CornerCases = testGroup "Corner cases"
   [ forAllTokenTypeCombinations "Asking at uninitialized tick causes an error" \tokenTypes ->
     nettestScenarioOnEmulatorCaps (show tokenTypes) do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes
+      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
 
       withSender alice $ setPosition cfmm 1 (-100, 100)
 
@@ -41,7 +41,7 @@ test_CornerCases = testGroup "Corner cases"
   , forAllTokenTypeCombinations "Asking at empty range works as expected" \tokenTypes ->
     nettestScenarioOnEmulatorCaps (show tokenTypes) do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes
+      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
 
       withSender alice $ setPosition cfmm 1 (0, 10)
 
@@ -56,7 +56,7 @@ test_CornerCases = testGroup "Corner cases"
   , forAllTokenTypeCombinations "Reversed ranges cause an error" \tokenTypes ->
     nettestScenarioOnEmulatorCaps (show tokenTypes) do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes
+      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
 
       withSender alice $ setPosition cfmm 1 (0, 10)
 
@@ -77,7 +77,7 @@ test_ValuesSanity = testGroup "Values are sane"
             (TickIndex -100, TickIndex 100)
 
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes
+      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
 
       withSender alice $ setPosition cfmm 1000 (lowerTickIndex, upperTickIndex)
 
@@ -186,7 +186,7 @@ test_ValuesSanity = testGroup "Values are sane"
 
         alice <- newAddress "alice"
         receiver <- newAddress auto
-        (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes
+        (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
 
         withSender alice do
           setPosition cfmm (mkLiquidity 10) baseTickRange

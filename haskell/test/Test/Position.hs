@@ -46,7 +46,7 @@ test_equal_ticks =
   forAllTokenTypeCombinations "setting a position with lower_tick=upper_tick fails" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
 
     withSender liquidityProvider $ setPosition cfmm 1 (100, 100)
       & expectFailedWith tickOrderErr
@@ -56,7 +56,7 @@ test_wrong_tick_order =
   forAllTokenTypeCombinations "setting a position with lower_tick>upper_tick fails" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
 
     withSender liquidityProvider $ setPosition cfmm 1 (100, 99)
       & expectFailedWith tickOrderErr
@@ -66,7 +66,7 @@ test_setting_a_position_with_zero_liquidity_is_a_noop =
   forAllTokenTypeCombinations "setting a position with zero liquidity is a no-op" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
+    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
     initialSt <- getFullStorage cfmm
 
     withSender liquidityProvider $ setPosition cfmm 0 (-100, 100)
@@ -84,7 +84,7 @@ test_deposit_and_withdrawal_is_a_noop =
   forAllTokenTypeCombinations "depositing and withdrawing the same amount of liquidity is a no-op" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
+    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
     initialSt <- getFullStorage cfmm
 
     withSender liquidityProvider do
@@ -113,8 +113,8 @@ test_adding_liquidity_twice =
     let accounts = [liquidityProvider]
     x <- originateTokenContract accounts (fst tokenTypes) (FA2.TokenId 0)
     y <- originateTokenContract accounts (snd tokenTypes) (FA2.TokenId 1)
-    (cfmm1, _) <- prepareSomeSegCFMM' accounts tokenTypes (Just (x, y)) Nothing id
-    (cfmm2, _) <- prepareSomeSegCFMM' accounts tokenTypes (Just (x, y)) Nothing id
+    (cfmm1, _) <- prepareSomeSegCFMM accounts tokenTypes def { opTokens = Just (x, y) }
+    (cfmm2, _) <- prepareSomeSegCFMM accounts tokenTypes def { opTokens = Just (x, y) }
 
     withSender liquidityProvider do
       -- Add liquidity twice to cfmm1
@@ -144,7 +144,7 @@ test_witnesses_must_be_valid =
     let lowerTickIndex = -10
     let upperTickIndex = 15
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
 
     withSender liquidityProvider do
       -- lower_tick_witness has not been initialized
@@ -208,7 +208,7 @@ test_fails_if_its_past_the_deadline =
     let upperTickIndex = 15
 
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
 
     withSender liquidityProvider do
       now <- getNow
@@ -254,7 +254,7 @@ test_fails_if_its_not_multiple_tick_spacing =
     let liquidityDelta = 10000000
 
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM' [liquidityProvider] tokenTypes Nothing Nothing (set cTickSpacingL 10)
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def { opModifyConstants = set cTickSpacingL 10 }
 
     withSender liquidityProvider do
       now <- getNow
@@ -304,7 +304,7 @@ test_cannot_set_position_over_max_tick =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
 
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
 
     withSender liquidityProvider $ setPosition cfmm 1 (-10, maxTickIndex + 1)
       & expectFailedWith tickNotExistErr
@@ -314,7 +314,7 @@ test_maximum_tokens_contributed =
   forAllTokenTypeCombinations "cannot transfer more than maximum_tokens_contributed" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
 
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
@@ -347,7 +347,7 @@ test_lowest_and_highest_ticks_cannot_be_garbage_collected =
   forAllTokenTypeCombinations "lowest and highest ticks cannot be garbage collected" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
     initialSt <- getFullStorage cfmm
 
     withSender liquidityProvider do
@@ -371,7 +371,7 @@ test_withdrawal_overflow =
 
     liquidityProvider1 <- newAddress auto
     liquidityProvider2 <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider1, liquidityProvider2] tokenTypes
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider1, liquidityProvider2] tokenTypes def
 
     -- Add some liquidity with `liquidityProvider1`
     withSender liquidityProvider1 $ setPosition cfmm liquidityDelta (lowerTickIndex, upperTickIndex)
@@ -399,7 +399,8 @@ test_LPs_get_fees =
       liquidityProvider <- newAddress auto
       swapper <- newAddress auto
       feeReceiver <- newAddress auto
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
+        { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
 
       withSender liquidityProvider $ setPosition cfmm 1_e7 (-10000, 10000)
 
@@ -444,7 +445,8 @@ test_fees_are_proportional_to_liquidity =
       feeReceiver1 <- newAddress auto
       feeReceiver2 <- newAddress auto
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' accounts tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM accounts tokenTypes def
+        { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
 
       for_ [(liquidityProvider1, position1Liquidity), (liquidityProvider2, position2Liquidity)] \(lp, liquidity) ->
         withSender lp $ setPosition cfmm liquidity (-10_000, 10_000)
@@ -495,7 +497,8 @@ test_LPs_do_not_receive_past_fees =
       feeReceiver1 <- newAddress auto
       feeReceiver2 <- newAddress auto
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' accounts tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM accounts tokenTypes def
+        { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
 
       let placeSwaps swaps =
             bimap sum sum .
@@ -551,7 +554,8 @@ test_fees_are_discounted =
       let liquidityDelta = 1_e7
       let lowerTickIndex = -10_000
       let upperTickIndex = 10_000
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
+        { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
 
       withSender liquidityProvider $ setPosition cfmm liquidityDelta (lowerTickIndex, upperTickIndex)
 
@@ -606,7 +610,8 @@ test_ticks_are_updated =
     let ti3 = 100
     let ti4 = 150
 
-    (cfmm, _) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL feeBps)
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
+      { opModifyConstants = set cFeeBpsL feeBps }
 
     withSender liquidityProvider do
       setPosition cfmm liquidityDelta (ti1, ti3)
@@ -663,7 +668,8 @@ test_many_small_liquidations =
       receiver2 <- newAddress auto
       let liquidityDelta = 1_e7
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' accounts tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM accounts tokenTypes def
+        { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
 
       for_ [liquidityProvider1, liquidityProvider2] \liquidityProvider ->
         withSender liquidityProvider do
@@ -709,7 +715,8 @@ test_position_initialization =
     clevelandProp do
       liquidityProvider <- newAddress auto
       swapper <- newAddress auto
-      (cfmm, (x, y)) <- prepareSomeSegCFMM' [liquidityProvider, swapper] tokenTypes Nothing Nothing (set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps)
+      (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
+        { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
       checkAllInvariants cfmm
 
       for_ (createPositionData `zip` swapDirections) \(cpd, swapDirection) -> do
@@ -813,7 +820,7 @@ test_updating_nonexisting_position =
   forAllTokenTypeCombinations "attempt to update a non-existing position properly fails" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes
+    (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
 
     withSender liquidityProvider do
       setPosition cfmm 1_e7 (-10, 10)

@@ -34,7 +34,7 @@ test_zero_transfers =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
     operator <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes def
 
     -- the token does not even exist
     withSender owner do
@@ -54,7 +54,7 @@ test_unknown_position =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes def
 
     expectCustomError_ #fA2_TOKEN_UNDEFINED $
       withSender owner $ transferToken' cfmm owner receiver (FA2.TokenId 0)
@@ -69,7 +69,7 @@ test_removed_position =
 
     owner <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes def
 
     withSender owner do
       setPosition cfmm liquidityDelta (lowerTickIndex, upperTickIndex)
@@ -88,7 +88,7 @@ test_getting_position_back =
 
     owner <- newAddress auto
     foreigner <- newAddress "foreigner"
-    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes def
 
     withSender owner do
       setPosition cfmm 1000 (lowerTickIndex, upperTickIndex)
@@ -109,7 +109,7 @@ test_not_owner =
     owner <- newAddress auto
     notOwner <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner, notOwner, receiver] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner, notOwner, receiver] tokenTypes def
 
     withSender owner $ setPosition cfmm 1_e7 (-10, 15)
     expectCustomError #fA2_INSUFFICIENT_BALANCE (#required .! 1, #present .! 0) $
@@ -121,7 +121,7 @@ test_not_operator =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
     notOper <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner, notOper] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner, notOper] tokenTypes def
 
     withSender owner $ setPosition cfmm 1_e7 (-10, 15)
     expectCustomError_ #fA2_NOT_OPERATOR $
@@ -133,7 +133,7 @@ test_fungible_amount =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes def
 
     withSender owner do
       setPosition cfmm 1_e7 (-10, 15)
@@ -146,7 +146,7 @@ test_owner_transfer =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes def
 
     withSender owner do
       setPosition cfmm 1_e7 (-10, 15)
@@ -168,7 +168,7 @@ test_operator_transfer =
     owner <- newAddress auto
     operator <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes def
 
     withSender owner do
       setPosition cfmm 1_e7 (-10, 15)
@@ -187,7 +187,7 @@ test_self_transfer =
   forAllTokenTypeCombinations "transfer accepts self-transfer of an existing position" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     owner <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] tokenTypes def
 
     withSender owner do
       setPosition cfmm 1_e7 (-10, 15)
@@ -200,7 +200,7 @@ test_multiple_transfers =
     owner1 <- newAddress auto
     owner2 <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner1, owner2, receiver] tokenTypes
+    cfmm <- fst <$> prepareSomeSegCFMM [owner1, owner2, receiver] tokenTypes def
 
     withSender owner1 do
       setPosition cfmm 1_e7 (-10, 15)

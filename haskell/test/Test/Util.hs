@@ -22,8 +22,8 @@ module Test.Util
   , transferToken'
   , transferTokens
   -- * Segmented CFMM helpers
+  , OriginationParams(..)
   , prepareSomeSegCFMM
-  , prepareSomeSegCFMM'
   , observe
   , setPosition
   , updatePosition
@@ -45,6 +45,7 @@ module Test.Util
   , isInRangeNat
   , groupAdjacent
   , isMonothonic
+  , Lorentz.def
   ) where
 
 import Prelude
@@ -240,6 +241,20 @@ transferTokens fa2 transferParams = call fa2 (Call @"Transfer") transferParams
 -- Segmented CFMM helpers
 ----------------------------------------------------------------------------
 
+data OriginationParams = OriginationParams
+  { opTokens :: Maybe (TokenInfo, TokenInfo)
+    -- ^ Id and address of the X and Y tokens. If unspecified, new tokens will be created.
+  , opModifyStorage :: CFMM.Storage -> CFMM.Storage
+  , opModifyConstants :: Constants -> Constants
+  }
+
+instance Default OriginationParams where
+  def = OriginationParams
+    { opTokens = Nothing
+    , opModifyStorage = id
+    , opModifyConstants = id
+    }
+
 -- | Originate some CFMM contract.
 --
 -- This will originate the necessary FA2 tokens and the CFMM contract itself
@@ -248,24 +263,11 @@ prepareSomeSegCFMM
   :: MonadNettest caps base m
   => [Address]
   -> (TokenType, TokenType)
+  -> OriginationParams
   -> m ( ContractHandler CFMM.Parameter CFMM.Storage
        , (TokenInfo, TokenInfo)
        )
-prepareSomeSegCFMM accounts tokenTypes =
-  prepareSomeSegCFMM' accounts tokenTypes Nothing Nothing id
-
--- | Like 'prepareSomeSegCFMM' but allows overriding some defaults.
-prepareSomeSegCFMM'
-  :: MonadNettest caps base m
-  => [Address]
-  -> (TokenType, TokenType)
-  -> Maybe (TokenInfo, TokenInfo)
-  -> Maybe CFMM.Storage
-  -> (Constants -> Constants)
-  -> m ( ContractHandler CFMM.Parameter CFMM.Storage
-       , (TokenInfo, TokenInfo)
-       )
-prepareSomeSegCFMM' accounts (xTokenType, yTokenType) tokensInfoMb initialStorageMb modifyConstants = do
+prepareSomeSegCFMM accounts (xTokenType, yTokenType) (OriginationParams tokensInfoMb modifyStorage modifyConstants) = do
 
   tokensInfo@(x, y) :: (TokenInfo, TokenInfo) <-
     case tokensInfoMb of
@@ -274,7 +276,7 @@ prepareSomeSegCFMM' accounts (xTokenType, yTokenType) tokensInfoMb initialStorag
         (,) <$> originateTokenContract accounts xTokenType (FA2.TokenId 0)
             <*> originateTokenContract accounts yTokenType (FA2.TokenId 1)
 
-  let initialStorage = fromMaybe defaultStorage initialStorageMb
+  let initialStorage = modifyStorage defaultStorage
   let initialStorage' = initialStorage
         { sConstants = modifyConstants $ (sConstants initialStorage)
           { cXTokenAddress = case x of TokenInfo _ addr -> toAddress addr; TokenInfo_12 addr -> toAddress addr
