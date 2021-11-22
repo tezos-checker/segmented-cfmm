@@ -18,6 +18,7 @@ import Tezos.Core (timestampPlusSeconds)
 import SegCFMM.Errors
 import SegCFMM.Types
 import Test.Invariants
+import Test.SegCFMM.Contract
 import Test.SegCFMM.Storage
 import Test.Util
 
@@ -36,10 +37,9 @@ test_BufferInitialization =
 
 test_Continuity :: TestTree
 test_Continuity =
-  forAllTokenTypeCombinations "Returned cumulative values continuously grow over time" \tokenTypes ->
-  nettestScenarioCaps (show tokenTypes) do
+  nettestScenarioCaps "Returned cumulative values continuously grow over time" do
     alice <- newAddress "alice"
-    (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
+    (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
       { opModifyStorage = set sCumulativesBufferL $ initCumulativesBuffer 100 }
 
     advanceTime (sec 3)
@@ -72,10 +72,9 @@ test_Continuity =
 
 test_TimeOutOfBounds :: TestTree
 test_TimeOutOfBounds =
-  forAllTokenTypeCombinations "Observing time out of bounds" \tokenTypes ->
-  nettestScenarioCaps (show tokenTypes) do
+  nettestScenarioCaps "Observing time out of bounds" do
     alice <- newAddress "alice"
-    (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
+    (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
       { opModifyStorage = set sCumulativesBufferL $ initCumulativesBuffer 100 }
 
     now <- getNow
@@ -89,10 +88,9 @@ test_TimeOutOfBounds =
 
 test_IncreaseObservationCount :: TestTree
 test_IncreaseObservationCount =
-  forAllTokenTypeCombinations "Increasing observation count works as expected" \tokenTypes ->
-  nettestScenarioOnEmulatorCaps (show tokenTypes) do
+  nettestScenarioOnEmulatorCaps "Increasing observation count works as expected" do
     alice <- newAddress "alice"
-    (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
+    (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
     -- This helps to distinguish dummy and true values in the buffer
     -- Note: this also triggers the contract to record a value in the buffer
@@ -175,11 +173,10 @@ test_IncreaseObservationCount =
 
 test_LargeInitialBuffer :: TestTree
 test_LargeInitialBuffer =
-  forAllTokenTypeCombinations "Setting large initial buffer works properly" \tokenTypes ->
-  nettestScenarioOnEmulatorCaps (show tokenTypes) do
+  nettestScenarioOnEmulatorCaps "Setting large initial buffer works properly" do
     alice <- newAddress "alice"
     let incr = 10
-    (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
+    (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
       { opModifyStorage = set sCumulativesBufferL $ initCumulativesBuffer incr }
 
     -- Note: this also triggers the contract to record a value in the buffer
@@ -246,10 +243,9 @@ test_LargeInitialBuffer =
 
 test_ObservedValues :: TestTree
 test_ObservedValues = testGroup "Observed values are sane"
-  [ forAllTokenTypeCombinations "Seconds per liquidity cumulative" \tokenTypes ->
-    nettestScenarioOnEmulatorCaps (show tokenTypes) do
+  [ nettestScenarioOnEmulatorCaps "Seconds per liquidity cumulative" do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
+      (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
       consumer <- originateSimple "consumer" [] contractConsumer
 
@@ -288,10 +284,9 @@ test_ObservedValues = testGroup "Observed values are sane"
       [ adjustScale @30 $ nextSplCum - prevSplCum | (prevSplCum, nextSplCum) <- groupAdjacent splCums ]
         @== mkX' @Double <$> [1, 2, 0.25]
 
-  , forAllTokenTypeCombinations "Tick cumulative" \tokenTypes ->
-    nettestScenarioOnEmulatorCaps (show tokenTypes) do
+  , nettestScenarioOnEmulatorCaps "Tick cumulative" do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def { opModifyConstants = set cCtezBurnFeeBpsL 0 }
+      (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def { opModifyConstants = set cCtezBurnFeeBpsL 0 }
 
       consumer <- originateSimple "consumer" [] contractConsumer
 

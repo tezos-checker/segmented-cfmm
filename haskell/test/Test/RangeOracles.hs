@@ -22,14 +22,14 @@ import Test.Tasty.Hedgehog (testProperty)
 import SegCFMM.Errors
 import SegCFMM.Types
 import Test.Invariants
+import Test.SegCFMM.Contract
 import Test.Util
 
 test_CornerCases :: TestTree
 test_CornerCases = testGroup "Corner cases"
-  [ forAllTokenTypeCombinations "Asking at uninitialized tick causes an error" \tokenTypes ->
-    nettestScenarioOnEmulatorCaps (show tokenTypes) do
+  [ nettestScenarioOnEmulatorCaps "Asking at uninitialized tick causes an error" do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
+      (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
       withSender alice $ setPosition cfmm 1 (-100, 100)
 
@@ -38,10 +38,9 @@ test_CornerCases = testGroup "Corner cases"
         call cfmm (Call @"Snapshot_cumulatives_inside") $
           SnapshotCumulativesInsideParam (TickIndex (-10)) (TickIndex 100) (toContractRef consumer)
 
-  , forAllTokenTypeCombinations "Asking at empty range works as expected" \tokenTypes ->
-    nettestScenarioOnEmulatorCaps (show tokenTypes) do
+  , nettestScenarioOnEmulatorCaps "Asking at uninitialized tick causes an error" do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
+      (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
       withSender alice $ setPosition cfmm 1 (0, 10)
 
@@ -53,10 +52,9 @@ test_CornerCases = testGroup "Corner cases"
 
       getStorage consumer @@== [CumulativesInsideSnapshot 0 (X 0) 0]
 
-  , forAllTokenTypeCombinations "Reversed ranges cause an error" \tokenTypes ->
-    nettestScenarioOnEmulatorCaps (show tokenTypes) do
+  , nettestScenarioOnEmulatorCaps "Asking at uninitialized tick causes an error" do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
+      (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
       withSender alice $ setPosition cfmm 1 (0, 10)
 
@@ -71,13 +69,12 @@ test_CornerCases = testGroup "Corner cases"
 
 test_ValuesSanity :: TestTree
 test_ValuesSanity = testGroup "Values are sane"
-  [ forAllTokenTypeCombinations "One position, jumping right" \tokenTypes ->
-    nettestScenarioOnEmulatorCaps (show tokenTypes) do
+  [ nettestScenarioOnEmulatorCaps "One position, jumping right" do
       let tickIndicesRange@(lowerTickIndex, upperTickIndex) =
             (TickIndex -100, TickIndex 100)
 
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
+      (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
       withSender alice $ setPosition cfmm 1000 (lowerTickIndex, upperTickIndex)
 
@@ -112,9 +109,7 @@ test_ValuesSanity = testGroup "Values are sane"
         }
 
 
-  , forAllTokenTypeCombinations "Interleaving positions creation, jumps over them and tracking" \tokenTypes ->
-    testProperty (show tokenTypes) $ H.property do
-
+  , testProperty "Interleaving positions creation, jumps over them and tracking" $ H.property do
       -- Further go test constants - they were tuned up manually using
       -- @runIO . fmt@ printer. Some of them are left as comments.
       -- Note that for succeeding tests, Tasty tends to remove most of the
@@ -186,7 +181,7 @@ test_ValuesSanity = testGroup "Values are sane"
 
         alice <- newAddress "alice"
         receiver <- newAddress auto
-        (cfmm, _) <- prepareSomeSegCFMM [alice] tokenTypes def
+        (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
         withSender alice do
           setPosition cfmm (mkLiquidity 10) baseTickRange
