@@ -16,7 +16,6 @@ import Morley.Nettest
 import Morley.Nettest.Tasty
 import Tezos.Core
 
-import qualified Indigo.Contracts.FA2Sample as FA2
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 
 import Cleveland.Util
@@ -44,11 +43,9 @@ test_BasicWorkflow =
     liquidityProvider <- newAddress "liquidity-provider"
 
     -- Prepare token with reward
-    miningRewardTokenContract <- originateSimple "reward-token"
-      (simpleFA2Storage [rewardGiver] FA2.theTokenId)
-      (FA2.fa2Contract def)
-    let miningRewardToken = FA2Token (toAddress miningRewardTokenContract) FA2.theTokenId
-    let getRewardOf = balanceOf miningRewardTokenContract (fa2TokenId miningRewardToken)
+    miningRewardTokenInfo@(TokenInfo miningRewardTokenId miningRewardTokenContract) <- originateFA2 [rewardGiver] FA2.theTokenId
+    let miningRewardToken = FA2Token (toAddress miningRewardTokenContract) miningRewardTokenId
+    let getRewardOf = balanceOf miningRewardTokenInfo
 
     -- Prepare the contracts
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider]
@@ -60,7 +57,7 @@ test_BasicWorkflow =
       now <- getNow
       withSender rewardGiver do
         call miningRewardTokenContract (Call @"Update_operators")
-          [FA2.AddOperator $ FA2.OperatorParam rewardGiver (toAddress staker) FA2.theTokenId]
+          [FA2.AddOperator $ FA2.OperatorParam rewardGiver (toAddress staker) miningRewardTokenId]
         call staker (Call @"Create_incentive") IncentiveParams
           { ipRewardToken = miningRewardToken
           , ipTotalReward = 100
@@ -75,21 +72,12 @@ test_BasicWorkflow =
     let lowerTickIndex = CFMM.TickIndex (-100)
     let upperTickIndex = CFMM.TickIndex 100
     positionId <- do
-      now <- getNow
+
       withSender liquidityProvider do
-        call cfmm (Call @"Set_position") CFMM.SetPositionParam
-          { sppLowerTickIndex = lowerTickIndex
-          , sppUpperTickIndex = upperTickIndex
-          , sppLowerTickWitness = CFMM.minTickIndex
-          , sppUpperTickWitness = CFMM.minTickIndex
-          , sppLiquidity = 10
-          , sppDeadline = now `timestampPlusSeconds` 100000
-          , sppMaximumTokensContributed = 99999999
-          }
+        setPosition cfmm 10 (lowerTickIndex, upperTickIndex)
         let positionId = CFMM.PositionId 0
 
-        call cfmm (Call @"Update_operators")
-          [FA2.AddOperator $ FA2.OperatorParam liquidityProvider (toAddress staker) (checkedCoerce positionId)]
+        updateOperator cfmm liquidityProvider (toAddress staker) (checkedCoerce positionId) True
 
         call staker (Call @"Register_deposit") positionId
         return positionId

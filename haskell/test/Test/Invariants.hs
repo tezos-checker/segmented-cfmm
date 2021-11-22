@@ -82,7 +82,6 @@ checkBalanceInvariants cfmm st = do
   offshoot "contract should have enough liquidity to liquidate all positions" do
     for_ positions \(idx, pstate) -> do
       let liquidityProvider = psOwner pstate
-      deadline <- mkDeadline
       withSender liquidityProvider do
         call cfmm (Call @"Update_position")
           UpdatePositionParam
@@ -90,7 +89,7 @@ checkBalanceInvariants cfmm st = do
             , uppLiquidityDelta = - fromIntegral (psLiquidity pstate)
             , uppToX = liquidityProvider
             , uppToY = liquidityProvider
-            , uppDeadline = deadline
+            , uppDeadline = validDeadline
             , uppMaximumTokensContributed = PerToken 0 0
             }
 

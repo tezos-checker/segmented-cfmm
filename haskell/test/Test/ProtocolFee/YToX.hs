@@ -15,7 +15,7 @@ module Test.ProtocolFee.YToX
 
 import Prelude
 
-import Data.Map ((!), fromList)
+import Data.Map (fromList, (!))
 import Fmt (Buildable(build), indentF, unlinesF)
 import Hedgehog hiding (assert, failure)
 import qualified Hedgehog.Gen as Gen
@@ -113,6 +113,7 @@ test_swapping_within_a_single_tick_range =
             fromList $ accounts <&> (, userTokenBalance)
       xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
       yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
+      let x = TokenInfo xTokenId xToken
 
       cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
       -- Add some slots to the buffers to make the tests more meaningful.
@@ -123,7 +124,6 @@ test_swapping_within_a_single_tick_range =
           call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
           call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-      deadline <- mkDeadline
       withSender liquidityProvider do
         call cfmm (Call @"Set_position")
           SetPositionParam
@@ -132,22 +132,22 @@ test_swapping_within_a_single_tick_range =
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidity
-            , sppDeadline = deadline
+            , sppDeadline = validDeadline
             , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
             }
         checkAllInvariants cfmm
 
       for_ swaps \dy -> do
         initialSt <- getFullStorage cfmm
-        initialBalanceSwapperX <- balanceOf xToken xTokenId swapper
+        initialBalanceSwapperX <- balanceOf x swapper
         initialBalanceSwapperY <- getFA12Balance yToken swapper
-        initialBalanceSwapReceiverX <- balanceOf xToken xTokenId swapReceiver
+        initialBalanceSwapReceiverX <- balanceOf x swapReceiver
         initialBalanceSwapReceiverY <- getFA12Balance yToken swapReceiver
 
         withSender swapper do
           call cfmm (Call @"Y_to_x") YToXParam
             { ypDy = dy
-            , ypDeadline = deadline
+            , ypDeadline = validDeadline
             , ypMinDx = 0
             , ypToDx = swapReceiver
             }
@@ -174,15 +174,15 @@ test_swapping_within_a_single_tick_range =
 
         -- The right amount of tokens was subtracted from the `swapper`'s balance
         let expectedDx = receivedX (sSqrtPrice initialSt) (sSqrtPrice finalSt) (sLiquidity initialSt)
-        balanceOf xToken xTokenId swapper @@== initialBalanceSwapperX
+        balanceOf x swapper @@== initialBalanceSwapperX
         getFA12Balance yToken swapper @@== initialBalanceSwapperY - dy
         -- The right amount of tokens was sent to the `receiver`.
-        balanceOf xToken xTokenId swapReceiver @@== initialBalanceSwapReceiverX + fromIntegral @Integer @Natural expectedDx
+        balanceOf x swapReceiver @@== initialBalanceSwapReceiverX + fromIntegral @Integer @Natural expectedDx
         getFA12Balance yToken swapReceiver @@== initialBalanceSwapReceiverY
 
       -- `feeReceiver` receives the expected fees.
       collectAllFees cfmm feeReceiver
-      balanceOf xToken xTokenId feeReceiver @@== 0
+      balanceOf x feeReceiver @@== 0
       let expectedFees =
             swaps
             <&> (\dy -> calcSwapFee feeBps dy)
@@ -226,6 +226,7 @@ test_many_small_swaps =
           fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
+    let x = TokenInfo xTokenId xToken
 
     cfmm1 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
     cfmm2 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
@@ -238,7 +239,6 @@ test_many_small_swaps =
           call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
           call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       for_ [cfmm1, cfmm2] \cfmm -> do
         call cfmm (Call @"Set_position")
@@ -248,7 +248,7 @@ test_many_small_swaps =
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidity
-            , sppDeadline = deadline
+            , sppDeadline = validDeadline
             , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
             }
     checkAllInvariants cfmm1
@@ -258,7 +258,7 @@ test_many_small_swaps =
       -- 1 big swap
       call cfmm1 (Call @"Y_to_x") YToXParam
         { ypDy = (swapCount * swapAmount)
-        , ypDeadline = deadline
+        , ypDeadline = validDeadline
         , ypMinDx = 0
         , ypToDx = swapper
         }
@@ -267,7 +267,7 @@ test_many_small_swaps =
       for_ (genericReplicate swapCount swapAmount) \dy ->
         call cfmm2 (Call @"Y_to_x") YToXParam
           { ypDy = dy
-          , ypDeadline = deadline
+          , ypDeadline = validDeadline
           , ypMinDx = 0
           , ypToDx = swapper
           }
@@ -291,8 +291,8 @@ test_many_small_swaps =
     -- Due to `dx` being rounded down, it's possible the swapper loses *up to* 1 X token
     -- on every swap.
     -- So the 2nd contract may hold up to 1000 more X tokens than the 1st contract.
-    cfmm1XBalance <- balanceOf xToken xTokenId cfmm1
-    cfmm2XBalance <- balanceOf xToken xTokenId cfmm2
+    cfmm1XBalance <- balanceOf x cfmm1
+    cfmm2XBalance <- balanceOf x cfmm2
     cfmm2XBalance `isInRangeNat` cfmm1XBalance $ (0, swapCount)
 
     -- The two contracts should hold the same exact amount of Y tokens
@@ -331,6 +331,7 @@ test_crossing_ticks =
           fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
+    let x = TokenInfo xTokenId xToken
 
     cfmm1 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
     cfmm2 <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
@@ -343,7 +344,6 @@ test_crossing_ticks =
           call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
           call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       -- Place 1 big position
       call cfmm1 (Call @"Set_position")
@@ -353,7 +353,7 @@ test_crossing_ticks =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidity
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
           }
 
@@ -367,15 +367,15 @@ test_crossing_ticks =
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidity
-            , sppDeadline = deadline
+            , sppDeadline = validDeadline
             , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
             }
     checkAllInvariants cfmm1
     checkAllInvariants cfmm2
 
-    cfmm1InitialBalanceX <- balanceOf xToken xTokenId cfmm1
+    cfmm1InitialBalanceX <- balanceOf x cfmm1
     cfmm1InitialBalanceY <- getFA12Balance yToken cfmm1
-    cfmm2InitialBalanceX <- balanceOf xToken xTokenId cfmm2
+    cfmm2InitialBalanceX <- balanceOf x cfmm2
     cfmm2InitialBalanceY <- getFA12Balance yToken cfmm2
 
     -- Place a small swap to move the tick past 0 and advance the time to fill the
@@ -384,7 +384,7 @@ test_crossing_ticks =
       for_ [cfmm1, cfmm2] \cfmm -> do
         call cfmm (Call @"Y_to_x") YToXParam
           { ypDy = 200
-          , ypDeadline = deadline
+          , ypDeadline = validDeadline
           , ypMinDx = 0
           , ypToDx = swapper
           }
@@ -396,7 +396,7 @@ test_crossing_ticks =
       for_ [cfmm1, cfmm2] \cfmm -> do
         call cfmm (Call @"Y_to_x") YToXParam
           { ypDy = 50_000
-          , ypDeadline = deadline
+          , ypDeadline = validDeadline
           , ypMinDx = 0
           , ypToDx = swapper
           }
@@ -433,9 +433,9 @@ test_crossing_ticks =
 
 
     let calcBalanceDelta initial final = fromIntegral @Natural @Integer final - fromIntegral @Natural @Integer initial
-    cfmm1BalanceDeltaX <- balanceOf xToken xTokenId cfmm1 <&> calcBalanceDelta cfmm1InitialBalanceX
+    cfmm1BalanceDeltaX <- balanceOf x cfmm1 <&> calcBalanceDelta cfmm1InitialBalanceX
     cfmm1BalanceDeltaY <- getFA12Balance yToken cfmm1 <&> calcBalanceDelta cfmm1InitialBalanceY
-    cfmm2BalanceDeltaX <- balanceOf xToken xTokenId cfmm2 <&> calcBalanceDelta cfmm2InitialBalanceX
+    cfmm2BalanceDeltaX <- balanceOf x cfmm2 <&> calcBalanceDelta cfmm2InitialBalanceX
     cfmm2BalanceDeltaY <- getFA12Balance yToken cfmm2 <&> calcBalanceDelta cfmm2InitialBalanceY
     -- The two contract should have received the exact same amount of Y tokens
     cfmm1BalanceDeltaY @== cfmm2BalanceDeltaY
@@ -452,8 +452,8 @@ test_crossing_ticks =
     -- so we allow for a margin of error of +/-10 Y tokens.
     collectAllFees cfmm1 feeReceiver1
     collectAllFees cfmm2 feeReceiver2
-    balanceOf xToken xTokenId feeReceiver1 @@== 0
-    balanceOf xToken xTokenId feeReceiver2 @@== 0
+    balanceOf x feeReceiver1 @@== 0
+    balanceOf x feeReceiver2 @@== 0
     feeReceiver1BalanceY <- getFA12Balance yToken feeReceiver1
     feeReceiver2BalanceY <- getFA12Balance yToken feeReceiver2
     feeReceiver2BalanceY `isInRangeNat` feeReceiver1BalanceY $ (10, 10)
@@ -498,6 +498,7 @@ test_fee_split =
           fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
+    let x = TokenInfo xTokenId xToken
 
     cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId feeBps protoFeeBps
 
@@ -506,7 +507,6 @@ test_fee_split =
         call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
         call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       for_ [position1Bounds, position2Bounds] \(lowerTickIndex, upperTickIndex) -> do
         call cfmm (Call @"Set_position")
@@ -516,7 +516,7 @@ test_fee_split =
             , sppLowerTickWitness = minTickIndex
             , sppUpperTickWitness = minTickIndex
             , sppLiquidity = liquidityDelta
-            , sppDeadline = deadline
+            , sppDeadline = validDeadline
             , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
             }
 
@@ -526,7 +526,7 @@ test_fee_split =
       -- so the X fee is paid to position1 only.
       call cfmm (Call @"X_to_y") XToYParam
         { xpDx = 1_000
-        , xpDeadline = deadline
+        , xpDeadline = validDeadline
         , xpMinDy = 0
         , xpToDy = swapper
         }
@@ -536,7 +536,7 @@ test_fee_split =
       -- so the Y fee is paid to both position1 and position2.
       call cfmm (Call @"Y_to_x") YToXParam
         { ypDy = 20_000
-        , ypDeadline = deadline
+        , ypDeadline = validDeadline
         , ypMinDx = 0
         , ypToDx = swapper
         }
@@ -544,12 +544,12 @@ test_fee_split =
 
     -- position1 should have earned both X and Y fees.
     collectFees cfmm feeReceiver1 0 liquidityProvider
-    balanceOf xToken xTokenId feeReceiver1 @@/= 0
+    balanceOf x feeReceiver1 @@/= 0
     getFA12Balance yToken feeReceiver1 @@/= 0
 
     -- position2 should have earned Y fees only.
     collectFees cfmm feeReceiver2 1 liquidityProvider
-    balanceOf xToken xTokenId feeReceiver2 @@== 0
+    balanceOf x feeReceiver2 @@== 0
     getFA12Balance yToken feeReceiver2 @@/= 0
 
 test_must_exceed_min_dx :: TestTree
@@ -586,7 +586,6 @@ test_must_exceed_min_dx =
         call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
         call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -595,14 +594,14 @@ test_must_exceed_min_dx =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidity
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
           }
 
     withSender swapper do
       call cfmm (Call @"Y_to_x") YToXParam
         { ypDy = 1
-        , ypDeadline = deadline
+        , ypDeadline = validDeadline
         , ypMinDx = 1000
         , ypToDx = swapper
         }
@@ -642,7 +641,6 @@ test_fails_if_its_past_the_deadline =
         call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
         call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -651,7 +649,7 @@ test_fails_if_its_past_the_deadline =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = liquidity
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
           }
 
@@ -685,6 +683,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
           fromList $ accounts <&> (, userTokenBalance)
     xToken <- originateSimple "fa2" xFa2storage (FA2.fa2Contract def { FA2.cAllowedTokenIds = [xTokenId] })
     yToken <- originateSimple "ctez" yCtezStorage FA1_2.managedLedgerContract
+    let x = TokenInfo xTokenId xToken
 
     cfmm <- originateSegCFMM FA2 CTEZ $ mkStorage xToken xTokenId yToken yTokenId 200 100
     checkAllInvariants cfmm
@@ -694,7 +693,6 @@ test_swaps_are_noops_when_liquidity_is_zero =
         call xToken (Call @"Update_operators") [FA2.AddOperator $ FA2.OperatorParam account (toAddress cfmm) xTokenId]
         call yToken (Call @"Approve") (#spender .! (toAddress cfmm), #value .! userTokenBalance)
 
-    deadline <- mkDeadline
     withSender liquidityProvider do
       call cfmm (Call @"Set_position")
         SetPositionParam
@@ -703,7 +701,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
           , sppLowerTickWitness = minTickIndex
           , sppUpperTickWitness = minTickIndex
           , sppLiquidity = 10_000
-          , sppDeadline = deadline
+          , sppDeadline = validDeadline
           , sppMaximumTokensContributed = PerToken userTokenBalance userTokenBalance
           }
 
@@ -711,7 +709,7 @@ test_swaps_are_noops_when_liquidity_is_zero =
       -- Place a swpa big enough to exhaust the position's liquidity
       call cfmm (Call @"Y_to_x") YToXParam
         { ypDy = 200
-        , ypDeadline = deadline
+        , ypDeadline = validDeadline
         , ypMinDx = 0
         , ypToDx = swapper
         }
@@ -719,22 +717,22 @@ test_swaps_are_noops_when_liquidity_is_zero =
       let
         isNoOp op = do
           initialSt <- getFullStorage cfmm
-          initialBalanceX <- balanceOf xToken xTokenId cfmm
+          initialBalanceX <- balanceOf x cfmm
           initialBalanceY <- getFA12Balance yToken cfmm
           op
           getFullStorage cfmm @@== initialSt
-          balanceOf xToken xTokenId cfmm @@== initialBalanceX
+          balanceOf x cfmm @@== initialBalanceX
           getFA12Balance yToken cfmm @@== initialBalanceY
 
       isNoOp $ call cfmm (Call @"X_to_y") XToYParam
         { xpDx = 100
-        , xpDeadline = deadline
+        , xpDeadline = validDeadline
         , xpMinDy = 0
         , xpToDy = swapper
         }
       isNoOp $ call cfmm (Call @"Y_to_x") YToXParam
         { ypDy = 100
-        , ypDeadline = deadline
+        , ypDeadline = validDeadline
         , ypMinDx = 0
         , ypToDx = swapper
         }
