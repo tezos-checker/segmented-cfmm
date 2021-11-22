@@ -25,6 +25,19 @@ module SegCFMM.Types
   , GetPositionInfoParam
   -- * Storage
   , Storage(..)
+  , sLiquidityL
+  , sSqrtPriceL
+  , sCurTickIndexL
+  , sCurTickWitnessL
+  , sFeeGrowthL
+  , sTicksL
+  , sPositionsL
+  , sCumulativesBufferL
+  , sMetadataL
+  , sNewPositionIdL
+  , sOperatorsL
+  , sConstantsL
+  , sLadderL
   , StorageRPC(..)
   , PerToken(..)
   , TickIndex(..)
@@ -659,4 +672,5 @@ type instance AsRPC FA2.TokenId = FA2.TokenId
 deriveRPCWithStrategy "Storage" ligoLayout
 deriving via (GenericBuildable StorageRPC) instance Buildable StorageRPC
 
+makeLensesWith postfixLFields ''Storage
 makeLensesWith postfixLFields ''Constants

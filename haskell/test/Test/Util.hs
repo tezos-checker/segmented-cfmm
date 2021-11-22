@@ -9,9 +9,11 @@ module Test.Util
   -- * Cleveland helpers
     clevelandProp
   , evalJust
+  , forAllTokenTypeCombinations
   -- * FA2 helpers
-  , TokenInfo(..)
+  , TokenInfo(TokenInfo)
   , originateFA2
+  , originateTokenContract
   , balanceOf
   , balancesOf
   , updateOperator
@@ -20,16 +22,14 @@ module Test.Util
   , transferToken'
   , transferTokens
   -- * Segmented CFMM helpers
-  , originateSegCFMM
+  , OriginationParams(..)
   , prepareSomeSegCFMM
-  , prepareSomeSegCFMM'
   , observe
   , setPosition
   , updatePosition
   , xtoy
   , ytox
   , gettingCumulativesInsideDiff
-  , convertTokens
   , validDeadline
   , advanceSecs
   , mapToList
@@ -45,6 +45,7 @@ module Test.Util
   , isInRangeNat
   , groupAdjacent
   , isMonothonic
+  , Lorentz.def
   ) where
 
 import Prelude
@@ -56,16 +57,18 @@ import qualified Data.Map as Map
 import Fmt (Buildable(build), GenericBuildable(..), indentF, listF, unlinesF, (+|), (|+))
 import Hedgehog hiding (assert, failure)
 import qualified Indigo.Contracts.FA2Sample as FA2
+import qualified Indigo.Contracts.ManagedLedger as FA12
 import Lorentz hiding (assert, map, transferTokens)
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Lorentz.Test (contractConsumer)
 import Morley.Nettest
 import Morley.Nettest.Pure (PureM, runEmulated)
-import Tezos.Address (ta)
+import Test.Tasty (TestName, TestTree, testGroup)
 import Time (sec)
+import Util.Named ((.!))
 
 import SegCFMM.Types as CFMM
-import Test.SegCFMM.Contract (TokenType(..), segCFMMContract)
+import Test.SegCFMM.Contract
 import Test.SegCFMM.Storage as CFMM
 
 deriving stock instance Eq CumulativesBuffer
@@ -73,6 +76,7 @@ deriving stock instance Eq Storage
 
 data TokenInfo where
   TokenInfo :: FA2.ParameterC param => FA2.TokenId -> ContractHandler param st -> TokenInfo
+  TokenInfo_12 :: ContractHandler FA12.Parameter FA12.Storage -> TokenInfo
 
 ----------------------------------------------------------------------------
 -- Cleveland helpers
@@ -87,6 +91,14 @@ evalJust = \case
   Nothing -> failure "Expected 'Just', got 'Nothing'"
   Just a -> pure a
 
+-- | Runs a test for each possible token type combination.
+forAllTokenTypeCombinations :: TestName -> ((TokenType, TokenType) -> TestTree) -> TestTree
+forAllTokenTypeCombinations testName mkTest =
+  testGroup testName $ do
+    x <- xTokenTypes
+    y <- yTokenTypes
+    pure $ mkTest (x, y)
+
 ----------------------------------------------------------------------------
 -- FA2 helpers
 ----------------------------------------------------------------------------
@@ -98,7 +110,7 @@ originateFA2
   :: MonadNettest caps base m
   => [Address]
   -> FA2.TokenId
-  -> m TokenInfo
+  -> m (ContractHandler FA2.FA2SampleParameter FA2.Storage)
 originateFA2 accounts tokenId@(FA2.TokenId tid) = do
   let st = FA2.Storage
         { sLedger = mkBigMap $ accounts <&> \acct -> ((acct, tokenId), defaultBalance)
@@ -106,8 +118,24 @@ originateFA2 accounts tokenId@(FA2.TokenId tid) = do
         , sTokenMetadata = mempty
         }
   let name = "fa2-" <> show tid
-  tokenAddr <- originateSimple name st (FA2.fa2Contract def { FA2.cAllowedTokenIds = [tokenId] })
-  pure $ TokenInfo tokenId tokenAddr
+  originateSimple name st (FA2.fa2Contract def { FA2.cAllowedTokenIds = [tokenId] })
+
+{-# ANN originateTokenContract ("HLint: ignore Use tuple-section" :: Text) #-}
+originateTokenContract
+  :: MonadNettest caps base m
+  => [Address]
+  -> TokenType
+  -> FA2.TokenId
+  -> m TokenInfo
+originateTokenContract accounts tokenType tokenId =
+  case tokenType of
+    FA2 -> TokenInfo tokenId <$> originateFA2 accounts tokenId
+    _ -> do
+      admin <- newAddress auto
+      let yCtezStorage = FA12.mkStorage admin $
+            Map.fromList $ accounts <&> \acct -> (acct, defaultBalance)
+      aa <- originateSimple "ctez" yCtezStorage FA12.managedLedgerContract
+      pure $ TokenInfo_12 aa
 
 deriveManyRPC "FA2.BalanceResponseItem" []
 deriving via (GenericBuildable BalanceRequestItemRPC) instance Buildable BalanceRequestItemRPC
@@ -117,13 +145,28 @@ deriving via (GenericBuildable BalanceResponseItemRPC) instance Buildable Balanc
 balanceOf
   :: (HasCallStack, MonadNettest caps base m, ToAddress addr)
   => TokenInfo -> addr -> m Natural
-balanceOf (TokenInfo tokenId fa2) account = balancesOf fa2 [tokenId] account >>= \case
-  [bal] -> return bal
-  bals  -> failure $ unlinesF
-    [ "Expected consumer storage to have exactly 1 item in its balance response."
-    , "Balance response items:"
-    , indentF 2 $ build bals
-    ]
+balanceOf ti account =
+  case ti of
+    TokenInfo tokenId tokenAddr -> do
+      consumer <- originateSimple "balance-response-consumer" [] (contractConsumer @[FA2.BalanceResponseItem])
+      call tokenAddr (Call @"Balance_of") (FA2.mkFA2View (map (FA2.BalanceRequestItem (toAddress account)) [tokenId]) consumer)
+      getStorage consumer >>= \case
+        [[BalanceResponseItemRPC _ bal]] -> pure bal
+        consumerStorage -> failure $ unlinesF
+          [ "Expected consumer storage to have exactly 1 balance response with 1 balance."
+          , "Consumer storage:"
+          , indentF 2 $ build consumerStorage
+          ]
+    TokenInfo_12 tokenAddr -> do
+      consumer <- originateSimple "balance-response-consumer" [] (contractConsumer @Natural)
+      call tokenAddr (Call @"GetBalance") (mkView (#owner .! toAddress account) consumer)
+      getStorage consumer >>= \case
+        [bal] -> pure bal
+        consumerStorage -> failure $ unlinesF
+          [ "Expected consumer storage to have exactly 1 balance response with 1 balance."
+          , "Consumer storage:"
+          , indentF 2 $ build consumerStorage
+          ]
 
 -- | Retrieve the FA2 balances for a given account and tokens.
 balancesOf
@@ -198,12 +241,19 @@ transferTokens fa2 transferParams = call fa2 (Call @"Transfer") transferParams
 -- Segmented CFMM helpers
 ----------------------------------------------------------------------------
 
-originateSegCFMM
-  :: MonadNettest caps base m
-  => TokenType -> TokenType -> Storage
-  -> m (ContractHandler Parameter Storage)
-originateSegCFMM xTokenType yTokenType storage = do
-  originateSimple "Segmented CFMM" storage $ segCFMMContract xTokenType yTokenType
+data OriginationParams = OriginationParams
+  { opTokens :: Maybe (TokenInfo, TokenInfo)
+    -- ^ Id and address of the X and Y tokens. If unspecified, new tokens will be created.
+  , opModifyStorage :: CFMM.Storage -> CFMM.Storage
+  , opModifyConstants :: Constants -> Constants
+  }
+
+instance Default OriginationParams where
+  def = OriginationParams
+    { opTokens = Nothing
+    , opModifyStorage = id
+    , opModifyConstants = id
+    }
 
 -- | Originate some CFMM contract.
 --
@@ -212,49 +262,39 @@ originateSegCFMM xTokenType yTokenType storage = do
 prepareSomeSegCFMM
   :: MonadNettest caps base m
   => [Address]
+  -> (TokenType, TokenType)
+  -> OriginationParams
   -> m ( ContractHandler CFMM.Parameter CFMM.Storage
        , (TokenInfo, TokenInfo)
        )
-prepareSomeSegCFMM accounts =
-  prepareSomeSegCFMM' accounts Nothing Nothing id
+prepareSomeSegCFMM accounts (xTokenType, yTokenType) (OriginationParams tokensInfoMb modifyStorage modifyConstants) = do
 
--- | Like 'prepareSomeSegCFMM' but allows overriding some defaults.
-prepareSomeSegCFMM'
-  :: MonadNettest caps base m
-  => [Address]
-  -> Maybe (TokenInfo, TokenInfo)
-  -> Maybe CFMM.Storage
-  -> (Constants -> Constants)
-  -> m ( ContractHandler CFMM.Parameter CFMM.Storage
-       , (TokenInfo, TokenInfo)
-       )
-prepareSomeSegCFMM' accounts tokensInfoMb initialStorageMb modifyConstants = do
-
-  tokensInfo@(TokenInfo xTokenId xToken, TokenInfo yTokenId yToken) <-
+  tokensInfo@(x, y) :: (TokenInfo, TokenInfo) <-
     case tokensInfoMb of
       Just tokensInfo -> pure tokensInfo
-      Nothing -> forEach (FA2.TokenId 0, FA2.TokenId 1) $ originateFA2 accounts
+      Nothing -> do
+        (,) <$> originateTokenContract accounts xTokenType (FA2.TokenId 0)
+            <*> originateTokenContract accounts yTokenType (FA2.TokenId 1)
 
-  let initialStorage = fromMaybe defaultStorage initialStorageMb
+  let initialStorage = modifyStorage defaultStorage
   let initialStorage' = initialStorage
         { sConstants = modifyConstants $ (sConstants initialStorage)
-          { cXTokenAddress = toAddress xToken
-          , cXTokenId = xTokenId
-          , cYTokenAddress = toAddress yToken
-          , cYTokenId = yTokenId
+          { cXTokenAddress = case x of TokenInfo _ addr -> toAddress addr; TokenInfo_12 addr -> toAddress addr
+          , cXTokenId = case x of TokenInfo tokenId _ -> tokenId; TokenInfo_12 _ -> FA2.TokenId 0
+          , cYTokenAddress = toAddress case y of TokenInfo _ addr -> toAddress addr; TokenInfo_12 addr -> toAddress addr
+          , cYTokenId = case y of TokenInfo tokenId _ -> tokenId; TokenInfo_12 _ -> FA2.TokenId 0
           }
         }
-  cfmm <- originateSegCFMM FA2 FA2 initialStorage'
 
-  forM_ accounts $ \account ->
+  cfmm <- originateSimple "cfmm" initialStorage' $ segCFMMContract xTokenType yTokenType
+
+  for_ accounts $ \account ->
     withSender account do
-      updateOperator xToken account (toAddress cfmm) xTokenId True
-      updateOperator yToken account (toAddress cfmm) yTokenId True
+      for_ [x, y] \case
+        TokenInfo_12 tokenAddr -> call tokenAddr (Call @"Approve") (#spender .! toAddress cfmm, #value .! defaultBalance)
+        TokenInfo tokenId tokenAddr -> updateOperator tokenAddr account (toAddress cfmm) tokenId True
 
-  return
-    ( cfmm
-    , tokensInfo
-    )
+  return (cfmm, tokensInfo)
 
 observe :: (HasCallStack, MonadEmulated caps base m) => ContractHandler Parameter st -> m CumulativesValue
 observe cfmm = do
@@ -348,23 +388,6 @@ gettingCumulativesInsideDiff cfmm (loTick, hiTick) action = do
   getFullStorage consumer >>= \case
     [s2, s1] -> return (subCumulativesInsideSnapshot s2 s1)
     _ -> failure "Expected exactly 2 elements"
-
--- | Convert given amount of X or Y tokens
---
--- Positive value will increase the current tick index, and negative value will
--- decrease it.
-convertTokens
-  :: (MonadEmulated caps base m, HasCallStack)
-  => ContractHandler Parameter Storage
-  -> Integer
-  -> m ()
-convertTokens cfmm tokens =
-  case tokens `Prelude.compare` 0 of
-    EQ -> pass
-    GT -> ytox cfmm 2 receiver
-    LT -> xtoy cfmm 2 receiver
-  where
-    receiver = [ta|tz1QCtwyKA4S8USgYRJRghDNYLHkkQ3S1yAU|]
 
 validDeadline :: Timestamp
 validDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]

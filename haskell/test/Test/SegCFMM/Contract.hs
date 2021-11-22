@@ -5,10 +5,13 @@
 -- in Haskell tests.
 module Test.SegCFMM.Contract
   ( TokenType (..)
+  , xTokenTypes
+  , yTokenTypes
+  , defaultTokenTypes
   , segCFMMContract
   ) where
 
-import Universum (error)
+import Prelude
 
 import Lorentz (Contract)
 import Lorentz.Test.Import (embedContract)
@@ -17,6 +20,16 @@ import SegCFMM.Types
 
 -- | Helper datatype used to select an implementation in 'segCFMMContract'.
 data TokenType = FA12 | FA2 | CTEZ
+  deriving stock (Show, Eq)
+
+xTokenTypes, yTokenTypes :: [TokenType]
+xTokenTypes = [FA2, FA12]
+yTokenTypes = [FA2, FA12, CTEZ]
+
+-- | An arbitrary pair of token types.
+-- Tests whose outcome does not depend on the token types, can use this default pair.
+defaultTokenTypes :: (TokenType, TokenType)
+defaultTokenTypes = (FA2, CTEZ)
 
 segCFMMContract :: TokenType -> TokenType -> Contract Parameter Storage
 segCFMMContract xTokenType yTokenType = case (xTokenType, yTokenType) of

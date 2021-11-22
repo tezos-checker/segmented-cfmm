@@ -18,6 +18,7 @@ import Tezos.Core (timestampPlusSeconds)
 import SegCFMM.Errors
 import SegCFMM.Types
 import Test.Invariants
+import Test.SegCFMM.Contract
 import Test.SegCFMM.Storage
 import Test.Util
 
@@ -38,9 +39,8 @@ test_Continuity :: TestTree
 test_Continuity =
   nettestScenarioCaps "Returned cumulative values continuously grow over time" do
     alice <- newAddress "alice"
-    (cfmm, _) <- prepareSomeSegCFMM' [alice] Nothing
-      (Just defaultStorage { sCumulativesBuffer = initCumulativesBuffer 100 })
-      id
+    (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
+      { opModifyStorage = set sCumulativesBufferL $ initCumulativesBuffer 100 }
 
     advanceTime (sec 3)
 
@@ -74,9 +74,8 @@ test_TimeOutOfBounds :: TestTree
 test_TimeOutOfBounds =
   nettestScenarioCaps "Observing time out of bounds" do
     alice <- newAddress "alice"
-    (cfmm, _) <- prepareSomeSegCFMM' [alice] Nothing
-      (Just defaultStorage { sCumulativesBuffer = initCumulativesBuffer 100 })
-      id
+    (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
+      { opModifyStorage = set sCumulativesBufferL $ initCumulativesBuffer 100 }
 
     now <- getNow
     consumer <- originateSimple "consumer" [] contractConsumer
@@ -91,7 +90,7 @@ test_IncreaseObservationCount :: TestTree
 test_IncreaseObservationCount =
   nettestScenarioOnEmulatorCaps "Increasing observation count works as expected" do
     alice <- newAddress "alice"
-    (cfmm, _) <- prepareSomeSegCFMM [alice]
+    (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
     -- This helps to distinguish dummy and true values in the buffer
     -- Note: this also triggers the contract to record a value in the buffer
@@ -177,9 +176,8 @@ test_LargeInitialBuffer =
   nettestScenarioOnEmulatorCaps "Setting large initial buffer works properly" do
     alice <- newAddress "alice"
     let incr = 10
-    (cfmm, _) <- prepareSomeSegCFMM' [alice] Nothing
-      (Just defaultStorage { sCumulativesBuffer = initCumulativesBuffer incr })
-      id
+    (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
+      { opModifyStorage = set sCumulativesBufferL $ initCumulativesBuffer incr }
 
     -- Note: this also triggers the contract to record a value in the buffer
     withSender alice $ setPosition cfmm 100 (-100, 100)
@@ -247,7 +245,7 @@ test_ObservedValues :: TestTree
 test_ObservedValues = testGroup "Observed values are sane"
   [ nettestScenarioOnEmulatorCaps "Seconds per liquidity cumulative" do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice]
+      (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
       consumer <- originateSimple "consumer" [] contractConsumer
 
@@ -288,7 +286,7 @@ test_ObservedValues = testGroup "Observed values are sane"
 
   , nettestScenarioOnEmulatorCaps "Tick cumulative" do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice]
+      (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def { opModifyConstants = set cCtezBurnFeeBpsL 0 }
 
       consumer <- originateSimple "consumer" [] contractConsumer
 

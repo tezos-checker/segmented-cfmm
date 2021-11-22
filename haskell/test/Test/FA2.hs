@@ -17,6 +17,7 @@ import Test.Tasty (TestTree)
 import Test.Tasty.Hedgehog (testProperty)
 import Util.Named
 
+import Test.SegCFMM.Contract
 import Test.Util
 
 -- | Utility type used for the generation of the test below
@@ -48,7 +49,7 @@ test_FA2_positions =
       ownerOnly <- newAddress auto
       -- may own some position and eventually will own all of them
       finalOwner <- newAddress auto
-      cfmm <- fst <$> prepareSomeSegCFMM [ownerAndOperator, ownerOnly, finalOwner]
+      cfmm <- fst <$> prepareSomeSegCFMM [ownerAndOperator, ownerOnly, finalOwner] defaultTokenTypes def
       -- create positions
       let ownerFor ownerType = case ownerType of
             FullyOwned -> ownerAndOperator

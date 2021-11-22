@@ -197,8 +197,6 @@ test-suite segmented-cfmm-test
       Test.Mining
       Test.OffChainView
       Test.Position
-      Test.ProtocolFee.XToY
-      Test.ProtocolFee.YToX
       Test.RangeOracles
       Test.SegCFMM.Contract
       Test.SegCFMM.Metadata

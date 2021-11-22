@@ -26,6 +26,7 @@ import Morley.Nettest.Tasty
 import Util.Named
 
 import SegCFMM.Types
+import Test.SegCFMM.Contract
 import Test.Util
 
 test_zero_transfers :: TestTree
@@ -33,7 +34,7 @@ test_zero_transfers =
   nettestScenarioOnEmulatorCaps "transfer is always accepted when the amount is 0" do
     owner <- newAddress auto
     operator <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner]
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] defaultTokenTypes def
 
     -- the token does not even exist
     withSender owner do
@@ -52,7 +53,7 @@ test_unknown_position =
   nettestScenarioOnEmulatorCaps "transfer does not accept unknown positions" do
     owner <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner]
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] defaultTokenTypes def
 
     expectCustomError_ #fA2_TOKEN_UNDEFINED $
       withSender owner $ transferToken' cfmm owner receiver (FA2.TokenId 0)
@@ -66,7 +67,7 @@ test_removed_position =
 
     owner <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner]
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] defaultTokenTypes def
 
     withSender owner do
       setPosition cfmm liquidityDelta (lowerTickIndex, upperTickIndex)
@@ -78,14 +79,13 @@ test_removed_position =
 
 test_getting_position_back :: TestTree
 test_getting_position_back =
-  nettestScenarioOnEmulatorCaps
-  "transferring position, creating a similar one and transferring the old one back is fine" $ do
+  nettestScenarioOnEmulatorCaps "transferring position, creating a similar one and transferring the old one back is fine" do
     let lowerTickIndex = -10
     let upperTickIndex = 10
 
     owner <- newAddress auto
     foreigner <- newAddress "foreigner"
-    cfmm <- fst <$> prepareSomeSegCFMM [owner]
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] defaultTokenTypes def
 
     withSender owner do
       setPosition cfmm 1000 (lowerTickIndex, upperTickIndex)
@@ -105,7 +105,7 @@ test_not_owner =
     owner <- newAddress auto
     notOwner <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner, notOwner, receiver]
+    cfmm <- fst <$> prepareSomeSegCFMM [owner, notOwner, receiver] defaultTokenTypes def
 
     withSender owner $ setPosition cfmm 1_e7 (-10, 15)
     expectCustomError #fA2_INSUFFICIENT_BALANCE (#required .! 1, #present .! 0) $
@@ -116,7 +116,7 @@ test_not_operator =
   nettestScenarioOnEmulatorCaps "transfer rejects invalid operators" do
     owner <- newAddress auto
     notOper <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner, notOper]
+    cfmm <- fst <$> prepareSomeSegCFMM [owner, notOper] defaultTokenTypes def
 
     withSender owner $ setPosition cfmm 1_e7 (-10, 15)
     expectCustomError_ #fA2_NOT_OPERATOR $
@@ -127,7 +127,7 @@ test_fungible_amount =
   nettestScenarioOnEmulatorCaps "transfer rejects amounts higher than 1" do
     owner <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner]
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] defaultTokenTypes def
 
     withSender owner do
       setPosition cfmm 1_e7 (-10, 15)
@@ -139,7 +139,7 @@ test_owner_transfer =
   nettestScenarioOnEmulatorCaps "transfer moves positions when called by owner" do
     owner <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner]
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] defaultTokenTypes def
 
     withSender owner do
       setPosition cfmm 1_e7 (-10, 15)
@@ -160,7 +160,7 @@ test_operator_transfer =
     owner <- newAddress auto
     operator <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner]
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] defaultTokenTypes def
 
     withSender owner do
       setPosition cfmm 1_e7 (-10, 15)
@@ -178,7 +178,7 @@ test_self_transfer :: TestTree
 test_self_transfer =
   nettestScenarioOnEmulatorCaps "transfer accepts self-transfer of an existing position" do
     owner <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner]
+    cfmm <- fst <$> prepareSomeSegCFMM [owner] defaultTokenTypes def
 
     withSender owner do
       setPosition cfmm 1_e7 (-10, 15)
@@ -190,7 +190,7 @@ test_multiple_transfers =
     owner1 <- newAddress auto
     owner2 <- newAddress auto
     receiver <- newAddress auto
-    cfmm <- fst <$> prepareSomeSegCFMM [owner1, owner2, receiver]
+    cfmm <- fst <$> prepareSomeSegCFMM [owner1, owner2, receiver] defaultTokenTypes def
 
     withSender owner1 do
       setPosition cfmm 1_e7 (-10, 15)

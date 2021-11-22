@@ -22,13 +22,14 @@ import Test.Tasty.Hedgehog (testProperty)
 import SegCFMM.Errors
 import SegCFMM.Types
 import Test.Invariants
+import Test.SegCFMM.Contract
 import Test.Util
 
 test_CornerCases :: TestTree
 test_CornerCases = testGroup "Corner cases"
   [ nettestScenarioOnEmulatorCaps "Asking at uninitialized tick causes an error" do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice]
+      (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
       withSender alice $ setPosition cfmm 1 (-100, 100)
 
@@ -37,9 +38,9 @@ test_CornerCases = testGroup "Corner cases"
         call cfmm (Call @"Snapshot_cumulatives_inside") $
           SnapshotCumulativesInsideParam (TickIndex (-10)) (TickIndex 100) (toContractRef consumer)
 
-  , nettestScenarioOnEmulatorCaps "Asking at empty range works as expected" do
+  , nettestScenarioOnEmulatorCaps "Asking at uninitialized tick causes an error" do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice]
+      (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
       withSender alice $ setPosition cfmm 1 (0, 10)
 
@@ -51,9 +52,9 @@ test_CornerCases = testGroup "Corner cases"
 
       getStorage consumer @@== [CumulativesInsideSnapshot 0 (X 0) 0]
 
-  , nettestScenarioOnEmulatorCaps "Reversed ranges cause an error" do
+  , nettestScenarioOnEmulatorCaps "Asking at uninitialized tick causes an error" do
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice]
+      (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
       withSender alice $ setPosition cfmm 1 (0, 10)
 
@@ -73,7 +74,7 @@ test_ValuesSanity = testGroup "Values are sane"
             (TickIndex -100, TickIndex 100)
 
       alice <- newAddress "alice"
-      (cfmm, _) <- prepareSomeSegCFMM [alice]
+      (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
       withSender alice $ setPosition cfmm 1000 (lowerTickIndex, upperTickIndex)
 
@@ -89,7 +90,7 @@ test_ValuesSanity = testGroup "Values are sane"
       sums <- gettingCumulativesInsideDiff cfmm tickIndicesRange $ do
         advanceTime (sec 2000)
 
-        withSender alice $ convertTokens cfmm 2
+        withSender alice $ ytox cfmm 2 alice
 
         curTickIndex <- sCurTickIndex <$> getFullStorage cfmm
         gettingCumulativesInsideDiff cfmm tickIndicesRange
@@ -109,7 +110,6 @@ test_ValuesSanity = testGroup "Values are sane"
 
 
   , testProperty "Interleaving positions creation, jumps over them and tracking" $ H.property do
-
       -- Further go test constants - they were tuned up manually using
       -- @runIO . fmt@ printer. Some of them are left as comments.
       -- Note that for succeeding tests, Tasty tends to remove most of the
@@ -157,7 +157,7 @@ test_ValuesSanity = testGroup "Values are sane"
 
         -- How many tokens to convert during tick index jumps.
         -- We aim at cur tick index change by 1-5 points
-        jump <- mkTokensJump <$> Gen.integral (Range.linearFrom 0 -3 3)
+        jump <- mkTokensJump <$> Gen.integral (Range.linearFrom @Integer 0 -3 3)
         -- Time at which we will measure cumulative values diff
         -- (each separate value does not make much sense on itself)
         checkedTimePeriod <- mkTimePeriod <$> Gen.integral (Range.linear 0 10)
@@ -180,7 +180,8 @@ test_ValuesSanity = testGroup "Values are sane"
         -- runIO . fmt $ "\n\n---------\n\n"
 
         alice <- newAddress "alice"
-        (cfmm, _) <- prepareSomeSegCFMM [alice]
+        receiver <- newAddress auto
+        (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
         withSender alice do
           setPosition cfmm (mkLiquidity 10) baseTickRange
@@ -192,7 +193,10 @@ test_ValuesSanity = testGroup "Values are sane"
             for_ positions $ \(boundaries, liquidity) ->
               setPosition cfmm liquidity boundaries
 
-            convertTokens cfmm jump
+            case jump `Prelude.compare` 0 of
+              EQ -> pass
+              GT -> ytox cfmm (fromIntegral @Integer @Natural jump) receiver
+              LT -> xtoy cfmm (fromIntegral @Integer @Natural $ Prelude.abs jump) receiver
 
             checkAllInvariants cfmm
 
