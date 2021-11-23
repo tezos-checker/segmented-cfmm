@@ -13,7 +13,7 @@ import Lorentz.Test (contractConsumer, sec)
 import Morley.Nettest
 import Morley.Nettest.Tasty
 import Test.Tasty (TestTree, testGroup)
-import Tezos.Core (timestampPlusSeconds)
+import Tezos.Core (timestampFromSeconds, timestampPlusSeconds)
 
 import SegCFMM.Errors
 import SegCFMM.Types
@@ -21,6 +21,7 @@ import Test.Invariants
 import Test.SegCFMM.Contract
 import Test.SegCFMM.Storage
 import Test.Util
+import Util.Named
 
 test_BufferInitialization :: TestTree
 test_BufferInitialization =
@@ -80,11 +81,21 @@ test_TimeOutOfBounds =
     now <- getNow
     consumer <- originateSimple "consumer" [] contractConsumer
 
-    expectFailedWith observeFutureTimestampErr $
-      call cfmm (Call @"Observe") $ mkView [now `timestampPlusSeconds` 1000] consumer
+    do
+      let err = observeFutureTimestampErr
+             ( #newest_available .! now
+             , #requested .! (now `timestampPlusSeconds` 1000)
+             )
+      expectFailedWith err $
+        call cfmm (Call @"Observe") $ mkView [now `timestampPlusSeconds` 1000] consumer
 
-    expectFailedWith observeOutdatedTimestampErr $
-      call cfmm (Call @"Observe") (mkView [now `timestampPlusSeconds` (-100000)] consumer)
+    do
+      let err = observeOutdatedTimestampErr
+             ( #oldest_stored .! timestampFromSeconds 0
+             , #requested .! (now `timestampPlusSeconds` -100000)
+             )
+      expectFailedWith err $
+        call cfmm (Call @"Observe") (mkView [now `timestampPlusSeconds` (-100000)] consumer)
 
 test_IncreaseObservationCount :: TestTree
 test_IncreaseObservationCount =

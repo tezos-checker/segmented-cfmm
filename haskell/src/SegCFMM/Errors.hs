@@ -5,10 +5,13 @@
 -- Use @stack scripts/generate_error_code.hs@ instead.
 
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module SegCFMM.Errors where
 
 import Universum
+import Util.Named
+import Lorentz.Value
 
 ----------------------------------------------------------------------------
 -- Invalid Input Error Codes
@@ -27,48 +30,58 @@ priceOutOfBoundsErr :: Natural
 priceOutOfBoundsErr = 102
 
 -- | Swap has expired: now > deadline.
-pastDeadlineErr :: Natural
-pastDeadlineErr = 103
+pastDeadlineErr
+  :: ("deadline" :! Timestamp, "executed_at" :! Timestamp)
+  -> (Natural, ("deadline" :! Timestamp, "executed_at" :! Timestamp))
+pastDeadlineErr = (103, )
 
 -- | Threshold on amount of bought tokens violated: `dx` received < `min_dx` or `dy` received < `min_dy`.
-smallerThanMinAssetErr :: Natural
-smallerThanMinAssetErr = 104
+smallerThanMinAssetErr
+  :: ("min" :! Natural, "actual" :! Natural)
+  -> (Natural, ("min" :! Natural, "actual" :! Natural))
+smallerThanMinAssetErr = (104, )
 
 -- | User provided tick is not initialized.
 tickNotExistErr :: Natural
 tickNotExistErr = 105
 
 -- | The amount of tokens that needs to be transferred to the contract is higher than `maximum_tokens_contributed`.
-highTokensErr :: Natural
-highTokensErr = 106
-
--- | Some of the timestamps passed to the `observe` entrypoint are too far back in the past.
-invalidTimestampErr :: Natural
-invalidTimestampErr = 107
+highTokensErr
+  :: ("max" :! Natural, "actual" :! Integer)
+  -> (Natural, ("max" :! Natural, "actual" :! Integer))
+highTokensErr = (106, )
 
 -- | The X prime contract address provided is not a segmented-cfmm contract.
 invalidXPrimeContractErr :: Natural
-invalidXPrimeContractErr = 108
+invalidXPrimeContractErr = 107
 
 -- | Some of the timestamps passed to the `observe` entrypoint are too far back in the past.
-observeOutdatedTimestampErr :: Natural
-observeOutdatedTimestampErr = 109
+observeOutdatedTimestampErr
+  :: ("oldest_stored" :! Timestamp, "requested" :! Timestamp)
+  -> (Natural, ("oldest_stored" :! Timestamp, "requested" :! Timestamp))
+observeOutdatedTimestampErr = (108, )
 
 -- | Some of the timestamps passed to the `observe` entrypoint are yet in the future.
-observeFutureTimestampErr :: Natural
-observeFutureTimestampErr = 110
+observeFutureTimestampErr
+  :: ("newest_available" :! Timestamp, "requested" :! Timestamp)
+  -> (Natural, ("newest_available" :! Timestamp, "requested" :! Timestamp))
+observeFutureTimestampErr = (109, )
 
 -- | When setting a new position, `upper_tick_index` must be strictly greater than `lower_tick_index`. When observing cumulative values at range, `upper_tick_index` must be greater or equal than `lower_tick_index`.
 tickOrderErr :: Natural
-tickOrderErr = 111
+tickOrderErr = 110
 
 -- | Liquidity of a position went below zero.
 positionLiquidityBelowZeroErr :: Natural
-positionLiquidityBelowZeroErr = 112
+positionLiquidityBelowZeroErr = 111
 
 -- | Tick indexes must be a multiple of the tick spacing.
 incorrectTickSpacingErr :: Natural
-incorrectTickSpacingErr = 113
+incorrectTickSpacingErr = 112
+
+-- | Contract call also transfers some XTZ; this is not allowed, it would be stuck.
+nonZeroTransferErr :: Natural
+nonZeroTransferErr = 113
 
 
 ----------------------------------------------------------------------------
@@ -125,8 +138,8 @@ internal307 :: Natural
 internal307 = 307
 
 -- | Liquidity of a tick went below zero.
-internalTickLiquidityBelowZeroErr :: Natural
-internalTickLiquidityBelowZeroErr = 308
+internalLiquidityBelowZeroErr :: Natural
+internalLiquidityBelowZeroErr = 308
 
 -- | Thrown when `(p.dx - r.dx)` is not nat.
 internal309 :: Natural

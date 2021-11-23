@@ -188,8 +188,14 @@ let update_balances_after_position_change
     let delta = {x = delta.x - fees.x ; y = delta.y - fees.y} in
 
     (* Check delta doesn't exceed maximum_tokens_contributed. *)
-    let _: unit = if delta.x > int(maximum_tokens_contributed.x) then failwith high_tokens_err else unit in
-    let _: unit = if delta.y > int(maximum_tokens_contributed.y) then failwith high_tokens_err else unit in
+    let _: unit = if delta.x > int(maximum_tokens_contributed.x) then
+        ([%Michelson ({| { FAILWITH } |} : nat * (nat * int) -> unit)]
+            (high_tokens_err, (maximum_tokens_contributed.x, delta.x)) : unit)
+        else unit in
+    let _: unit = if delta.y > int(maximum_tokens_contributed.y) then
+        ([%Michelson ({| { FAILWITH } |} : nat * (nat * int) -> unit)]
+            (high_tokens_err, (maximum_tokens_contributed.y, delta.y)) : unit)
+        else unit in
 
     let op_x = if delta.x > 0 then
         x_transfer Tezos.sender Tezos.self_address (abs delta.x) s.constants
@@ -457,8 +463,14 @@ let get_cumulatives (buffer : timed_cumulatives_buffer) (t : timestamp) : cumula
     let l_v = get_registered_cumulatives_unsafe buffer l_i in
     let r_v = get_registered_cumulatives_unsafe buffer r_i in
 
-    let _: unit = if t < l_v.time then failwith observe_outdated_timestamp_err else unit in
-    let _: unit = if t > r_v.time then failwith observe_future_timestamp_err else unit in
+    let _: unit = if t < l_v.time
+        then ([%Michelson ({| { FAILWITH } |} : nat * (timestamp * timestamp) -> unit)]
+            (observe_outdated_timestamp_err, (l_v.time, t)) : unit)
+        else unit in
+    let _: unit = if t > r_v.time
+        then ([%Michelson ({| { FAILWITH } |} : nat * (timestamp * timestamp) -> unit)]
+            (observe_future_timestamp_err, (r_v.time, t)) : unit)
+        else unit in
 
     if t < r_v.time then
         let (sums_at_left, sums_at_right, time_delta) = find_cumulatives_around (buffer, t, (l_i, l_v), (r_i, r_v))
@@ -549,6 +561,7 @@ let get_position_info (s : storage) (p : get_position_info_param) : result =
     in ([Tezos.transaction result 0mutez p.callback], s)
 
 let main ((p, s) : parameter * storage) : result =
+let _: unit = if Tezos.amount = 0tez then unit else failwith non_zero_transfer_err in
 (* start by updating the oracles *)
 let s = update_timed_cumulatives s in
 (* dispatch call to the proper entrypoint *)

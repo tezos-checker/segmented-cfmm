@@ -25,6 +25,7 @@ import Test.Invariants
 import Test.Math
 import Test.SegCFMM.Contract (TokenType(..))
 import Test.Util
+import Util.Named
 
 test_swapping_within_a_single_tick_range :: TestTree
 test_swapping_within_a_single_tick_range =
@@ -348,7 +349,7 @@ test_must_exceed_min_dx =
         , ypMinDx = 1000
         , ypToDx = swapper
         }
-        & expectFailedWith smallerThanMinAssetErr
+        & expectFailedWith (smallerThanMinAssetErr (#min .! 1000, #actual .! 0))
 
 test_fails_if_its_past_the_deadline :: TestTree
 test_fails_if_its_past_the_deadline =
@@ -368,7 +369,7 @@ test_fails_if_its_past_the_deadline =
         , ypMinDx = 0
         , ypToDx = swapper
         }
-        & expectFailedWith pastDeadlineErr
+        & expectFailedWith (pastDeadlineErr (#deadline .! expiredDeadline, #executed_at .! now))
 
 test_swaps_are_noops_when_liquidity_is_zero :: TestTree
 test_swaps_are_noops_when_liquidity_is_zero =
