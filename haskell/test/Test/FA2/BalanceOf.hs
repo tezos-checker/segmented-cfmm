@@ -79,12 +79,17 @@ test_multiple_positions =
     nonOwner2 <- newAddress auto
     transferMoney owner1 10_e6
     cfmm <- fst <$> prepareSomeSegCFMM [owner1, owner2, owner3, nonOwner1] defaultTokenTypes def
-    withSender owner1 $ setPosition cfmm liquidity (-20, -15)   -- TokenId 0
-    withSender owner1 $ setPosition cfmm liquidity (-10, 1)     -- TokenId 1
-    withSender owner1 $ setPosition cfmm liquidity (6, 17)      -- TokenId 2
-    withSender owner2 $ setPosition cfmm liquidity (-10, 15)    -- TokenId 3
-    withSender owner3 $ setPosition cfmm liquidity (-10, 15)    -- TokenId 4
-    withSender owner3 $ setPosition cfmm liquidity (-1, 8)      -- TokenId 5
+    withSender owner1 $ inBatch do
+      setPosition cfmm liquidity (-20, -15)   -- TokenId 0
+      setPosition cfmm liquidity (-10, 1)     -- TokenId 1
+      setPosition cfmm liquidity (6, 17)      -- TokenId 2
+      pure ()
+    withSender owner2 do
+      setPosition cfmm liquidity (-10, 15)    -- TokenId 3
+    withSender owner3 $ inBatch do
+      setPosition cfmm liquidity (-10, 15)    -- TokenId 4
+      setPosition cfmm liquidity (-1, 8)      -- TokenId 5
+      pure ()
 
     let tokenIds = map FA2.TokenId [0..5]
 

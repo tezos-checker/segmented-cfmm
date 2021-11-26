@@ -410,15 +410,16 @@ test_LPs_get_fees =
 
       withSender liquidityProvider $ setPosition cfmm 1_e7 (-10000, 10000)
 
-      (xFees, yFees) <- unzip <$> for swaps \(SwapData swapDirection swapAmt) -> do
-        withSender swapper do
-          case swapDirection of
-            XToY -> do
-              xtoy cfmm swapAmt swapper
-              pure $ (calcSwapFee feeBps swapAmt, 0)
-            YToX -> do
-              ytox cfmm swapAmt swapper
-              pure $ (0, calcSwapFee feeBps swapAmt)
+      (xFees, yFees) <- fmap unzip .
+        withSender swapper $ inBatch do
+          for swaps \(SwapData swapDirection swapAmt) -> do
+            case swapDirection of
+              XToY -> do
+                xtoy cfmm swapAmt swapper
+                pure $ (calcSwapFee feeBps swapAmt, 0)
+              YToX -> do
+                ytox cfmm swapAmt swapper
+                pure $ (0, calcSwapFee feeBps swapAmt)
 
       collectFees cfmm feeReceiver 0 liquidityProvider
       feeReceiverBalanceX <- balanceOf x feeReceiver
@@ -570,15 +571,16 @@ test_fees_are_discounted =
       (xFees , yFees) <-
           bimap sum sum .
           unzip <$>
-            for swaps \(SwapData swapDirection swapAmt) -> do
-              withSender swapper do
-                case swapDirection of
-                  XToY -> do
-                    xtoy cfmm swapAmt swapper
-                    pure $ (calcSwapFee feeBps swapAmt, 0)
-                  YToX -> do
-                    ytox cfmm swapAmt swapper
-                    pure $ (0, calcSwapFee feeBps swapAmt)
+            withSender swapper do
+              inBatch do
+                for swaps \(SwapData swapDirection swapAmt) -> do
+                  case swapDirection of
+                    XToY -> do
+                      xtoy cfmm swapAmt swapper
+                      pure $ (calcSwapFee feeBps swapAmt, 0)
+                    YToX -> do
+                      ytox cfmm swapAmt swapper
+                      pure $ (0, calcSwapFee feeBps swapAmt)
 
       initialBalanceX <- balanceOf x liquidityProvider
       initialBalanceY <- balanceOf y liquidityProvider
@@ -620,9 +622,10 @@ test_ticks_are_updated =
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
       { opModifyConstants = set cFeeBpsL feeBps }
 
-    withSender liquidityProvider do
+    withSender liquidityProvider $ inBatch do
       setPosition cfmm liquidityDelta (ti1, ti3)
       setPosition cfmm liquidityDelta (ti2, ti4)
+      pure ()
 
     -- Place a small swap to move the tick a little bit
     -- and make sure `tick_cumulative` is not 0.
@@ -630,7 +633,7 @@ test_ticks_are_updated =
 
     -- Advance the time a few secs to make sure accumulators
     -- like `seconds_per_liquidity_cumulative` change to non-zero values.
-    advanceSecs 3 [cfmm]
+    advanceSecs 2 [cfmm]
 
     -- Place a swap big enough to cross tick `ti2` and therefore
     -- change the value of the `*_outside` fields to something other than zero.
@@ -685,8 +688,8 @@ test_many_small_liquidations =
         withSender liquidityProvider do
           setPosition cfmm liquidityDelta (-10_000, 10_000)
 
-      for_ swaps \(SwapData swapDirection swapAmt) -> do
-        withSender swapper do
+      withSender swapper $ inBatch do
+        for_ swaps \(SwapData swapDirection swapAmt) -> do
           case swapDirection of
             XToY -> do
               xtoy cfmm swapAmt swapper
@@ -699,8 +702,12 @@ test_many_small_liquidations =
       withSender liquidityProvider1 $ updatePosition cfmm receiver1 (- toInteger liquidityDelta) 0
 
       -- Liquidate the position in small steps
-      replicateM_ 10 do
-        withSender liquidityProvider2 $ updatePosition cfmm receiver2 (- toInteger liquidityDelta `div` 10) 1
+      withSender liquidityProvider2 do
+        -- Doing all 10 calls in one batch may go over the gas limit,
+        -- so we do it in 2 batches of 5 instead.
+        replicateM_ 2 do
+          inBatch $ replicateM_ 5 do
+            updatePosition cfmm receiver2 (- toInteger liquidityDelta `div` 10) 1
 
       balanceReceiver1X <- balanceOf x receiver1
       balanceReceiver1Y <- balanceOf y receiver1

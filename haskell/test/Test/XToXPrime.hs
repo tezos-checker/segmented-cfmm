@@ -65,8 +65,9 @@ test_swapping_x_for_x_prime =
       (cfmm2, _) <- prepareSomeSegCFMM accounts (zType, yType) def
         { opTokens = Just (z, y), opModifyConstants = set cFeeBpsL feeBps2 . set cCtezBurnFeeBpsL protoFeeBps2 }
 
-      for_ [cfmm1, cfmm2] \cfmm -> do
-        withSender liquidityProvider $ setPosition cfmm 1_e7 (-1000, 1000)
+      withSender liquidityProvider $ inBatch do
+        for_ [cfmm1, cfmm2] \cfmm -> do
+          setPosition cfmm 1_e7 (-1000, 1000)
 
       initialSt1 <- getStorage cfmm1
       initialSt2 <- getStorage cfmm2

@@ -80,44 +80,44 @@ test_FA2_positions =
           allPositions = map fst positionsList
 
       -- assign operators
-      forM_ operatedPositions $ \positionId ->
-        withSender ownerOnly $
+      withSender ownerOnly $ inBatch do
+        for_ operatedPositions $ \positionId ->
           updateOperator cfmm ownerOnly ownerAndOperator positionId True
 
       -- the 'ownerAndOperator' can transfer its own positions
-      forM_ ownerPositions $ \positionId ->
-        withSender ownerAndOperator $
+      withSender ownerAndOperator $ inBatch do
+        for_ ownerPositions $ \positionId ->
           transferToken' cfmm ownerAndOperator finalOwner positionId
 
       -- the 'ownerAndOperator' cannot transfer positions it's not operator of
-      forM_ ownedOnlyPositions $ \positionId ->
-        expectCustomError_ #fA2_NOT_OPERATOR $
-          withSender ownerAndOperator $
+      withSender ownerAndOperator $
+        for_ ownedOnlyPositions $ \positionId ->
+          expectCustomError_ #fA2_NOT_OPERATOR $
             transferToken' cfmm ownerOnly finalOwner positionId
 
-      forM_ finalOwnerPositions $ \positionId ->
-        expectCustomError_ #fA2_NOT_OPERATOR $
-          withSender ownerAndOperator $
+      withSender ownerAndOperator $
+        for_ finalOwnerPositions $ \positionId ->
+          expectCustomError_ #fA2_NOT_OPERATOR $
             transferToken' cfmm finalOwner ownerOnly positionId
 
       -- the 'ownerAndOperator' can transfer positions it's operator of
-      forM_ operatedPositions $ \positionId ->
-        withSender ownerAndOperator $
+      withSender ownerAndOperator $ inBatch do
+        for_ operatedPositions $ \positionId ->
           transferToken' cfmm ownerOnly finalOwner positionId
 
       -- the 'ownerOnly' can no longer transfer the operated positions
-      forM_ operatedPositions $ \positionId ->
-        expectCustomError #fA2_INSUFFICIENT_BALANCE (#required .! 1, #present .! 0) $
-          withSender ownerOnly $
+      withSender ownerOnly $
+        for_ operatedPositions $ \positionId ->
+          expectCustomError #fA2_INSUFFICIENT_BALANCE (#required .! 1, #present .! 0) $
             transferToken' cfmm ownerOnly finalOwner positionId
 
       -- the 'ownerOnly' can still transfer the owned positions
-      forM_ ownedOnlyPositions $ \positionId ->
-        withSender ownerOnly $
+      withSender ownerOnly $ inBatch do
+        for_ ownedOnlyPositions $ \positionId ->
           transferToken' cfmm ownerOnly finalOwner positionId
 
       -- in the end all positions should be owned by 'finalOwner'
-      forM_ allPositions $ \positionId -> do
+      for_ allPositions $ \positionId -> do
         balanceOf (TokenInfo positionId cfmm) ownerAndOperator @@== 0
         balanceOf (TokenInfo positionId cfmm) ownerOnly        @@== 0
         balanceOf (TokenInfo positionId cfmm) finalOwner       @@== 1

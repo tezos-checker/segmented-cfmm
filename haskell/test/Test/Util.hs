@@ -372,7 +372,7 @@ observe cfmm = do
 -- It should succeed and a position be created if the given address was also
 -- given to 'prepareSomeSegCFMM'.
 setPosition
-  :: (MonadNettest caps base m, HasCallStack)
+  :: (MonadOps m, HasCallStack)
   => ContractHandler Parameter Storage
   -> Natural
   -> (TickIndex, TickIndex)
@@ -390,7 +390,7 @@ setPosition cfmm liquidity (lowerTickIndex, upperTickIndex) = do
       }
 
 updatePosition
-  :: (MonadNettest caps base m, HasCallStack)
+  :: (MonadOps m, HasCallStack)
   => ContractHandler Parameter Storage
   -> Address
   -> Integer
@@ -408,7 +408,7 @@ updatePosition cfmm receiver liquidityDelta positionId = do
       }
 
 xtoy
-  :: (MonadNettest caps base m, HasCallStack)
+  :: (MonadOps m, HasCallStack)
   => ContractHandler Parameter Storage -> Natural -> Address -> m ()
 xtoy cfmm dx receiver =
   call cfmm (Call @"X_to_y") XToYParam
@@ -419,7 +419,7 @@ xtoy cfmm dx receiver =
     }
 
 ytox
-  :: (MonadNettest caps base m, HasCallStack)
+  :: (MonadOps m, HasCallStack)
   => ContractHandler Parameter Storage -> Natural -> Address -> m ()
 ytox cfmm dy receiver =
   call cfmm (Call @"Y_to_x") YToXParam
