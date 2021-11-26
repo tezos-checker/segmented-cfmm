@@ -55,9 +55,11 @@ test_swapping_x_for_x_prime =
       transferMoney liquidityProvider 10_e6
       let accounts = [liquidityProvider, swapper]
 
-      x <- originateTokenContract accounts xType (FA2.TokenId 0)
-      y <- originateTokenContract accounts yType (FA2.TokenId 1)
-      z <- originateTokenContract accounts zType (FA2.TokenId 2)
+      (x, y, z) <- originateTokenContracts accounts
+        ( (xType, FA2.TokenId 0)
+        , (yType, FA2.TokenId 1)
+        , (zType, FA2.TokenId 2)
+        )
       (cfmm1, _) <- prepareSomeSegCFMM accounts (xType, yType) def
         { opTokens = Just (x, y), opModifyConstants = set cFeeBpsL feeBps1 . set cCtezBurnFeeBpsL protoFeeBps1 }
       (cfmm2, _) <- prepareSomeSegCFMM accounts (zType, yType) def

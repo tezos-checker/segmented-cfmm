@@ -113,8 +113,7 @@ test_adding_liquidity_twice =
     let liquidityDelta = 1_e5
     liquidityProvider <- newAddress auto
     let accounts = [liquidityProvider]
-    x <- originateTokenContract accounts (fst tokenTypes) (FA2.TokenId 0)
-    y <- originateTokenContract accounts (snd tokenTypes) (FA2.TokenId 1)
+    (x, y) <- originateTokenContracts accounts ((fst tokenTypes, FA2.TokenId 0), (snd tokenTypes, FA2.TokenId 1))
     (cfmm1, _) <- prepareSomeSegCFMM accounts tokenTypes def { opTokens = Just (x, y) }
     (cfmm2, _) <- prepareSomeSegCFMM accounts tokenTypes def { opTokens = Just (x, y) }
 

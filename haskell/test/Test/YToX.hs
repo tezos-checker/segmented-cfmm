@@ -135,8 +135,7 @@ test_many_small_swaps =
     swapper <- newAddress auto
 
     let accounts = [liquidityProvider, swapper]
-    x <- originateTokenContract accounts (fst tokenTypes) (FA2.TokenId 0)
-    y <- originateTokenContract accounts (snd tokenTypes) (FA2.TokenId 1)
+    (x, y) <- originateTokenContracts accounts ((fst tokenTypes, FA2.TokenId 0), (snd tokenTypes, FA2.TokenId 1))
     let origParams = def { opTokens = Just (x, y), opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
     (cfmm1, _) <- prepareSomeSegCFMM accounts tokenTypes origParams
     (cfmm2, _) <- prepareSomeSegCFMM accounts tokenTypes origParams
@@ -200,8 +199,7 @@ test_crossing_ticks =
     feeReceiver2 <- newAddress auto
 
     let accounts = [liquidityProvider, swapper]
-    x <- originateTokenContract accounts (fst tokenTypes) (FA2.TokenId 0)
-    y <- originateTokenContract accounts (snd tokenTypes) (FA2.TokenId 1)
+    (x, y) <- originateTokenContracts accounts ((fst tokenTypes, FA2.TokenId 0), (snd tokenTypes, FA2.TokenId 1))
     let origParams = def { opTokens = Just (x, y), opModifyConstants = set cFeeBpsL feeBps }
     (cfmm1, _) <- prepareSomeSegCFMM accounts tokenTypes origParams
     (cfmm2, _) <- prepareSomeSegCFMM accounts tokenTypes origParams

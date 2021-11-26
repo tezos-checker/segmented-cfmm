@@ -15,7 +15,7 @@ module Test.Util
   -- * FA2 helpers
   , TokenInfo(TokenInfo)
   , originateFA2
-  , originateTokenContract
+  , originateTokenContracts
   , balanceOf
   , balancesOf
   , updateOperator
@@ -52,6 +52,7 @@ module Test.Util
 
 import Prelude
 
+import Control.Lens as Lens
 import Data.Coerce (coerce)
 import Data.Ix (Ix, inRange)
 import qualified Data.List as List
@@ -64,6 +65,7 @@ import Lorentz hiding (assert, map, transferTokens)
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Lorentz.Test (contractConsumer)
 import Morley.Nettest
+import Morley.Nettest.Caps (MonadOps)
 import Morley.Nettest.Pure (PureM, runEmulated)
 import Morley.Nettest.Tasty
   (nettestScenarioCaps, nettestScenarioOnEmulator, nettestScenarioOnNetworkCaps)
@@ -151,7 +153,7 @@ defaultBalance :: Natural
 defaultBalance = 1_e15
 
 originateFA2
-  :: MonadNettest caps base m
+  :: (HasCallStack, MonadOps m)
   => [Address]
   -> FA2.TokenId
   -> m (ContractHandler FA2.FA2SampleParameter FA2.Storage)
@@ -164,22 +166,39 @@ originateFA2 accounts tokenId@(FA2.TokenId tid) = do
   let name = "fa2-" <> show tid
   originateSimple name st (FA2.fa2Contract def { FA2.cAllowedTokenIds = [tokenId] })
 
-{-# ANN originateTokenContract ("HLint: ignore Use tuple-section" :: Text) #-}
-originateTokenContract
-  :: MonadNettest caps base m
+{-# ANN originateFA12 ("HLint: ignore Use tuple-section" :: Text) #-}
+originateFA12
+  :: (HasCallStack, MonadOps m)
   => [Address]
-  -> TokenType
-  -> FA2.TokenId
-  -> m TokenInfo
-originateTokenContract accounts tokenType tokenId =
-  case tokenType of
-    FA2 -> TokenInfo tokenId <$> originateFA2 accounts tokenId
-    _ -> do
-      admin <- newAddress auto
-      let yCtezStorage = FA12.mkStorage admin $
-            Map.fromList $ accounts <&> \acct -> (acct, defaultBalance)
-      aa <- originateSimple "ctez" yCtezStorage FA12.managedLedgerContract
-      pure $ TokenInfo_12 aa
+  -> Address
+  -> m (ContractHandler FA12.Parameter FA12.Storage)
+originateFA12 accounts admin = do
+  let yCtezStorage = FA12.mkStorage admin $
+        Map.fromList $ accounts <&> \acct -> (acct, defaultBalance)
+  originateSimple "ctez" yCtezStorage FA12.managedLedgerContract
+
+originateTokenContracts
+  :: (HasCallStack, MonadNettest caps base m
+     , Lens.Each tokenTypesAndIds tokenInfos (TokenType, FA2.TokenId) TokenInfo
+     , Lens.Each tokenTypesAndIds tokenTypesAndIds (TokenType, FA2.TokenId) (TokenType, FA2.TokenId)
+     )
+  => [Address]
+  -> tokenTypesAndIds
+  -> m tokenInfos
+originateTokenContracts accounts tokenTypesAndIds = do
+  if allOf (each . _1) (== FA2) tokenTypesAndIds
+    then
+      -- If we only need FA2 tokens, then we don't need to create an `admin` account
+      inBatch do
+        forEach tokenTypesAndIds \(_, tokenId) -> TokenInfo tokenId <$> originateFA2 accounts tokenId
+    else do
+      -- If we need any FA1.2 tokens, then we need an admin.
+      admin <- newAddress "admin"
+      inBatch do
+        forEach tokenTypesAndIds \(tokenType, tokenId) ->
+          case tokenType of
+            FA2 -> TokenInfo tokenId <$> originateFA2 accounts tokenId
+            _ -> TokenInfo_12 <$> originateFA12 accounts admin
 
 deriveManyRPC "FA2.BalanceResponseItem" []
 deriving via (GenericBuildable BalanceRequestItemRPC) instance Buildable BalanceRequestItemRPC
@@ -316,9 +335,7 @@ prepareSomeSegCFMM accounts (xTokenType, yTokenType) (OriginationParams tokensIn
   tokensInfo@(x, y) :: (TokenInfo, TokenInfo) <-
     case tokensInfoMb of
       Just tokensInfo -> pure tokensInfo
-      Nothing -> do
-        (,) <$> originateTokenContract accounts xTokenType (FA2.TokenId 0)
-            <*> originateTokenContract accounts yTokenType (FA2.TokenId 1)
+      Nothing -> originateTokenContracts accounts ((xTokenType, FA2.TokenId 0), (yTokenType, FA2.TokenId 1))
 
   let initialStorage = modifyStorage defaultStorage
   let initialStorage' = initialStorage
