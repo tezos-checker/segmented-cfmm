@@ -10,6 +10,8 @@ module Test.Util
     clevelandProp
   , evalJust
   , forAllTokenTypeCombinations
+  , forAllTokenTypeCombinationsOnNetwork
+  , propOnNetwork
   -- * FA2 helpers
   , TokenInfo(TokenInfo)
   , originateFA2
@@ -63,7 +65,10 @@ import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Lorentz.Test (contractConsumer)
 import Morley.Nettest
 import Morley.Nettest.Pure (PureM, runEmulated)
+import Morley.Nettest.Tasty
+  (nettestScenarioCaps, nettestScenarioOnEmulator, nettestScenarioOnNetworkCaps)
 import Test.Tasty (TestName, TestTree, testGroup)
+import Test.Tasty.Hedgehog (testProperty)
 import Time (sec)
 import Util.Named ((.!))
 
@@ -91,13 +96,52 @@ evalJust = \case
   Nothing -> failure "Expected 'Just', got 'Nothing'"
   Just a -> pure a
 
--- | Runs a test for each possible token type combination.
+-- | Runs a test, for each possible token type combination, on the emulator.
 forAllTokenTypeCombinations :: TestName -> ((TokenType, TokenType) -> TestTree) -> TestTree
 forAllTokenTypeCombinations testName mkTest =
   testGroup testName $ do
     x <- xTokenTypes
     y <- yTokenTypes
     pure $ mkTest (x, y)
+
+-- | Runs a test, for each possible token type combination, on the emulator.
+-- For the (FA, CTEZ) combination, the test will also be run on a network.
+forAllTokenTypeCombinationsOnNetwork
+  :: TestName
+  -> (forall m. Monad m => (TokenType, TokenType) -> NettestT m ())
+  -> TestTree
+forAllTokenTypeCombinationsOnNetwork testName mkTest =
+  testGroup testName do
+    x <- xTokenTypes
+    y <- yTokenTypes
+    let tokenTypes = (x, y)
+    if tokenTypes == defaultTokenTypes
+      then one $ nettestScenarioCaps (show tokenTypes) $ mkTest tokenTypes
+      else one $ nettestScenarioOnEmulator (show tokenTypes) \_ -> uncapsNettest (mkTest tokenTypes)
+
+-- | Runs a property test:
+--   * 100 times on the emulator with arbitrary data
+--   * Once on a network with fixed data
+propOnNetwork
+  :: TestName
+  -> PropertyT IO a
+  -- ^ Generate arbitrary data to run the test on an emulator
+  -> a
+  -- ^ Fixed data to run the test on a network
+  -> (forall m. Monad m => a -> NettestT m ())
+  -> TestTree
+propOnNetwork testName mkData constantData mkTest =
+  testGroup testName
+    [ networkTest
+    , propTest
+    ]
+  where
+    networkTest =
+      nettestScenarioOnNetworkCaps "Unit" $ mkTest constantData
+    propTest =
+      testProperty "Property" $ property $ do
+        testData <- mkData
+        nettestTestProp . uncapsNettest $ mkTest testData
 
 ----------------------------------------------------------------------------
 -- FA2 helpers
@@ -260,7 +304,7 @@ instance Default OriginationParams where
 -- This will originate the necessary FA2 tokens and the CFMM contract itself
 -- to operate on them.
 prepareSomeSegCFMM
-  :: MonadNettest caps base m
+  :: (HasCallStack, MonadNettest caps base m)
   => [Address]
   -> (TokenType, TokenType)
   -> OriginationParams
@@ -296,12 +340,12 @@ prepareSomeSegCFMM accounts (xTokenType, yTokenType) (OriginationParams tokensIn
 
   return (cfmm, tokensInfo)
 
-observe :: (HasCallStack, MonadEmulated caps base m) => ContractHandler Parameter st -> m CumulativesValue
+observe :: (HasCallStack, MonadNettest caps base m) => ContractHandler Parameter st -> m CumulativesValue
 observe cfmm = do
   currentTime <- getNow
   consumer <- originateSimple @[CumulativesValue] "consumer" [] contractConsumer
   call cfmm (Call @"Observe") $ mkView [currentTime] consumer
-  getFullStorage consumer >>= \case
+  getStorage consumer >>= \case
     [[cv]] -> pure cv
     _ -> failure "Expected to get exactly 1 CumulativeValue"
 
@@ -453,7 +497,7 @@ collectAllFees cfmm receiver = do
 
 -- | Collect fees from a single position.
 collectFees
-  :: (HasCallStack, MonadEmulated caps base m)
+  :: (HasCallStack, MonadNettest caps base m)
   => ContractHandler Parameter Storage
   -> Address
   -> PositionId

@@ -14,7 +14,6 @@ import qualified Hedgehog.Range as Range
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Morley.Nettest
 import Test.Tasty (TestTree)
-import Test.Tasty.Hedgehog (testProperty)
 import Util.Named
 
 import Test.SegCFMM.Contract
@@ -28,28 +27,37 @@ data OwnershipType
   | FinalOwner
   deriving stock (Eq, Enum, Bounded, Ord, Show)
 
+{-# ANN test_FA2_positions ("HLint: ignore Avoid lambda using `infix`" :: Text) #-}
 -- | Generic property tests for FA2-compliant position handling.
 test_FA2_positions :: TestTree
 test_FA2_positions =
-  testProperty "FA2 position are transferred correctly" $ property $ do
-    -- generate up to 20 unique positions (owner type + indexes)
-    positionIndexes <- fmap Set.toList . forAll . Gen.set (Range.linear 0 20) $ do
-      lowerTickIndex <- Gen.integral (Range.linearFrom 0 -10000 9990)
-      upperTickIndex <- Gen.integral (Range.linear (lowerTickIndex + 1) (lowerTickIndex + 10))
-      ownerType <- Gen.enumBounded
-      return (ownerType, lowerTickIndex, upperTickIndex)
+  propOnNetwork "FA2 position are transferred correctly"
+    do
+      -- generate up to 20 unique positions (owner type + indexes)
+      positionIndexes <- fmap Set.toList . forAll . Gen.set (Range.linear 0 20) $ do
+        lowerTickIndex <- Gen.integral (Range.linearFrom 0 -10000 9990)
+        upperTickIndex <- Gen.integral (Range.linear (lowerTickIndex + 1) (lowerTickIndex + 10))
+        ownerType <- Gen.enumBounded
+        return (ownerType, lowerTickIndex, upperTickIndex)
 
-    -- randomly shuffle them, to interleave position ids
-    sortedPositions <- forAll $ Gen.shuffle positionIndexes
-
-    clevelandProp do
+      -- randomly shuffle them, to interleave position ids
+      forAll $ Gen.shuffle positionIndexes
+    [ (FullyOwned, -100, 100)
+    , (Operated, -100, 100)
+    , (OwnedOnly, 0, 100)
+    , (FinalOwner, 100, 200)
+    ]
+    \sortedPositions -> do
       -- may own some positions and operate others from the next owner
       ownerAndOperator <- newAddress auto
       -- may own some positions, some of which operated by the 'ownerAndOperator'
       ownerOnly <- newAddress auto
       -- may own some position and eventually will own all of them
       finalOwner <- newAddress auto
-      cfmm <- fst <$> prepareSomeSegCFMM [ownerAndOperator, ownerOnly, finalOwner] defaultTokenTypes def
+      let accounts = [ownerAndOperator, ownerOnly, finalOwner]
+      cfmm <- fst <$> prepareSomeSegCFMM accounts defaultTokenTypes def
+      inBatch $ for_ accounts \acc -> transferMoney acc 10_e6
+
       -- create positions
       let ownerFor ownerType = case ownerType of
             FullyOwned -> ownerAndOperator

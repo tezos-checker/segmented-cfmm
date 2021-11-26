@@ -16,42 +16,49 @@ import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Morley.Nettest
 import Morley.Nettest.Tasty
 import Test.Tasty (TestTree)
-import Test.Tasty.Hedgehog (testProperty)
 import Tezos.Core (timestampPlusSeconds, timestampToSeconds)
 
 import SegCFMM.Errors
 import SegCFMM.Types
 import Test.Invariants
 import Test.Math
-import Test.SegCFMM.Contract (TokenType(..))
+import Test.SegCFMM.Contract
 import Test.Util
 import Util.Named
 
 test_swapping_within_a_single_tick_range :: TestTree
 test_swapping_within_a_single_tick_range =
-  forAllTokenTypeCombinations "swapping within a single tick range" \tokenTypes ->
-  testProperty (show tokenTypes) $ property do
-    let liquidity = 1_e7
-    let lowerTickIndex = -1000
-    let upperTickIndex = 1000
+  propOnNetwork "swapping within a single tick range"
+    do
+      tokenTypes <- forAll $ Gen.element allTokenTypeCombinations
+      feeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
+      protoFeeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
 
-    -- With the liquidity above, we can deposit a little more than 500_000 X tokens.
-    -- So we'll generate up to 10 swaps of 50_000 tokens each.
-    swaps <- forAll $
-      Gen.list (Range.linear 1 10) $
-        Gen.integral (Range.linear 0 50_000)
+      -- With 1_e7 liquidity, we can deposit a little more than 500_000 Y tokens.
+      -- So we'll generate up to 10 swaps of 50_000 tokens each.
+      swaps <- forAll $
+        Gen.list (Range.linear 1 10) $
+          Gen.integral (Range.linear 0 50_000)
 
-    feeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
-    protoFeeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
+      pure (tokenTypes, feeBps, protoFeeBps, swaps)
+    ( defaultTokenTypes
+    , 7_00
+    , 7_00
+    , [1, 10, 100, 10_000]
+    )
+    \(tokenTypes, feeBps, protoFeeBps, swaps) -> do
+      let liquidity = 1_e7
+      let lowerTickIndex = -1000
+      let upperTickIndex = 1000
 
-    -- When the Y token is not CTEZ, we expect the contract to behave as if the protocol fee had been set to zero.
-    let effectiveProtoFeeBps = if snd tokenTypes == CTEZ then protoFeeBps else 0
+      -- When the Y token is not CTEZ, we expect the contract to behave as if the protocol fee had been set to zero.
+      let effectiveProtoFeeBps = if snd tokenTypes == CTEZ then protoFeeBps else 0
 
-    clevelandProp do
       liquidityProvider <- newAddress auto
       swapper <- newAddress auto
       swapReceiver <- newAddress auto
       feeReceiver <- newAddress auto
+      transferMoney liquidityProvider 10_e6
 
       (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
         { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
@@ -61,7 +68,7 @@ test_swapping_within_a_single_tick_range =
       withSender liquidityProvider $ setPosition cfmm liquidity (lowerTickIndex, upperTickIndex)
 
       for_ swaps \dy -> do
-        initialSt <- getFullStorage cfmm
+        initialSt <- getStorage cfmm
         initialBalanceSwapperX <- balanceOf x swapper
         initialBalanceSwapperY <- balanceOf y swapper
         initialBalanceSwapReceiverX <- balanceOf x swapReceiver
@@ -71,24 +78,23 @@ test_swapping_within_a_single_tick_range =
 
         -- Advance the time 1 sec to make sure the buffer is updated to reflect the swaps.
         advanceSecs 1 [cfmm]
-        checkAllInvariants cfmm
 
-        finalSt <- getFullStorage cfmm
+        finalSt <- getStorage cfmm
 
         -- The contract's `sqrt_price` has moved accordingly.
         let expectedFee = calcSwapFee feeBps dy
-        let expectedNewPrice = calcNewPriceY (sSqrtPrice initialSt) (sLiquidity initialSt) (dy - expectedFee) effectiveProtoFeeBps
-        adjustScale @30 (sSqrtPrice finalSt) @== expectedNewPrice
+        let expectedNewPrice = calcNewPriceY (sSqrtPriceRPC initialSt) (sLiquidityRPC initialSt) (dy - expectedFee) effectiveProtoFeeBps
+        adjustScale @30 (sSqrtPriceRPC finalSt) @== expectedNewPrice
         when (dy > 0 && feeBps > 0) do checkCompares expectedFee (>=) 1
 
         -- Check fee growth
         let expectedFeeGrowth =
-              sFeeGrowth initialSt +
+              sFeeGrowthRPC initialSt +
                 PerToken 0 (mkX @Natural @128 expectedFee `div` X liquidity)
-        sFeeGrowth finalSt @== expectedFeeGrowth
+        sFeeGrowthRPC finalSt @== expectedFeeGrowth
 
         -- The right amount of tokens was subtracted from the `swapper`'s balance
-        let expectedDx = receivedX (sSqrtPrice initialSt) (sSqrtPrice finalSt) (sLiquidity initialSt)
+        let expectedDx = receivedX (sSqrtPriceRPC initialSt) (sSqrtPriceRPC finalSt) (sLiquidityRPC initialSt)
         balanceOf x swapper @@== initialBalanceSwapperX
         balanceOf y swapper @@== initialBalanceSwapperY - dy
         -- The right amount of tokens was sent to the `receiver`.
@@ -96,7 +102,7 @@ test_swapping_within_a_single_tick_range =
         balanceOf y swapReceiver @@== initialBalanceSwapReceiverY
 
       -- `feeReceiver` receives the expected fees.
-      collectAllFees cfmm feeReceiver
+      collectFees cfmm feeReceiver 0 liquidityProvider
       balanceOf x feeReceiver @@== 0
       let expectedFees =
             swaps

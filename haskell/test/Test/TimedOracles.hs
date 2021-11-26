@@ -13,7 +13,7 @@ import Lorentz.Test (contractConsumer, sec)
 import Morley.Nettest
 import Morley.Nettest.Tasty
 import Test.Tasty (TestTree, testGroup)
-import Tezos.Core (timestampFromSeconds, timestampPlusSeconds)
+import Tezos.Core (timestampPlusSeconds)
 
 import SegCFMM.Errors
 import SegCFMM.Types
@@ -40,8 +40,9 @@ test_Continuity :: TestTree
 test_Continuity =
   nettestScenarioCaps "Returned cumulative values continuously grow over time" do
     alice <- newAddress "alice"
+    transferMoney alice 10_e6
     (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
-      { opModifyStorage = set sCumulativesBufferL $ initCumulativesBuffer 100 }
+    call cfmm (Call @"Increase_observation_count") 100
 
     advanceTime (sec 3)
 
@@ -73,11 +74,9 @@ test_Continuity =
 
 test_TimeOutOfBounds :: TestTree
 test_TimeOutOfBounds =
-  nettestScenarioCaps "Observing time out of bounds" do
-    alice <- newAddress "alice"
-    (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
-      { opModifyStorage = set sCumulativesBufferL $ initCumulativesBuffer 100 }
-
+  nettestScenarioOnEmulatorCaps "Observing time out of bounds" do
+    (cfmm, _) <- prepareSomeSegCFMM [] defaultTokenTypes def
+    call cfmm (Call @"Increase_observation_count") 100
     now <- getNow
     consumer <- originateSimple "consumer" [] contractConsumer
 
@@ -91,7 +90,7 @@ test_TimeOutOfBounds =
 
     do
       let err = observeOutdatedTimestampErr
-             ( #oldest_stored .! timestampFromSeconds 0
+             ( #oldest_stored .! now
              , #requested .! (now `timestampPlusSeconds` -100000)
              )
       expectFailedWith err $

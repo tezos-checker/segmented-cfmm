@@ -71,12 +71,13 @@ test_exisiting_position =
 
 test_multiple_positions :: TestTree
 test_multiple_positions =
-  nettestScenarioOnEmulatorCaps "balance_of can handle multiple owners and positions" do
+  nettestScenarioCaps "balance_of can handle multiple owners and positions" do
     owner1 <- newAddress auto
     owner2 <- newAddress auto
     owner3 <- newAddress auto
     nonOwner1 <- newAddress auto
     nonOwner2 <- newAddress auto
+    transferMoney owner1 10_e6
     cfmm <- fst <$> prepareSomeSegCFMM [owner1, owner2, owner3, nonOwner1] defaultTokenTypes def
     withSender owner1 $ setPosition cfmm liquidity (-20, -15)   -- TokenId 0
     withSender owner1 $ setPosition cfmm liquidity (-10, 1)     -- TokenId 1
