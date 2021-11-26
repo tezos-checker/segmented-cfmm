@@ -248,7 +248,7 @@ balancesOf fa2 tokenIds account = do
 
 -- | Update a single operator for an FA2 contract.
 updateOperator
-  :: (HasCallStack, MonadNettest caps base m, FA2.ParameterC param)
+  :: (HasCallStack, MonadOps m, FA2.ParameterC param)
   => ContractHandler param storage
   -> Address     -- ^ owner
   -> Address     -- ^ operator
@@ -262,7 +262,7 @@ updateOperator fa2 opOwner opOperator opTokenId doAdd = do
 
 -- | Update operators for an FA2 contract.
 updateOperators
-  :: (HasCallStack, MonadNettest caps base m, FA2.ParameterC param)
+  :: (HasCallStack, MonadOps m, FA2.ParameterC param)
   => ContractHandler param storage
   -> FA2.UpdateOperatorsParam
   -> m ()
@@ -350,7 +350,7 @@ prepareSomeSegCFMM accounts (xTokenType, yTokenType) (OriginationParams tokensIn
   cfmm <- originateSimple "cfmm" initialStorage' $ segCFMMContract xTokenType yTokenType
 
   for_ accounts $ \account ->
-    withSender account do
+    withSender account $ inBatch do
       for_ [x, y] \case
         TokenInfo_12 tokenAddr -> call tokenAddr (Call @"Approve") (#spender .! toAddress cfmm, #value .! defaultBalance)
         TokenInfo tokenId tokenAddr -> updateOperator tokenAddr account (toAddress cfmm) tokenId True
