@@ -521,10 +521,9 @@ validDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
 -- the cumulative buffers are filled every second.
 advanceSecs :: MonadNettest caps base m => Natural -> [ContractHandler Parameter st] -> m ()
 advanceSecs n cfmms = do
-  consumer <- originateSimple @[CumulativesValue] "advance-secs-consumer" [] contractConsumer
   for_ [1..n] \_ -> do
     advanceTime (sec 1)
-    for_ cfmms \cfmm -> call cfmm (Call @"Observe") $ mkView [] consumer
+    for_ cfmms \cfmm -> call cfmm (Call @"Increase_observation_count") 0
 
 -- | Converts a michelson doubly linked list (encoded as a big_map) to a list.
 -- The linked list is traversed starting from `minTickIndex` and
