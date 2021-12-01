@@ -68,7 +68,8 @@ test_setting_a_position_with_zero_liquidity_is_a_noop =
   forAllTokenTypeCombinations "setting a position with zero liquidity is a no-op" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
+    (cfmm, tokens) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
+    balanceConsumers <- originateBalanceConsumers tokens
     initialSt <- getFullStorage cfmm
 
     withSender liquidityProvider $ setPosition cfmm 0 (-100, 100)
@@ -78,15 +79,15 @@ test_setting_a_position_with_zero_liquidity_is_a_noop =
     getFullStorage cfmm @@== initialSt
       { sCumulativesBuffer = cumulativesBuffer1 now
       }
-    balanceOf x cfmm @@== 0
-    balanceOf y cfmm @@== 0
+    balancesOf balanceConsumers cfmm @@== (0, 0)
 
 test_deposit_and_withdrawal_is_a_noop :: TestTree
 test_deposit_and_withdrawal_is_a_noop =
   forAllTokenTypeCombinations "depositing and withdrawing the same amount of liquidity is a no-op" \tokenTypes ->
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
-    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
+    (cfmm, tokens) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
+    balanceConsumers <- originateBalanceConsumers tokens
     initialSt <- getFullStorage cfmm
 
     withSender liquidityProvider do
@@ -101,9 +102,8 @@ test_deposit_and_withdrawal_is_a_noop =
       }
     -- The contract's balance should be 0.
     -- There is a margin of error, so the contract may end up with at most 1 token.
-    xBalance <- balanceOf x cfmm
+    (xBalance, yBalance) <- balancesOf balanceConsumers cfmm
     checkCompares xBalance elem [0, 1]
-    yBalance <- balanceOf y cfmm
     checkCompares yBalance elem [0, 1]
 
 test_adding_liquidity_twice :: TestTree
@@ -113,9 +113,10 @@ test_adding_liquidity_twice =
     let liquidityDelta = 1_e5
     liquidityProvider <- newAddress auto
     let accounts = [liquidityProvider]
-    (x, y) <- originateTokenContracts accounts ((fst tokenTypes, FA2.TokenId 0), (snd tokenTypes, FA2.TokenId 1))
-    (cfmm1, _) <- prepareSomeSegCFMM accounts tokenTypes def { opTokens = Just (x, y) }
-    (cfmm2, _) <- prepareSomeSegCFMM accounts tokenTypes def { opTokens = Just (x, y) }
+    tokens <- originateTokenContracts accounts ((fst tokenTypes, FA2.TokenId 0), (snd tokenTypes, FA2.TokenId 1))
+    (cfmm1, _) <- prepareSomeSegCFMM accounts tokenTypes def { opTokens = Just tokens }
+    (cfmm2, _) <- prepareSomeSegCFMM accounts tokenTypes def { opTokens = Just tokens }
+    balanceConsumers <- originateBalanceConsumers tokens
 
     withSender liquidityProvider do
       -- Add liquidity twice to cfmm1
@@ -129,12 +130,8 @@ test_adding_liquidity_twice =
     st1 <- getFullStorage cfmm1
     st2 <- getFullStorage cfmm2
     st1 @== st2
-    cfmm1XBalance <- balanceOf x cfmm1
-    cfmm2XBalance <- balanceOf x cfmm2
+    ((cfmm1XBalance, cfmm2XBalance), (cfmm1YBalance, cfmm2YBalance)) <- balancesOfMany balanceConsumers (cfmm1, cfmm2)
     cfmm2XBalance `isInRangeNat` cfmm1XBalance $ (1, 1)
-
-    cfmm1YBalance <- balanceOf y cfmm1
-    cfmm2YBalance <- balanceOf y cfmm2
     cfmm2YBalance `isInRangeNat` cfmm1YBalance $ (1, 1)
 
 test_witnesses_must_be_valid :: TestTree
@@ -405,8 +402,9 @@ test_LPs_get_fees =
       swapper <- newAddress auto
       feeReceiver <- newAddress auto
       transferMoney liquidityProvider 10_e6
-      (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
+      (cfmm, tokens) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
         { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
+      balanceConsumers <- originateBalanceConsumers tokens
 
       withSender liquidityProvider $ setPosition cfmm 1_e7 (-10000, 10000)
 
@@ -422,8 +420,7 @@ test_LPs_get_fees =
                 pure $ (0, calcSwapFee feeBps swapAmt)
 
       collectFees cfmm feeReceiver 0 liquidityProvider
-      feeReceiverBalanceX <- balanceOf x feeReceiver
-      feeReceiverBalanceY <- balanceOf y feeReceiver
+      (feeReceiverBalanceX, feeReceiverBalanceY) <- balancesOf balanceConsumers feeReceiver
 
       -- Note: Fees are rounded down when being distributed to LPs, so a margin of error of -1 is acceptable.
       feeReceiverBalanceX `isInRangeNat` (sum xFees) $ (1, 0)
@@ -449,8 +446,9 @@ test_fees_are_proportional_to_liquidity =
       feeReceiver1 <- newAddress auto
       feeReceiver2 <- newAddress auto
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
-      (cfmm, (x, y)) <- prepareSomeSegCFMM accounts tokenTypes def
+      (cfmm, tokens) <- prepareSomeSegCFMM accounts tokenTypes def
         { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
+      balanceConsumers <- originateBalanceConsumers tokens
 
       for_ [(liquidityProvider1, position1Liquidity), (liquidityProvider2, position2Liquidity)] \(lp, liquidity) ->
         withSender lp $ setPosition cfmm liquidity (-10_000, 10_000)
@@ -467,11 +465,9 @@ test_fees_are_proportional_to_liquidity =
       checkAllInvariants cfmm
 
       collectFees cfmm feeReceiver1 0 liquidityProvider1
-      feeReceiver1BalanceX <- balanceOf x feeReceiver1
-      feeReceiver1BalanceY <- balanceOf y feeReceiver1
       collectFees cfmm feeReceiver2 1 liquidityProvider2
-      feeReceiver2BalanceX <- balanceOf x feeReceiver2
-      feeReceiver2BalanceY <- balanceOf y feeReceiver2
+      (feeReceiver1BalanceX, feeReceiver1BalanceY) <- balancesOf balanceConsumers feeReceiver1
+      (feeReceiver2BalanceX, feeReceiver2BalanceY) <- balancesOf balanceConsumers feeReceiver2
 
       -- Position 2 has triple the liquidity of Position 1,
       -- so `feeReceiver1` should get 1/4 of all earned fees and `feeReceiver2` should get 3/4.
@@ -501,8 +497,9 @@ test_LPs_do_not_receive_past_fees =
       feeReceiver1 <- newAddress auto
       feeReceiver2 <- newAddress auto
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
-      (cfmm, (x, y)) <- prepareSomeSegCFMM accounts tokenTypes def
+      (cfmm, tokens) <- prepareSomeSegCFMM accounts tokenTypes def
         { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
+      balanceConsumers <- originateBalanceConsumers tokens
 
       let placeSwaps swaps =
             bimap sum sum .
@@ -525,11 +522,9 @@ test_LPs_do_not_receive_past_fees =
       checkAllInvariants cfmm
 
       collectFees cfmm feeReceiver1 0 liquidityProvider1
-      feeReceiver1BalanceX <- balanceOf x feeReceiver1
-      feeReceiver1BalanceY <- balanceOf y feeReceiver1
       collectFees cfmm feeReceiver2 1 liquidityProvider2
-      feeReceiver2BalanceX <- balanceOf x feeReceiver2
-      feeReceiver2BalanceY <- balanceOf y feeReceiver2
+      (feeReceiver1BalanceX, feeReceiver1BalanceY) <- balancesOf balanceConsumers feeReceiver1
+      (feeReceiver2BalanceX, feeReceiver2BalanceY) <- balancesOf balanceConsumers feeReceiver2
 
       -- Fees from `beforeSwaps` should all go to Position 1.
       -- Fees from `afterSwaps` should be evenly split between Position 1 and Position 2.
@@ -563,8 +558,9 @@ test_fees_are_discounted =
       let liquidityDelta = 1_e7
       let lowerTickIndex = -10_000
       let upperTickIndex = 10_000
-      (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
+      (cfmm, tokens) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
         { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
+      balanceConsumers <- originateBalanceConsumers tokens
 
       withSender liquidityProvider $ setPosition cfmm liquidityDelta (lowerTickIndex, upperTickIndex)
 
@@ -582,27 +578,28 @@ test_fees_are_discounted =
                       ytox cfmm swapAmt swapper
                       pure $ (0, calcSwapFee feeBps swapAmt)
 
-      initialBalanceX <- balanceOf x liquidityProvider
-      initialBalanceY <- balanceOf y liquidityProvider
+      (initialBalanceLpX, initialBalanceLpY) <- balancesOf balanceConsumers liquidityProvider
 
       withSender liquidityProvider $ updatePosition cfmm feeReceiver (toInteger liquidityDelta) 0
+
+      ( (finalBalanceLpX, finalBalanceFeeReceiverX),
+        (finalBalanceLpY, finalBalanceFeeReceiverY))
+        <- balancesOfMany balanceConsumers (liquidityProvider, feeReceiver)
 
       -- The fees earned during the swaps should be discounted from the
       -- tokens needed to make the deposit.
       -- Due to rounding, it's possible the LP will receive 1 fewer tokens than expected.
       st <- getStorage cfmm
       let PerToken xDelta yDelta = liquidityDeltaToTokensDelta (fromIntegral liquidityDelta) lowerTickIndex upperTickIndex (sCurTickIndexRPC st) (sSqrtPriceRPC st)
-      finalBalanceX <- balanceOf x liquidityProvider
-      finalBalanceY <- balanceOf y liquidityProvider
       -- Note: Fees are rounded down when being distributed to LPs, so a margin of error of -1 is acceptable.
       -- Due to the floating-point math used in `liquidityDeltaToTokensDelta`, it's possible there
       -- will be an additional +/- 1 error.
-      finalBalanceX `isInRangeNat` (initialBalanceX + xFees - fromIntegral @Integer @Natural xDelta) $ (2, 1)
-      finalBalanceY `isInRangeNat` (initialBalanceY + yFees - fromIntegral @Integer @Natural yDelta) $ (2, 1)
+      finalBalanceLpX `isInRangeNat` (initialBalanceLpX + xFees - fromIntegral @Integer @Natural xDelta) $ (2, 1)
+      finalBalanceLpY `isInRangeNat` (initialBalanceLpY + yFees - fromIntegral @Integer @Natural yDelta) $ (2, 1)
 
       -- `feeReceiver` should not receive any fees.
-      balanceOf x feeReceiver @@== 0
-      balanceOf y feeReceiver @@== 0
+      finalBalanceFeeReceiverX @== 0
+      finalBalanceFeeReceiverY @== 0
 
 test_ticks_are_updated :: TestTree
 test_ticks_are_updated =
@@ -681,8 +678,9 @@ test_many_small_liquidations =
       receiver2 <- newAddress auto
       let liquidityDelta = 1_e7
       let accounts = [liquidityProvider1, liquidityProvider2, swapper]
-      (cfmm, (x, y)) <- prepareSomeSegCFMM accounts tokenTypes def
+      (cfmm, tokens) <- prepareSomeSegCFMM accounts tokenTypes def
         { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
+      balanceConsumers <- originateBalanceConsumers tokens
 
       for_ [liquidityProvider1, liquidityProvider2] \liquidityProvider ->
         withSender liquidityProvider do
@@ -709,10 +707,9 @@ test_many_small_liquidations =
           inBatch $ replicateM_ 5 do
             updatePosition cfmm receiver2 (- toInteger liquidityDelta `div` 10) 1
 
-      balanceReceiver1X <- balanceOf x receiver1
-      balanceReceiver1Y <- balanceOf y receiver1
-      balanceReceiver2X <- balanceOf x receiver2
-      balanceReceiver2Y <- balanceOf y receiver2
+      ( (balanceReceiver1X, balanceReceiver2X),
+        (balanceReceiver1Y, balanceReceiver2Y))
+        <- balancesOfMany balanceConsumers (receiver1, receiver2)
 
       -- Liquidating in 10 smaller steps may lead
       -- to `receiver2` receiving up to 10 fewer tokens due to rounding errors.
@@ -732,8 +729,9 @@ test_position_initialization =
     clevelandProp do
       liquidityProvider <- newAddress auto
       swapper <- newAddress auto
-      (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
+      (cfmm, tokens) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
         { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
+      balanceConsumers <- originateBalanceConsumers tokens
       checkAllInvariants cfmm
 
       for_ (createPositionData `zip` swapDirections) \(cpd, swapDirection) -> do
@@ -742,13 +740,12 @@ test_position_initialization =
         -- Perform a swap to move the tick a bit.
         -- This ensures the global accumulators (like fee_growth) aren't always 0.
         withSender swapper do
+          (initialBalanceX, initialBalanceY) <- balancesOf balanceConsumers cfmm
           case swapDirection of
             XToY -> do
-              initialBalanceX <- balanceOf x cfmm
               let amt = initialBalanceX `div` 2
               safeSwap amt \amt' -> xtoy cfmm amt' swapper
             YToX -> do
-              initialBalanceY <- balanceOf y cfmm
               let amt = initialBalanceY `div` 2
               safeSwap amt \amt' -> ytox cfmm amt' swapper
 
@@ -757,8 +754,7 @@ test_position_initialization =
         checkAllInvariants cfmm
 
         initialSt <- getFullStorage cfmm
-        initialBalanceX <- balanceOf x cfmm
-        initialBalanceY <- balanceOf y cfmm
+        (initialBalanceX, initialBalanceY) <- balancesOf balanceConsumers cfmm
 
         withSender liquidityProvider $ setPosition cfmm liquidityDelta (lowerTickIndex, upperTickIndex)
         checkAllInvariants cfmm
@@ -818,8 +814,9 @@ test_position_initialization =
 
         -- Check FA2 transfers
         let PerToken xDelta yDelta = liquidityDeltaToTokensDelta (toInteger liquidityDelta) lowerTickIndex upperTickIndex (sCurTickIndex st) (sSqrtPrice st)
-        balanceOf x cfmm @@== initialBalanceX + fromIntegral @Integer @Natural xDelta
-        balanceOf y cfmm @@== initialBalanceY + fromIntegral @Integer @Natural yDelta
+        (finalBalanceX, finalBalanceY) <- balancesOf balanceConsumers cfmm
+        finalBalanceX @== initialBalanceX + fromIntegral @Integer @Natural xDelta
+        finalBalanceY @== initialBalanceY + fromIntegral @Integer @Natural yDelta
   where
     -- | Attemps to execute a swap.
     -- If it fails with `tooBigPriceChangeErr`, try again with a smaller amount.

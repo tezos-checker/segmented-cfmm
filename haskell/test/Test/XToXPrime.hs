@@ -64,6 +64,7 @@ test_swapping_x_for_x_prime =
         { opTokens = Just (x, y), opModifyConstants = set cFeeBpsL feeBps1 . set cCtezBurnFeeBpsL protoFeeBps1 }
       (cfmm2, _) <- prepareSomeSegCFMM accounts (zType, yType) def
         { opTokens = Just (z, y), opModifyConstants = set cFeeBpsL feeBps2 . set cCtezBurnFeeBpsL protoFeeBps2 }
+      balanceConsumers <- originateBalanceConsumers (x, y, z)
 
       withSender liquidityProvider $ inBatch do
         for_ [cfmm1, cfmm2] \cfmm -> do
@@ -71,12 +72,11 @@ test_swapping_x_for_x_prime =
 
       initialSt1 <- getStorage cfmm1
       initialSt2 <- getStorage cfmm2
-      initialBalanceSwapperX <- balanceOf x swapper
-      initialBalanceSwapperY <- balanceOf y swapper
-      initialBalanceSwapperZ <- balanceOf z swapper
-      initialBalanceSwapReceiverX <- balanceOf x swapReceiver
-      initialBalanceSwapReceiverY <- balanceOf y swapReceiver
-      initialBalanceSwapReceiverZ <- balanceOf z swapReceiver
+
+      ( (initialBalanceSwapperX, initialBalanceSwapReceiverX),
+        (initialBalanceSwapperY, initialBalanceSwapReceiverY),
+        (initialBalanceSwapperZ, initialBalanceSwapReceiverZ))
+        <- balancesOfMany balanceConsumers (swapper, swapReceiver)
 
       withSender swapper do
         call cfmm1 (Call @"X_to_x_prime") XToXPrimeParam
@@ -87,12 +87,10 @@ test_swapping_x_for_x_prime =
           , xppToDxPrime = swapReceiver
           }
 
-      finalBalanceSwapperX <- balanceOf x swapper
-      finalBalanceSwapperY <- balanceOf y swapper
-      finalBalanceSwapperZ <- balanceOf z swapper
-      finalBalanceSwapReceiverX <- balanceOf x swapReceiver
-      finalBalanceSwapReceiverY <- balanceOf y swapReceiver
-      finalBalanceSwapReceiverZ <- balanceOf z swapReceiver
+      ( (finalBalanceSwapperX, finalBalanceSwapReceiverX),
+        (finalBalanceSwapperY, finalBalanceSwapReceiverY),
+        (finalBalanceSwapperZ, finalBalanceSwapReceiverZ))
+        <- balancesOfMany balanceConsumers (swapper, swapReceiver)
 
       let expectedFee1 = calcSwapFee feeBps1 dx
       let expectedNewPrice1 = calcNewPriceX (sSqrtPriceRPC initialSt1) (sLiquidityRPC initialSt1) (dx - expectedFee1)

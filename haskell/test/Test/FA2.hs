@@ -117,7 +117,9 @@ test_FA2_positions =
           transferToken' cfmm ownerOnly finalOwner positionId
 
       -- in the end all positions should be owned by 'finalOwner'
-      for_ allPositions $ \positionId -> do
-        balanceOf (TokenInfo positionId cfmm) ownerAndOperator @@== 0
-        balanceOf (TokenInfo positionId cfmm) ownerOnly        @@== 0
-        balanceOf (TokenInfo positionId cfmm) finalOwner       @@== 1
+      balanceConsumers <- originateBalanceConsumers $ allPositions <&> \positionId -> TokenInfo positionId cfmm
+      balances <- balancesOfMany balanceConsumers (ownerAndOperator, ownerOnly, finalOwner)
+      for_ balances \(ownerAndOperatorBalance, ownerOnlyBalance, finalOwnerBalance) -> do
+        ownerAndOperatorBalance @== 0
+        ownerOnlyBalance        @== 0
+        finalOwnerBalance       @== 1

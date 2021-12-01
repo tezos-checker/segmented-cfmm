@@ -47,7 +47,8 @@ test_BasicWorkflow =
     let miningRewardTokenId = FA2.TokenId 10
     miningRewardTokenContract <- originateFA2 [rewardGiver] miningRewardTokenId
     let miningRewardToken = FA2Token (toAddress miningRewardTokenContract) miningRewardTokenId
-    let getRewardOf = balanceOf (TokenInfo miningRewardTokenId miningRewardTokenContract)
+    rewardBalanceConsumer <- originateBalanceConsumer (TokenInfo miningRewardTokenId miningRewardTokenContract)
+    let getRewardOf = balanceOf rewardBalanceConsumer
 
     -- Prepare the contracts
     (cfmm, _) <- prepareSomeSegCFMM [liquidityProvider] tokenTypes def
