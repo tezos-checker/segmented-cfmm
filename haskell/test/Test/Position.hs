@@ -7,6 +7,7 @@ module Test.Position where
 
 import Prelude
 
+import Data.Ix (inRange)
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Hedgehog hiding (assert, failure)
@@ -21,6 +22,7 @@ import Morley.Nettest.Tasty
 import Test.Tasty (TestTree)
 import Test.Tasty.Hedgehog (testProperty)
 import Tezos.Core (timestampPlusSeconds)
+import Util.Named
 
 import SegCFMM.Errors
 import SegCFMM.Types
@@ -28,7 +30,6 @@ import Test.Invariants
 import Test.Math
 import Test.SegCFMM.Contract
 import Test.Util
-import Util.Named
 
 -- | Cumulatives buffer after some calls to contract that do not
 -- change \"much\".
@@ -770,8 +771,16 @@ test_position_initialization =
         lowerTick <- st & sTicks & bmMap & Map.lookup lowerTickIndex & evalJust
         upperTick <- st & sTicks & bmMap & Map.lookup upperTickIndex & evalJust
 
-        (lowerTick & tsSqrtPrice & adjustScale @30) @== sqrtPriceFor lowerTickIndex
-        (upperTick & tsSqrtPrice & adjustScale @30) @== sqrtPriceFor upperTickIndex
+        -- `sqrtPriceFor` uses floating point math in Haskell, so we lose a lot of precision.
+        -- Therefore, we must accept a +/-1 margin of error.
+        checkCompares
+          (sqrtPriceFor (lowerTickIndex - 1), sqrtPriceFor (lowerTickIndex + 1))
+          inRange
+          (lowerTick & tsSqrtPrice & adjustScale @30)
+        checkCompares
+          (sqrtPriceFor (upperTickIndex - 1), sqrtPriceFor (upperTickIndex + 1))
+          inRange
+          (upperTick & tsSqrtPrice & adjustScale @30)
 
         (lowerTick & tsLiquidityNet) @== toInteger liquidityDelta
         (upperTick & tsLiquidityNet) @== -(toInteger liquidityDelta)
@@ -815,8 +824,9 @@ test_position_initialization =
         -- Check FA2 transfers
         let PerToken xDelta yDelta = liquidityDeltaToTokensDelta (toInteger liquidityDelta) lowerTickIndex upperTickIndex (sCurTickIndex st) (sSqrtPrice st)
         (finalBalanceX, finalBalanceY) <- balancesOf balanceConsumers cfmm
-        finalBalanceX @== initialBalanceX + fromIntegral @Integer @Natural xDelta
-        finalBalanceY @== initialBalanceY + fromIntegral @Integer @Natural yDelta
+        finalBalanceX `isInRangeNat` initialBalanceX + fromIntegral @Integer @Natural xDelta $ (1, 0)
+        finalBalanceY `isInRangeNat` initialBalanceY + fromIntegral @Integer @Natural yDelta $ (1, 0)
+
   where
     -- | Attemps to execute a swap.
     -- If it fails with `tooBigPriceChangeErr`, try again with a smaller amount.

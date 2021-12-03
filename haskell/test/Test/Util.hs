@@ -637,6 +637,7 @@ divUp x y = ceiling $ fromIntegral @Integer @Double x / fromIntegral @Integer @D
 infixl 7 `divUp`
 
 -- | @x `isInRange` y $ (down, up)@ checks that @x@ is in the range @[y - down, y + up]@.
+infix 1 `isInRange`
 isInRange
   :: (HasCallStack, MonadNettest caps base m, Ix a, Num a, Buildable a)
   => a -> a -> (a, a) -> m ()
@@ -644,6 +645,7 @@ isInRange x y (marginDown, marginUp) =
   checkCompares (y - marginDown, y + marginUp) inRange x
 
 -- | Similar to `isInRange`, but checks that the lower bound cannot be less than 0.
+infix 1 `isInRangeNat`
 isInRangeNat :: (HasCallStack, MonadNettest caps base m, Coercible nat Natural) => nat -> nat -> (Natural, Natural) -> m ()
 isInRangeNat (coerce -> x) (coerce -> y) (marginDown, marginUp) = do
   let upperBound = y + marginUp
