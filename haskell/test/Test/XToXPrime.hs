@@ -17,59 +17,66 @@ import Lorentz hiding (assert, not, now, (>>))
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Morley.Nettest
 import Morley.Nettest.Tasty
-import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.Hedgehog (testProperty)
+import Test.Tasty (TestTree)
 
 import SegCFMM.Types
-import Test.Invariants
 import Test.Math
 import Test.SegCFMM.Contract
 import Test.Util
 
 test_swapping_x_for_x_prime :: TestTree
 test_swapping_x_for_x_prime =
-  testGroup "allows swapping X for X'" $
-  ((,,) <$> xTokenTypes <*> yTokenTypes <*> xTokenTypes) <&> \tokenTypes@(xType, yType, zType) ->
-  testProperty (show tokenTypes) $ property do
-    let liquidity = 1_e7
-    let lowerTickIndex = -1000
-    let upperTickIndex = 1000
+  propOnNetwork "allows swapping X for X'"
+    do
+      xType <- forAll $ Gen.element xTokenTypes
+      yType <- forAll $ Gen.element yTokenTypes
+      zType <- forAll $ Gen.element xTokenTypes
 
-    dx <- forAll $ Gen.integral (Range.linear 0 300_000)
-    feeBps1 <- forAll $ Gen.integral (Range.linear 0 10_000)
-    feeBps2 <- forAll $ Gen.integral (Range.linear 0 10_000)
-    protoFeeBps1 <- forAll $ Gen.integral (Range.linear 0 10_000)
-    protoFeeBps2 <- forAll $ Gen.integral (Range.linear 0 10_000)
+      dx <- forAll $ Gen.integral (Range.linear 0 300_000)
+      feeBps1 <- forAll $ Gen.integral (Range.linear 0 10_000)
+      feeBps2 <- forAll $ Gen.integral (Range.linear 0 10_000)
+      protoFeeBps1 <- forAll $ Gen.integral (Range.linear 0 10_000)
+      protoFeeBps2 <- forAll $ Gen.integral (Range.linear 0 10_000)
 
-    -- When the Y token is not CTEZ, we expect the contract to behave as if the protocol fee had been set to zero.
-    let effectiveProtoFeeBps1 = if yType == CTEZ then protoFeeBps1 else 0
-    let effectiveProtoFeeBps2 = if yType == CTEZ then protoFeeBps2 else 0
+      pure ((xType, yType, zType), dx, feeBps1, feeBps2, protoFeeBps1, protoFeeBps2)
+    ( (FA2, CTEZ, FA12)
+    , 20_000
+    , 7_00, 3_00
+    , 3_00, 1_50
+    )
+    \((xType, yType, zType), dx, feeBps1, feeBps2, protoFeeBps1, protoFeeBps2) -> do
+      -- When the Y token is not CTEZ, we expect the contract to behave as if the protocol fee had been set to zero.
+      let effectiveProtoFeeBps1 = if yType == CTEZ then protoFeeBps1 else 0
+      let effectiveProtoFeeBps2 = if yType == CTEZ then protoFeeBps2 else 0
 
-    clevelandProp do
       liquidityProvider <- newAddress auto
       swapper <- newAddress auto
       swapReceiver <- newAddress auto
+      transferMoney liquidityProvider 10_e6
       let accounts = [liquidityProvider, swapper]
 
-      x <- originateTokenContract accounts xType (FA2.TokenId 0)
-      y <- originateTokenContract accounts yType (FA2.TokenId 1)
-      z <- originateTokenContract accounts zType (FA2.TokenId 2)
+      (x, y, z) <- originateTokenContracts accounts
+        ( (xType, FA2.TokenId 0)
+        , (yType, FA2.TokenId 1)
+        , (zType, FA2.TokenId 2)
+        )
       (cfmm1, _) <- prepareSomeSegCFMM accounts (xType, yType) def
         { opTokens = Just (x, y), opModifyConstants = set cFeeBpsL feeBps1 . set cCtezBurnFeeBpsL protoFeeBps1 }
       (cfmm2, _) <- prepareSomeSegCFMM accounts (zType, yType) def
         { opTokens = Just (z, y), opModifyConstants = set cFeeBpsL feeBps2 . set cCtezBurnFeeBpsL protoFeeBps2 }
+      balanceConsumers <- originateBalanceConsumers (x, y, z)
 
-      for_ [cfmm1, cfmm2] \cfmm -> do
-        withSender liquidityProvider $ setPosition cfmm liquidity (lowerTickIndex, upperTickIndex)
+      withSender liquidityProvider $ inBatch do
+        for_ [cfmm1, cfmm2] \cfmm -> do
+          setPosition cfmm 1_e7 (-1000, 1000)
 
-      initialSt1 <- getFullStorage cfmm1
-      initialSt2 <- getFullStorage cfmm2
-      initialBalanceSwapperX <- balanceOf x swapper
-      initialBalanceSwapperY <- balanceOf y swapper
-      initialBalanceSwapperZ <- balanceOf z swapper
-      initialBalanceSwapReceiverX <- balanceOf x swapReceiver
-      initialBalanceSwapReceiverY <- balanceOf y swapReceiver
-      initialBalanceSwapReceiverZ <- balanceOf z swapReceiver
+      initialSt1 <- getStorage cfmm1
+      initialSt2 <- getStorage cfmm2
+
+      ( (initialBalanceSwapperX, initialBalanceSwapReceiverX),
+        (initialBalanceSwapperY, initialBalanceSwapReceiverY),
+        (initialBalanceSwapperZ, initialBalanceSwapReceiverZ))
+        <- balancesOfMany balanceConsumers (swapper, swapReceiver)
 
       withSender swapper do
         call cfmm1 (Call @"X_to_x_prime") XToXPrimeParam
@@ -79,22 +86,18 @@ test_swapping_x_for_x_prime =
           , xppMinDxPrime = 0
           , xppToDxPrime = swapReceiver
           }
-      checkAllInvariants cfmm1
-      checkAllInvariants cfmm2
 
-      finalBalanceSwapperX <- balanceOf x swapper
-      finalBalanceSwapperY <- balanceOf y swapper
-      finalBalanceSwapperZ <- balanceOf z swapper
-      finalBalanceSwapReceiverX <- balanceOf x swapReceiver
-      finalBalanceSwapReceiverY <- balanceOf y swapReceiver
-      finalBalanceSwapReceiverZ <- balanceOf z swapReceiver
+      ( (finalBalanceSwapperX, finalBalanceSwapReceiverX),
+        (finalBalanceSwapperY, finalBalanceSwapReceiverY),
+        (finalBalanceSwapperZ, finalBalanceSwapReceiverZ))
+        <- balancesOfMany balanceConsumers (swapper, swapReceiver)
 
       let expectedFee1 = calcSwapFee feeBps1 dx
-      let expectedNewPrice1 = calcNewPriceX (sSqrtPrice initialSt1) (sLiquidity initialSt1) (dx - expectedFee1)
-      let expectedDy = fromIntegral @Integer @Natural $ receivedY (sSqrtPrice initialSt1) (adjustScale @80 expectedNewPrice1) (sLiquidity initialSt1) effectiveProtoFeeBps1
+      let expectedNewPrice1 = calcNewPriceX (sSqrtPriceRPC initialSt1) (sLiquidityRPC initialSt1) (dx - expectedFee1)
+      let expectedDy = fromIntegral @Integer @Natural $ receivedY (sSqrtPriceRPC initialSt1) (adjustScale @80 expectedNewPrice1) (sLiquidityRPC initialSt1) effectiveProtoFeeBps1
       let expectedFee2 = calcSwapFee feeBps2 expectedDy
-      let expectedNewPrice2 = calcNewPriceY (sSqrtPrice initialSt2) (sLiquidity initialSt2) (expectedDy - expectedFee2) effectiveProtoFeeBps2
-      let expectedDz = fromIntegral @Integer @Natural $ receivedX (sSqrtPrice initialSt2) (adjustScale @80 expectedNewPrice2) (sLiquidity initialSt2)
+      let expectedNewPrice2 = calcNewPriceY (sSqrtPriceRPC initialSt2) (sLiquidityRPC initialSt2) (expectedDy - expectedFee2) effectiveProtoFeeBps2
+      let expectedDz = fromIntegral @Integer @Natural $ receivedX (sSqrtPriceRPC initialSt2) (adjustScale @80 expectedNewPrice2) (sLiquidityRPC initialSt2)
 
       finalBalanceSwapperX @== initialBalanceSwapperX - dx
       finalBalanceSwapperY @== initialBalanceSwapperY
@@ -103,7 +106,6 @@ test_swapping_x_for_x_prime =
       finalBalanceSwapReceiverY @== initialBalanceSwapReceiverY
       -- Allow a rounding error of 1 token
       finalBalanceSwapReceiverZ `isInRangeNat` (initialBalanceSwapReceiverZ + expectedDz) $ (1, 1)
-
 
 test_fails_when_y_doesnt_match :: TestTree
 test_fails_when_y_doesnt_match =

@@ -7,6 +7,7 @@ module Test.SegCFMM.Contract
   ( TokenType (..)
   , xTokenTypes
   , yTokenTypes
+  , allTokenTypeCombinations
   , defaultTokenTypes
   , segCFMMContract
   ) where
@@ -25,6 +26,9 @@ data TokenType = FA12 | FA2 | CTEZ
 xTokenTypes, yTokenTypes :: [TokenType]
 xTokenTypes = [FA2, FA12]
 yTokenTypes = [FA2, FA12, CTEZ]
+
+allTokenTypeCombinations :: [(TokenType, TokenType)]
+allTokenTypeCombinations = (,) <$> xTokenTypes <*> yTokenTypes
 
 -- | An arbitrary pair of token types.
 -- Tests whose outcome does not depend on the token types, can use this default pair.

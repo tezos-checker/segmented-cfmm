@@ -10,12 +10,17 @@ module Test.Util
     clevelandProp
   , evalJust
   , forAllTokenTypeCombinations
+  , forAllTokenTypeCombinationsOnNetwork
+  , propOnNetwork
   -- * FA2 helpers
   , TokenInfo(TokenInfo)
   , originateFA2
-  , originateTokenContract
-  , balanceOf
+  , originateTokenContracts
+  , originateBalanceConsumer
+  , originateBalanceConsumers
+  , balancesOfMany
   , balancesOf
+  , balanceOf
   , updateOperator
   , updateOperators
   , transferToken
@@ -50,6 +55,7 @@ module Test.Util
 
 import Prelude
 
+import Control.Lens as Lens
 import Data.Coerce (coerce)
 import Data.Ix (Ix, inRange)
 import qualified Data.List as List
@@ -58,12 +64,16 @@ import Fmt (Buildable(build), GenericBuildable(..), indentF, listF, unlinesF, (+
 import Hedgehog hiding (assert, failure)
 import qualified Indigo.Contracts.FA2Sample as FA2
 import qualified Indigo.Contracts.ManagedLedger as FA12
-import Lorentz hiding (assert, map, transferTokens)
+import Lorentz hiding (assert, map, take, transferTokens)
 import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Lorentz.Test (contractConsumer)
 import Morley.Nettest
+import Morley.Nettest.Caps (MonadOps)
 import Morley.Nettest.Pure (PureM, runEmulated)
+import Morley.Nettest.Tasty
+  (nettestScenarioCaps, nettestScenarioOnEmulator, nettestScenarioOnNetworkCaps)
 import Test.Tasty (TestName, TestTree, testGroup)
+import Test.Tasty.Hedgehog (testProperty)
 import Time (sec)
 import Util.Named ((.!))
 
@@ -78,6 +88,19 @@ data TokenInfo where
   TokenInfo :: FA2.ParameterC param => FA2.TokenId -> ContractHandler param st -> TokenInfo
   TokenInfo_12 :: ContractHandler FA12.Parameter FA12.Storage -> TokenInfo
 
+-- | Stores all the information needed to perform a balance request.
+data BalanceConsumer where
+  BalanceConsumerFA2
+    :: FA2.ParameterC param
+    => FA2.TokenId
+    -> ContractHandler param st
+    -> ContractHandler [FA2.BalanceResponseItem] [[FA2.BalanceResponseItem]]
+    -> BalanceConsumer
+  BalanceConsumerFA12
+    :: ContractHandler FA12.Parameter FA12.Storage
+    -> ContractHandler Natural [Natural]
+    -> BalanceConsumer
+
 ----------------------------------------------------------------------------
 -- Cleveland helpers
 ----------------------------------------------------------------------------
@@ -91,13 +114,52 @@ evalJust = \case
   Nothing -> failure "Expected 'Just', got 'Nothing'"
   Just a -> pure a
 
--- | Runs a test for each possible token type combination.
+-- | Runs a test, for each possible token type combination, on the emulator.
 forAllTokenTypeCombinations :: TestName -> ((TokenType, TokenType) -> TestTree) -> TestTree
 forAllTokenTypeCombinations testName mkTest =
   testGroup testName $ do
     x <- xTokenTypes
     y <- yTokenTypes
     pure $ mkTest (x, y)
+
+-- | Runs a test, for each possible token type combination, on the emulator.
+-- For the (FA, CTEZ) combination, the test will also be run on a network.
+forAllTokenTypeCombinationsOnNetwork
+  :: TestName
+  -> (forall m. Monad m => (TokenType, TokenType) -> NettestT m ())
+  -> TestTree
+forAllTokenTypeCombinationsOnNetwork testName mkTest =
+  testGroup testName do
+    x <- xTokenTypes
+    y <- yTokenTypes
+    let tokenTypes = (x, y)
+    if tokenTypes == defaultTokenTypes
+      then one $ nettestScenarioCaps (show tokenTypes) $ mkTest tokenTypes
+      else one $ nettestScenarioOnEmulator (show tokenTypes) \_ -> uncapsNettest (mkTest tokenTypes)
+
+-- | Runs a property test:
+--   * 100 times on the emulator with arbitrary data
+--   * Once on a network with fixed data
+propOnNetwork
+  :: TestName
+  -> PropertyT IO a
+  -- ^ Generate arbitrary data to run the test on an emulator
+  -> a
+  -- ^ Fixed data to run the test on a network
+  -> (forall m. Monad m => a -> NettestT m ())
+  -> TestTree
+propOnNetwork testName mkData constantData mkTest =
+  testGroup testName
+    [ networkTest
+    , propTest
+    ]
+  where
+    networkTest =
+      nettestScenarioOnNetworkCaps "Unit" $ mkTest constantData
+    propTest =
+      testProperty "Property" $ property $ do
+        testData <- mkData
+        nettestTestProp . uncapsNettest $ mkTest testData
 
 ----------------------------------------------------------------------------
 -- FA2 helpers
@@ -107,7 +169,7 @@ defaultBalance :: Natural
 defaultBalance = 1_e15
 
 originateFA2
-  :: MonadNettest caps base m
+  :: (HasCallStack, MonadOps m)
   => [Address]
   -> FA2.TokenId
   -> m (ContractHandler FA2.FA2SampleParameter FA2.Storage)
@@ -120,72 +182,137 @@ originateFA2 accounts tokenId@(FA2.TokenId tid) = do
   let name = "fa2-" <> show tid
   originateSimple name st (FA2.fa2Contract def { FA2.cAllowedTokenIds = [tokenId] })
 
-{-# ANN originateTokenContract ("HLint: ignore Use tuple-section" :: Text) #-}
-originateTokenContract
-  :: MonadNettest caps base m
+{-# ANN originateFA12 ("HLint: ignore Use tuple-section" :: Text) #-}
+originateFA12
+  :: (HasCallStack, MonadOps m)
   => [Address]
-  -> TokenType
-  -> FA2.TokenId
-  -> m TokenInfo
-originateTokenContract accounts tokenType tokenId =
-  case tokenType of
-    FA2 -> TokenInfo tokenId <$> originateFA2 accounts tokenId
-    _ -> do
-      admin <- newAddress auto
-      let yCtezStorage = FA12.mkStorage admin $
-            Map.fromList $ accounts <&> \acct -> (acct, defaultBalance)
-      aa <- originateSimple "ctez" yCtezStorage FA12.managedLedgerContract
-      pure $ TokenInfo_12 aa
+  -> Address
+  -> m (ContractHandler FA12.Parameter FA12.Storage)
+originateFA12 accounts admin = do
+  let yCtezStorage = FA12.mkStorage admin $
+        Map.fromList $ accounts <&> \acct -> (acct, defaultBalance)
+  originateSimple "ctez" yCtezStorage FA12.managedLedgerContract
+
+originateTokenContracts
+  :: (HasCallStack, MonadNettest caps base m
+     , Lens.Each tokenTypesAndIds tokenInfos (TokenType, FA2.TokenId) TokenInfo
+     , Lens.Each tokenTypesAndIds tokenTypesAndIds (TokenType, FA2.TokenId) (TokenType, FA2.TokenId)
+     )
+  => [Address]
+  -> tokenTypesAndIds
+  -> m tokenInfos
+originateTokenContracts accounts tokenTypesAndIds = do
+  if allOf (each . _1) (== FA2) tokenTypesAndIds
+    then
+      -- If we only need FA2 tokens, then we don't need to create an `admin` account
+      inBatch do
+        forEach tokenTypesAndIds \(_, tokenId) -> TokenInfo tokenId <$> originateFA2 accounts tokenId
+    else do
+      -- If we need any FA1.2 tokens, then we need an admin.
+      admin <- newAddress "admin"
+      inBatch do
+        forEach tokenTypesAndIds \(tokenType, tokenId) ->
+          case tokenType of
+            FA2 -> TokenInfo tokenId <$> originateFA2 accounts tokenId
+            _ -> TokenInfo_12 <$> originateFA12 accounts admin
 
 deriveManyRPC "FA2.BalanceResponseItem" []
 deriving via (GenericBuildable BalanceRequestItemRPC) instance Buildable BalanceRequestItemRPC
 deriving via (GenericBuildable BalanceResponseItemRPC) instance Buildable BalanceResponseItemRPC
 
--- | Retrieve the FA2 balance for a given account and token.
-balanceOf
-  :: (HasCallStack, MonadNettest caps base m, ToAddress addr)
-  => TokenInfo -> addr -> m Natural
-balanceOf ti account =
-  case ti of
-    TokenInfo tokenId tokenAddr -> do
-      consumer <- originateSimple "balance-response-consumer" [] (contractConsumer @[FA2.BalanceResponseItem])
-      call tokenAddr (Call @"Balance_of") (FA2.mkFA2View (map (FA2.BalanceRequestItem (toAddress account)) [tokenId]) consumer)
-      getStorage consumer >>= \case
-        [[BalanceResponseItemRPC _ bal]] -> pure bal
-        consumerStorage -> failure $ unlinesF
-          [ "Expected consumer storage to have exactly 1 balance response with 1 balance."
-          , "Consumer storage:"
-          , indentF 2 $ build consumerStorage
-          ]
-    TokenInfo_12 tokenAddr -> do
-      consumer <- originateSimple "balance-response-consumer" [] (contractConsumer @Natural)
-      call tokenAddr (Call @"GetBalance") (mkView (#owner .! toAddress account) consumer)
-      getStorage consumer >>= \case
-        [bal] -> pure bal
-        consumerStorage -> failure $ unlinesF
-          [ "Expected consumer storage to have exactly 1 balance response with 1 balance."
-          , "Consumer storage:"
-          , indentF 2 $ build consumerStorage
-          ]
+-- | Originate a contract capable of storing the responses of FA2 / FA1.2 balance requests.
+originateBalanceConsumer :: (HasCallStack, MonadOps m) => TokenInfo -> m BalanceConsumer
+originateBalanceConsumer = \case
+  TokenInfo tokenId tokenAddr -> do
+    consumer <- originateSimple "balance-response-consumer" [] (contractConsumer @[FA2.BalanceResponseItem])
+    pure $ BalanceConsumerFA2 tokenId tokenAddr consumer
+  TokenInfo_12 tokenAddr -> do
+    consumer <- originateSimple "balance-response-consumer" [] (contractConsumer @Natural)
+    pure $ BalanceConsumerFA12 tokenAddr consumer
 
--- | Retrieve the FA2 balances for a given account and tokens.
+-- | Originate many contracts capable of storing the responses of FA2 / FA1.2 balance requests in a batch.
+originateBalanceConsumers
+  :: ( HasCallStack
+     , MonadNettest caps base m
+     , Lens.Each tokens consumers TokenInfo BalanceConsumer
+     )
+  => tokens -> m consumers
+originateBalanceConsumers tokenInfos =
+  inBatch $ forEach tokenInfos originateBalanceConsumer
+
+-- | Retrieve the FA2 / FA1.2 balances for the given accounts.
+balancesOfMany
+  :: ( HasCallStack
+     , MonadNettest caps base m
+     , ToAddress addr
+     , Lens.Each addresses addresses addr addr
+     , Lens.Each addresses balances addr Natural
+     , Lens.Each balanceConsumers balanceConsumers BalanceConsumer BalanceConsumer
+     , Lens.Each balanceConsumers allBalances BalanceConsumer balances
+     )
+  => balanceConsumers
+  -> addresses
+  -> m allBalances
+balancesOfMany balanceConsumers accounts = do
+  let accountsList = toListOf each accounts
+  -- Perform all balance requests in a batch.
+  inBatch do
+    forOf_ each balanceConsumers \case
+      BalanceConsumerFA2 tokenId tokenAddr consumer -> do
+        let param = accountsList <&> \acc -> FA2.BalanceRequestItem (toAddress acc) tokenId
+        call tokenAddr (Call @"Balance_of") (FA2.mkFA2View param consumer)
+      BalanceConsumerFA12 tokenAddr consumer -> do
+        for_ accountsList \acc ->
+          call tokenAddr (Call @"GetBalance") (mkView (#owner .! toAddress acc) consumer)
+
+  -- Check the consumers' storages.
+  forEach balanceConsumers \balanceConsumer -> do
+    balances <-
+      case balanceConsumer of
+        BalanceConsumerFA2 _ _ consumer -> do
+          getStorage consumer >>= \case
+            (response : _) -> pure $
+              response <&> (\(BalanceResponseItemRPC _ bal) -> bal) & take (length accountsList)
+            consumerStorage -> failure $ unlinesF
+              [ "Expected consumer storage to have at least 1 balance response."
+              , "Consumer storage:"
+              , indentF 2 $ build consumerStorage
+              ]
+        BalanceConsumerFA12 _ consumer ->
+          reverse . take (length accountsList) <$> getStorage consumer
+
+    -- Replace each account in the input with its balance.
+    pure $ accounts & unsafePartsOf each .~ balances
+
+-- | Retrieve the balances of many FA2 / FA1.2 tokens for a single account.
 balancesOf
-  :: (HasCallStack, MonadNettest caps base m, ToAddress addr, FA2.ParameterC param)
-  => ContractHandler param storage -> [FA2.TokenId] -> addr -> m [Natural]
-balancesOf fa2 tokenIds account = do
-  consumer <- originateSimple "balance-response-consumer" [] (contractConsumer @[FA2.BalanceResponseItem])
-  call fa2 (Call @"Balance_of") (FA2.mkFA2View (map (FA2.BalanceRequestItem (toAddress account)) tokenIds) consumer)
-  getStorage consumer >>= \case
-    [bals] -> pure $ map (\(BalanceResponseItemRPC _ bal) -> bal) bals
-    consumerStorage -> failure $ unlinesF
-      [ "Expected consumer storage to have exactly 1 balance response."
-      , "Consumer storage:"
-      , indentF 2 $ build consumerStorage
-      ]
+  :: ( HasCallStack
+     , MonadNettest caps base m
+     , ToAddress addr
+     , Lens.Each balanceConsumers balanceConsumers BalanceConsumer BalanceConsumer
+     , Lens.Each balanceConsumers balances' BalanceConsumer (Identity Natural)
+     , Lens.Each balances' balances (Identity Natural) Natural
+     )
+  => balanceConsumers
+  -> addr -> m balances
+balancesOf balanceConsumers account = do
+  balances <- balancesOfMany balanceConsumers (Identity account)
+  pure $ balances & each %~ runIdentity
+
+-- | Retrieve the balance of a single FA2 / FA1.2 for a single account.
+balanceOf
+  :: ( HasCallStack
+     , MonadNettest caps base m
+     , ToAddress addr
+     )
+  => BalanceConsumer
+  -> addr -> m Natural
+balanceOf balanceConsumer account =
+  runIdentity <$> balancesOf (Identity balanceConsumer) account
 
 -- | Update a single operator for an FA2 contract.
 updateOperator
-  :: (HasCallStack, MonadNettest caps base m, FA2.ParameterC param)
+  :: (HasCallStack, MonadOps m, FA2.ParameterC param)
   => ContractHandler param storage
   -> Address     -- ^ owner
   -> Address     -- ^ operator
@@ -199,7 +326,7 @@ updateOperator fa2 opOwner opOperator opTokenId doAdd = do
 
 -- | Update operators for an FA2 contract.
 updateOperators
-  :: (HasCallStack, MonadNettest caps base m, FA2.ParameterC param)
+  :: (HasCallStack, MonadOps m, FA2.ParameterC param)
   => ContractHandler param storage
   -> FA2.UpdateOperatorsParam
   -> m ()
@@ -208,7 +335,7 @@ updateOperators fa2 operatorUpdates =
 
 -- | Transfer one token, in any amount, in an FA2 contract.
 transferToken
-  :: (HasCallStack, MonadNettest caps base m, FA2.ParameterC param)
+  :: (HasCallStack, MonadOps m, FA2.ParameterC param)
   => ContractHandler param storage
   -> Address     -- ^ source
   -> Address     -- ^ destination
@@ -221,7 +348,7 @@ transferToken fa2 tiFrom tdTo tdTokenId tdAmount = do
 
 -- | Transfer a single token, also in amount, in an FA2 contract.
 transferToken'
-  :: (HasCallStack, MonadNettest caps base m, FA2.ParameterC param)
+  :: (HasCallStack, MonadOps m, FA2.ParameterC param)
   => ContractHandler param storage
   -> Address     -- ^ source
   -> Address     -- ^ destination
@@ -231,7 +358,7 @@ transferToken' fa2 tiFrom tdTo tdTokenId = transferToken fa2 tiFrom tdTo tdToken
 
 -- | Transfer tokens in an FA2 contract.
 transferTokens
-  :: (HasCallStack, MonadNettest caps base m, FA2.ParameterC param)
+  :: (HasCallStack, MonadOps m, FA2.ParameterC param)
   => ContractHandler param storage
   -> FA2.TransferParams
   -> m ()
@@ -260,7 +387,7 @@ instance Default OriginationParams where
 -- This will originate the necessary FA2 tokens and the CFMM contract itself
 -- to operate on them.
 prepareSomeSegCFMM
-  :: MonadNettest caps base m
+  :: (HasCallStack, MonadNettest caps base m)
   => [Address]
   -> (TokenType, TokenType)
   -> OriginationParams
@@ -272,9 +399,7 @@ prepareSomeSegCFMM accounts (xTokenType, yTokenType) (OriginationParams tokensIn
   tokensInfo@(x, y) :: (TokenInfo, TokenInfo) <-
     case tokensInfoMb of
       Just tokensInfo -> pure tokensInfo
-      Nothing -> do
-        (,) <$> originateTokenContract accounts xTokenType (FA2.TokenId 0)
-            <*> originateTokenContract accounts yTokenType (FA2.TokenId 1)
+      Nothing -> originateTokenContracts accounts ((xTokenType, FA2.TokenId 0), (yTokenType, FA2.TokenId 1))
 
   let initialStorage = modifyStorage defaultStorage
   let initialStorage' = initialStorage
@@ -289,19 +414,19 @@ prepareSomeSegCFMM accounts (xTokenType, yTokenType) (OriginationParams tokensIn
   cfmm <- originateSimple "cfmm" initialStorage' $ segCFMMContract xTokenType yTokenType
 
   for_ accounts $ \account ->
-    withSender account do
+    withSender account $ inBatch do
       for_ [x, y] \case
         TokenInfo_12 tokenAddr -> call tokenAddr (Call @"Approve") (#spender .! toAddress cfmm, #value .! defaultBalance)
         TokenInfo tokenId tokenAddr -> updateOperator tokenAddr account (toAddress cfmm) tokenId True
 
   return (cfmm, tokensInfo)
 
-observe :: (HasCallStack, MonadEmulated caps base m) => ContractHandler Parameter st -> m CumulativesValue
+observe :: (HasCallStack, MonadNettest caps base m) => ContractHandler Parameter st -> m CumulativesValue
 observe cfmm = do
   currentTime <- getNow
-  consumer <- originateSimple @[CumulativesValue] "consumer" [] contractConsumer
+  consumer <- originateSimple @[CumulativesValue] "observe-consumer" [] contractConsumer
   call cfmm (Call @"Observe") $ mkView [currentTime] consumer
-  getFullStorage consumer >>= \case
+  getStorage consumer >>= \case
     [[cv]] -> pure cv
     _ -> failure "Expected to get exactly 1 CumulativeValue"
 
@@ -311,7 +436,7 @@ observe cfmm = do
 -- It should succeed and a position be created if the given address was also
 -- given to 'prepareSomeSegCFMM'.
 setPosition
-  :: (MonadNettest caps base m, HasCallStack)
+  :: (MonadOps m, HasCallStack)
   => ContractHandler Parameter Storage
   -> Natural
   -> (TickIndex, TickIndex)
@@ -329,7 +454,7 @@ setPosition cfmm liquidity (lowerTickIndex, upperTickIndex) = do
       }
 
 updatePosition
-  :: (MonadNettest caps base m, HasCallStack)
+  :: (MonadOps m, HasCallStack)
   => ContractHandler Parameter Storage
   -> Address
   -> Integer
@@ -347,7 +472,7 @@ updatePosition cfmm receiver liquidityDelta positionId = do
       }
 
 xtoy
-  :: (MonadNettest caps base m, HasCallStack)
+  :: (MonadOps m, HasCallStack)
   => ContractHandler Parameter Storage -> Natural -> Address -> m ()
 xtoy cfmm dx receiver =
   call cfmm (Call @"X_to_y") XToYParam
@@ -358,7 +483,7 @@ xtoy cfmm dx receiver =
     }
 
 ytox
-  :: (MonadNettest caps base m, HasCallStack)
+  :: (MonadOps m, HasCallStack)
   => ContractHandler Parameter Storage -> Natural -> Address -> m ()
 ytox cfmm dy receiver =
   call cfmm (Call @"Y_to_x") YToXParam
@@ -371,7 +496,7 @@ ytox cfmm dy receiver =
 -- | Get the diff of cumulatives_inside at given ticks range between two given
 -- timestamps.
 gettingCumulativesInsideDiff
-  :: (MonadEmulated caps base m, HasCallStack)
+  :: (MonadNettest caps base m, HasCallStack)
   => ContractHandler Parameter Storage
   -> (TickIndex, TickIndex)
   -> m ()
@@ -385,7 +510,7 @@ gettingCumulativesInsideDiff cfmm (loTick, hiTick) action = do
   call cfmm (Call @"Snapshot_cumulatives_inside") $
     SnapshotCumulativesInsideParam loTick hiTick (toContractRef consumer)
 
-  getFullStorage consumer >>= \case
+  getStorage consumer >>= \case
     [s2, s1] -> return (subCumulativesInsideSnapshot s2 s1)
     _ -> failure "Expected exactly 2 elements"
 
@@ -396,10 +521,9 @@ validDeadline = [timestampQuote| 20021-01-01T00:00:00Z |]
 -- the cumulative buffers are filled every second.
 advanceSecs :: MonadNettest caps base m => Natural -> [ContractHandler Parameter st] -> m ()
 advanceSecs n cfmms = do
-  consumer <- originateSimple @[CumulativesValue] "consumer" [] contractConsumer
   for_ [1..n] \_ -> do
     advanceTime (sec 1)
-    for_ cfmms \cfmm -> call cfmm (Call @"Observe") $ mkView [] consumer
+    for_ cfmms \cfmm -> call cfmm (Call @"Increase_observation_count") 0
 
 -- | Converts a michelson doubly linked list (encoded as a big_map) to a list.
 -- The linked list is traversed starting from `minTickIndex` and
@@ -453,7 +577,7 @@ collectAllFees cfmm receiver = do
 
 -- | Collect fees from a single position.
 collectFees
-  :: (HasCallStack, MonadEmulated caps base m)
+  :: (HasCallStack, MonadNettest caps base m)
   => ContractHandler Parameter Storage
   -> Address
   -> PositionId
@@ -513,6 +637,7 @@ divUp x y = ceiling $ fromIntegral @Integer @Double x / fromIntegral @Integer @D
 infixl 7 `divUp`
 
 -- | @x `isInRange` y $ (down, up)@ checks that @x@ is in the range @[y - down, y + up]@.
+infix 1 `isInRange`
 isInRange
   :: (HasCallStack, MonadNettest caps base m, Ix a, Num a, Buildable a)
   => a -> a -> (a, a) -> m ()
@@ -520,6 +645,7 @@ isInRange x y (marginDown, marginUp) =
   checkCompares (y - marginDown, y + marginUp) inRange x
 
 -- | Similar to `isInRange`, but checks that the lower bound cannot be less than 0.
+infix 1 `isInRangeNat`
 isInRangeNat :: (HasCallStack, MonadNettest caps base m, Coercible nat Natural) => nat -> nat -> (Natural, Natural) -> m ()
 isInRangeNat (coerce -> x) (coerce -> y) (marginDown, marginUp) = do
   let upperBound = y + marginUp

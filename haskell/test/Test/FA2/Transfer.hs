@@ -140,14 +140,15 @@ test_owner_transfer =
     owner <- newAddress auto
     receiver <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner] defaultTokenTypes def
+    balanceConsumer <- originateBalanceConsumer (TokenInfo (FA2.TokenId 0) cfmm)
 
     withSender owner do
       setPosition cfmm 1_e7 (-10, 15)
-      balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 1
-      balanceOf (TokenInfo (FA2.TokenId 0) cfmm) receiver @@== 0
+      balanceOf balanceConsumer owner @@== 1
+      balanceOf balanceConsumer receiver @@== 0
       transferToken' cfmm owner receiver (FA2.TokenId 0)
-      balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 0
-      balanceOf (TokenInfo (FA2.TokenId 0) cfmm) receiver @@== 1
+      balanceOf balanceConsumer owner @@== 0
+      balanceOf balanceConsumer receiver @@== 1
       -- check that previous owner can no longer manage the position ...
       expectCustomError #fA2_INSUFFICIENT_BALANCE (#required .! 1, #present .! 0) $
         transferToken' cfmm owner receiver (FA2.TokenId 0)
@@ -161,18 +162,19 @@ test_operator_transfer =
     operator <- newAddress auto
     receiver <- newAddress auto
     cfmm <- fst <$> prepareSomeSegCFMM [owner] defaultTokenTypes def
+    balanceConsumer <- originateBalanceConsumer (TokenInfo (FA2.TokenId 0) cfmm)
 
     withSender owner do
       setPosition cfmm 1_e7 (-10, 15)
       updateOperator cfmm owner operator (FA2.TokenId 0) True
 
-    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 1
-    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) operator @@== 0
-    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) receiver @@== 0
+    balanceOf balanceConsumer owner @@== 1
+    balanceOf balanceConsumer operator @@== 0
+    balanceOf balanceConsumer receiver @@== 0
     withSender operator $ transferToken' cfmm owner receiver (FA2.TokenId 0)
-    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) owner @@== 0
-    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) operator @@== 0
-    balanceOf (TokenInfo (FA2.TokenId 0) cfmm) receiver @@== 1
+    balanceOf balanceConsumer owner @@== 0
+    balanceOf balanceConsumer operator @@== 0
+    balanceOf balanceConsumer receiver @@== 1
 
 test_self_transfer :: TestTree
 test_self_transfer =
@@ -198,11 +200,12 @@ test_multiple_transfers =
     withSender owner2 do
       setPosition cfmm 1_e7 (5, 12)
       updateOperator cfmm owner2 owner1 (FA2.TokenId 2) True
-    let tokenIds = map FA2.TokenId [0..2]
 
-    balancesOf cfmm tokenIds owner1    @@== [1, 1, 0]
-    balancesOf cfmm tokenIds owner2    @@== [0, 0, 1]
-    balancesOf cfmm tokenIds receiver  @@== [0, 0, 0]
+    balanceConsumers <- originateBalanceConsumers $ [0..2] <&> \tokenId -> TokenInfo (FA2.TokenId tokenId) cfmm
+
+    balancesOf balanceConsumers owner1    @@== [1, 1, 0]
+    balancesOf balanceConsumers owner2    @@== [0, 0, 1]
+    balancesOf balanceConsumers receiver  @@== [0, 0, 0]
 
     withSender owner1 $ transferTokens cfmm
       [ FA2.TransferItem owner2
@@ -214,6 +217,6 @@ test_multiple_transfers =
           ]
       ]
 
-    balancesOf cfmm tokenIds owner1    @@== [0, 0, 0]
-    balancesOf cfmm tokenIds owner2    @@== [0, 1, 0]
-    balancesOf cfmm tokenIds receiver  @@== [1, 0, 1]
+    balancesOf balanceConsumers owner1    @@== [0, 0, 0]
+    balancesOf balanceConsumers owner2    @@== [0, 1, 0]
+    balancesOf balanceConsumers receiver  @@== [1, 0, 1]

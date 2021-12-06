@@ -38,7 +38,7 @@ test_CornerCases = testGroup "Corner cases"
         call cfmm (Call @"Snapshot_cumulatives_inside") $
           SnapshotCumulativesInsideParam (TickIndex (-10)) (TickIndex 100) (toContractRef consumer)
 
-  , nettestScenarioOnEmulatorCaps "Asking at uninitialized tick causes an error" do
+  , nettestScenarioOnEmulatorCaps "Asking at empty range returns zeros" do
       alice <- newAddress "alice"
       (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 
@@ -52,7 +52,7 @@ test_CornerCases = testGroup "Corner cases"
 
       getStorage consumer @@== [CumulativesInsideSnapshot 0 (X 0) 0]
 
-  , nettestScenarioOnEmulatorCaps "Asking at uninitialized tick causes an error" do
+  , nettestScenarioOnEmulatorCaps "Asking at reversed range causes an error" do
       alice <- newAddress "alice"
       (cfmm, _) <- prepareSomeSegCFMM [alice] defaultTokenTypes def
 

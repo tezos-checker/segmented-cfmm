@@ -36,19 +36,13 @@ For more information and instructions on how to run it locally, please refer to
 
 ## Testing
 
-This repository includes several property and unit tests, implemented with the
+This repository includes several property-based and example-based tests, implemented with the
 [cleveland test framework](https://gitlab.com/morley-framework/morley/-/tree/master/code/cleveland)
 in the [haskell/test](haskell/test) directory.
 
-In order to run these tests you'll need the `stack` tool installed, see
-[The Haskell Tool Stack](https://docs.haskellstack.org/en/stable/README/)
-tutorial for instructions on how to obtain it.
+For more information and instructions on how to run the tests, please refer to
+[its documentation](haskell/README.md).
 
-With that, the simplest way to run these tests is to execute the
-```bash
-make test
-```
-command.
 
 ## Python
 

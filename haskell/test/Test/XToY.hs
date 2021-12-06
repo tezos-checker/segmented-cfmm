@@ -16,95 +16,106 @@ import qualified Lorentz.Contracts.Spec.FA2Interface as FA2
 import Morley.Nettest
 import Morley.Nettest.Tasty
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.Hedgehog (testProperty)
 import Tezos.Core (timestampPlusSeconds)
 
 import SegCFMM.Errors
 import SegCFMM.Types
 import Test.Invariants
 import Test.Math
-import Test.SegCFMM.Contract (TokenType(..), xTokenTypes)
+import Test.SegCFMM.Contract
 import Test.Util
 import Util.Named
 
 test_swapping_within_a_single_tick_range :: TestTree
 test_swapping_within_a_single_tick_range =
-  forAllTokenTypeCombinations "swapping within a single tick range" \tokenTypes ->
-  testProperty (show tokenTypes) $ property do
-    let liquidity = 1_e7
-    let lowerTickIndex = -1000
-    let upperTickIndex = 1000
+  propOnNetwork "swapping within a single tick range"
+    do
+      tokenTypes <- forAll $ Gen.element allTokenTypeCombinations
+      feeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
+      protoFeeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
 
-    -- With the liquidity above, we can deposit a little more than 500_000 Y tokens.
-    -- So we'll generate up to 10 swaps of 50_000 tokens each.
-    swaps <- forAll $
-      Gen.list (Range.linear 1 10) $
-        Gen.integral (Range.linear 0 50_000)
+      -- With 1_e7 liquidity, we can deposit a little more than 500_000 Y tokens.
+      -- So we'll generate up to 10 swaps of 50_000 tokens each.
+      swaps <- forAll $
+        Gen.list (Range.linear 1 10) $
+          Gen.integral (Range.linear 0 50_000)
 
-    feeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
-    protoFeeBps <- forAll $ Gen.integral (Range.linear 0 100_00)
+      pure (tokenTypes, feeBps, protoFeeBps, swaps)
+    ( defaultTokenTypes
+    , 7_00
+    , 7_00
+    , [1, 10, 100, 10_000]
+    )
+    \(tokenTypes, feeBps, protoFeeBps, swaps) -> do
+      let liquidity = 1_e7
+      let lowerTickIndex = -1000
+      let upperTickIndex = 1000
 
-    -- When the Y token is not CTEZ, we expect the contract to behave as if the protocol fee had been set to zero.
-    let effectiveProtoFeeBps = if snd tokenTypes == CTEZ then protoFeeBps else 0
+      -- When the Y token is not CTEZ, we expect the contract to behave as if the protocol fee had been set to zero.
+      let effectiveProtoFeeBps = if snd tokenTypes == CTEZ then protoFeeBps else 0
 
-    clevelandProp do
       liquidityProvider <- newAddress auto
       swapper <- newAddress auto
       swapReceiver <- newAddress auto
       feeReceiver <- newAddress auto
+      transferMoney liquidityProvider 10_e6
 
-      (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
+      (cfmm, tokens) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
         { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
+      balanceConsumers <- originateBalanceConsumers tokens
       -- Add some slots to the buffers to make the tests more meaningful.
       call cfmm (Call @"Increase_observation_count") 10
 
       withSender liquidityProvider $ setPosition cfmm liquidity (lowerTickIndex, upperTickIndex)
 
       for_ swaps \dx -> do
-        initialSt <- getFullStorage cfmm
-        initialBalanceSwapperX <- balanceOf x swapper
-        initialBalanceSwapperY <- balanceOf y swapper
-        initialBalanceSwapReceiverX <- balanceOf x swapReceiver
-        initialBalanceSwapReceiverY <- balanceOf y swapReceiver
+        initialSt <- getStorage cfmm
+        ( (initialBalanceSwapperX, initialBalanceSwapReceiverX),
+          (initialBalanceSwapperY, initialBalanceSwapReceiverY))
+          <- balancesOfMany balanceConsumers (swapper, swapReceiver)
 
         withSender swapper $ xtoy cfmm dx swapReceiver
 
         -- Advance the time 1 sec to make sure the buffer is updated to reflect the swaps.
         advanceSecs 1 [cfmm]
-        checkAllInvariants cfmm
 
-        finalSt <- getFullStorage cfmm
+        finalSt <- getStorage cfmm
 
         -- The contract's `sqrt_price` has moved accordingly.
         let expectedFee = calcSwapFee feeBps dx
-        let expectedNewPrice = calcNewPriceX (sSqrtPrice initialSt) (sLiquidity initialSt) (dx - expectedFee)
-        adjustScale @30 (sSqrtPrice finalSt) @== expectedNewPrice
+        let expectedNewPrice = calcNewPriceX (sSqrtPriceRPC initialSt) (sLiquidityRPC initialSt) (dx - expectedFee)
+        adjustScale @30 (sSqrtPriceRPC finalSt) @== expectedNewPrice
         when (dx > 0 && feeBps > 0) do checkCompares expectedFee (>=) 1
 
         -- Check fee growth
         let expectedFeeGrowth =
-              sFeeGrowth initialSt +
+              sFeeGrowthRPC initialSt +
                 PerToken (mkX @Natural @128 expectedFee `div` X liquidity) 0
-        sFeeGrowth finalSt @== expectedFeeGrowth
+        sFeeGrowthRPC finalSt @== expectedFeeGrowth
 
         -- The right amount of tokens was subtracted from the `swapper`'s balance
-        let expectedDy = receivedY (sSqrtPrice initialSt) (sSqrtPrice finalSt) (sLiquidity initialSt) effectiveProtoFeeBps
-        balanceOf x swapper @@== initialBalanceSwapperX - dx
-        balanceOf y swapper @@== initialBalanceSwapperY
+        let expectedDy = receivedY (sSqrtPriceRPC initialSt) (sSqrtPriceRPC finalSt) (sLiquidityRPC initialSt) effectiveProtoFeeBps
+
+        ( (finalBalanceSwapperX, finalBalanceSwapReceiverX),
+          (finalBalanceSwapperY, finalBalanceSwapReceiverY))
+          <- balancesOfMany balanceConsumers (swapper, swapReceiver)
+
+        finalBalanceSwapperX @== initialBalanceSwapperX - dx
+        finalBalanceSwapperY @== initialBalanceSwapperY
         -- The right amount of tokens was sent to the `receiver`.
-        balanceOf x swapReceiver @@== initialBalanceSwapReceiverX
-        balanceOf y swapReceiver @@== initialBalanceSwapReceiverY + fromIntegral @Integer @Natural expectedDy
+        finalBalanceSwapReceiverX @== initialBalanceSwapReceiverX
+        finalBalanceSwapReceiverY @== initialBalanceSwapReceiverY + fromIntegral @Integer @Natural expectedDy
 
       -- `feeReceiver` receives the expected fees.
-      collectAllFees cfmm feeReceiver
-      balanceOf y feeReceiver @@== 0
+      collectFees cfmm feeReceiver 0 liquidityProvider
+      (receivedFeeX, receivedFeeY) <- balancesOf balanceConsumers feeReceiver
       let expectedFees =
             swaps
             <&> (\dx -> calcSwapFee feeBps dx)
             & sum
       -- `update_position` rounds the fee down, so it's possible 1 X token is lost.
-      receivedFee <- balanceOf x feeReceiver
-      receivedFee `isInRangeNat` expectedFees $ (1, 0)
+      receivedFeeX `isInRangeNat` expectedFees $ (1, 0)
+      receivedFeeY @== 0
 
 test_many_small_swaps :: TestTree
 test_many_small_swaps =
@@ -129,11 +140,11 @@ test_many_small_swaps =
     swapper <- newAddress auto
 
     let accounts = [liquidityProvider, swapper]
-    x <- originateTokenContract accounts (fst tokenTypes) (FA2.TokenId 0)
-    y <- originateTokenContract accounts (snd tokenTypes) (FA2.TokenId 1)
-    let origParams = def { opTokens = Just (x, y), opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
+    tokens <- originateTokenContracts accounts ((fst tokenTypes, FA2.TokenId 0), (snd tokenTypes, FA2.TokenId 1))
+    let origParams = def { opTokens = Just tokens, opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
     (cfmm1, _) <- prepareSomeSegCFMM accounts tokenTypes origParams
     (cfmm2, _) <- prepareSomeSegCFMM accounts tokenTypes origParams
+    balanceConsumers <- originateBalanceConsumers tokens
 
     for_ [cfmm1, cfmm2] \cfmm -> do
       -- Add some slots to the buffers to make the tests more meaningful.
@@ -167,15 +178,12 @@ test_many_small_swaps =
     -- Due to `dy` being rounded down, it's possible the swapper loses *up to* 1 Y token
     -- on every swap.
     -- So the 2nd contract may hold up to 1000 more Y tokens than the 1st contract.
-    cfmm1YBalance <- balanceOf y cfmm1
-    cfmm2YBalance <- balanceOf y cfmm2
+    (cfmm1XBalance, cfmm1YBalance) <- balancesOf balanceConsumers cfmm1
+    (cfmm2XBalance, cfmm2YBalance) <- balancesOf balanceConsumers cfmm2
     cfmm2YBalance `isInRangeNat` cfmm1YBalance $ (0, swapCount)
 
     -- The two contracts should hold the same exact amount of X tokens
-    cfmm1XBalance <- balanceOf x cfmm1
-    cfmm2XBalance <- balanceOf x cfmm2
     cfmm1XBalance @== cfmm2XBalance
-
 
 test_crossing_ticks :: TestTree
 test_crossing_ticks =
@@ -196,11 +204,11 @@ test_crossing_ticks =
     feeReceiver2 <- newAddress auto
 
     let accounts = [liquidityProvider, swapper]
-    x <- originateTokenContract accounts (fst tokenTypes) (FA2.TokenId 0)
-    y <- originateTokenContract accounts (snd tokenTypes) (FA2.TokenId 1)
-    let origParams = def { opTokens = Just (x, y), opModifyConstants = set cFeeBpsL feeBps }
+    tokens <- originateTokenContracts accounts ((fst tokenTypes, FA2.TokenId 0), (snd tokenTypes, FA2.TokenId 1))
+    let origParams = def { opTokens = Just tokens, opModifyConstants = set cFeeBpsL feeBps }
     (cfmm1, _) <- prepareSomeSegCFMM accounts tokenTypes origParams
     (cfmm2, _) <- prepareSomeSegCFMM accounts tokenTypes origParams
+    balanceConsumers <- originateBalanceConsumers tokens
 
     -- Add some slots to the buffers to make the tests more meaningful.
     for_ [cfmm1, cfmm2] \cfmm -> call cfmm (Call @"Increase_observation_count") 10
@@ -215,10 +223,8 @@ test_crossing_ticks =
     checkAllInvariants cfmm1
     checkAllInvariants cfmm2
 
-    cfmm1InitialBalanceX <- balanceOf x cfmm1
-    cfmm1InitialBalanceY <- balanceOf y cfmm1
-    cfmm2InitialBalanceX <- balanceOf x cfmm2
-    cfmm2InitialBalanceY <- balanceOf y cfmm2
+    (cfmm1InitialBalanceX, cfmm1InitialBalanceY) <- balancesOf balanceConsumers cfmm1
+    (cfmm2InitialBalanceX, cfmm2InitialBalanceY) <- balancesOf balanceConsumers cfmm2
 
     -- Place a small swap to move the tick past 0 and advance the time to fill the
     -- buffer with _something_ other than zeros.
@@ -259,16 +265,17 @@ test_crossing_ticks =
     let marginOfError = pickX (mkX @_ @128 10) `div` liquidity
     feeGrowthX2 `isInRangeNat` feeGrowthX1 $ (0, marginOfError)
 
+    (cfmm1FinalBalanceX, cfmm1FinalBalanceY) <- balancesOf balanceConsumers cfmm1
+    (cfmm2FinalBalanceX, cfmm2FinalBalanceY) <- balancesOf balanceConsumers cfmm2
+    let delta initial final = fromIntegral @Natural @Integer final - fromIntegral @Natural @Integer initial
 
-    let calcBalanceDelta initial final = fromIntegral @Natural @Integer final - fromIntegral @Natural @Integer initial
-    cfmm1BalanceDeltaX <- balanceOf x cfmm1 <&> calcBalanceDelta cfmm1InitialBalanceX
-    cfmm1BalanceDeltaY <- balanceOf y cfmm1 <&> calcBalanceDelta cfmm1InitialBalanceY
-    cfmm2BalanceDeltaX <- balanceOf x cfmm2 <&> calcBalanceDelta cfmm2InitialBalanceX
-    cfmm2BalanceDeltaY <- balanceOf y cfmm2 <&> calcBalanceDelta cfmm2InitialBalanceY
     -- The two contract should have received the exact same amount of X tokens
-    cfmm1BalanceDeltaX @== cfmm2BalanceDeltaX
+    delta cfmm1InitialBalanceX cfmm1FinalBalanceX
+      @== delta cfmm2InitialBalanceX cfmm2FinalBalanceX
     -- The 2nd contract may have given out fewer Y tokens (due to the potential increase in fees)
-    cfmm2BalanceDeltaY `isInRange` cfmm1BalanceDeltaY $ (0, 10)
+    delta cfmm2InitialBalanceY cfmm2FinalBalanceY
+      `isInRange` delta cfmm1InitialBalanceY cfmm1FinalBalanceY $
+      (0, 10)
 
     -- Collected fees should be fairly similar.
     -- As explained above, the contract may charge up to 10 extra tokens.
@@ -276,10 +283,10 @@ test_crossing_ticks =
     -- so we allow for a margin of error of +/-10 X tokens.
     collectAllFees cfmm1 feeReceiver1
     collectAllFees cfmm2 feeReceiver2
-    balanceOf y feeReceiver1 @@== 0
-    balanceOf y feeReceiver2 @@== 0
-    feeReceiver1BalanceX <- balanceOf x feeReceiver1
-    feeReceiver2BalanceX <- balanceOf x feeReceiver2
+    (feeReceiver1BalanceX, feeReceiver1BalanceY) <- balancesOf balanceConsumers feeReceiver1
+    (feeReceiver2BalanceX, feeReceiver2BalanceY) <- balancesOf balanceConsumers feeReceiver2
+    feeReceiver1BalanceY @== 0
+    feeReceiver2BalanceY @== 0
     feeReceiver2BalanceX `isInRangeNat` feeReceiver1BalanceX $ (10, 10)
 
     -- The global accumulators of both contracts should be the same.
@@ -303,7 +310,8 @@ test_fee_split =
     swapper <- newAddress auto
     feeReceiver1 <- newAddress auto
     feeReceiver2 <- newAddress auto
-    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def { opModifyConstants = set cFeeBpsL feeBps }
+    (cfmm, tokens) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def { opModifyConstants = set cFeeBpsL feeBps }
+    (x, y) <- originateBalanceConsumers tokens
 
     withSender liquidityProvider do
       setPosition cfmm 1_e6 (-100, 100)
@@ -376,7 +384,8 @@ test_swaps_are_noops_when_liquidity_is_zero =
   nettestScenarioOnEmulatorCaps (show tokenTypes) do
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
-    (cfmm, (x, y)) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
+    (cfmm, tokens) <- prepareSomeSegCFMM [liquidityProvider, swapper] tokenTypes def
+    balanceConsumers <- originateBalanceConsumers tokens
     withSender liquidityProvider $ setPosition cfmm 10_000 (-100, 100)
 
     withSender swapper do
@@ -386,12 +395,10 @@ test_swaps_are_noops_when_liquidity_is_zero =
       let
         isNoOp op = do
           initialSt <- getFullStorage cfmm
-          initialBalanceX <- balanceOf x cfmm
-          initialBalanceY <- balanceOf y cfmm
+          initialBalance <- balancesOf balanceConsumers cfmm
           op
           getFullStorage cfmm @@== initialSt
-          balanceOf x cfmm @@== initialBalanceX
-          balanceOf y cfmm @@== initialBalanceY
+          balancesOf balanceConsumers cfmm @@== initialBalance
 
       isNoOp $ xtoy cfmm 100 swapper
       isNoOp $ ytox cfmm 100 swapper
@@ -441,8 +448,9 @@ test_protocol_fees_are_burned =
     liquidityProvider <- newAddress auto
     swapper <- newAddress auto
     let accounts = [liquidityProvider, swapper]
-    (cfmm, (_, y)) <- prepareSomeSegCFMM accounts (xTokenType, CTEZ) def
+    (cfmm, tokens) <- prepareSomeSegCFMM accounts (xTokenType, CTEZ) def
       { opModifyConstants = set cFeeBpsL feeBps . set cCtezBurnFeeBpsL protoFeeBps }
+    y <- originateBalanceConsumer (snd tokens)
 
     withSender liquidityProvider $ setPosition cfmm 10_000 (-100, 100)
 

@@ -31,6 +31,7 @@ verbatim:
 
 default-extensions:
   - AllowAmbiguousTypes
+  - ApplicativeDo
   - BangPatterns
   - BlockArguments
   - ConstraintKinds
