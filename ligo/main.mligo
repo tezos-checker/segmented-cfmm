@@ -311,7 +311,7 @@ let update_position (s : storage) (p : update_position_param) : result =
     let _: unit = check_deadline p.deadline in
 
     (* Grab the existing position *)
-    let position = get_position (p.position_id, s) in
+    let position = get_position (p.position_id, s.positions) in
     (* Get accumulated fees for this position. *)
     let s, fees, position = collect_fees s p.position_id position in
 
@@ -551,7 +551,7 @@ let update_timed_cumulatives (s : storage) : storage =
         in {s with cumulatives_buffer = new_buffer}
 
 let get_position_info (s : storage) (p : get_position_info_param) : result =
-    let position = get_position(p.position_id, s) in
+    let position = get_position(p.position_id, s.positions) in
     let result =
         { liquidity = position.liquidity
         ; owner = position.owner
