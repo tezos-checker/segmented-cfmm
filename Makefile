@@ -4,14 +4,17 @@
 # Ligo executable
 LIGO ?= ligo
 
+# Common LIGO compilation options
+LIGO_OPTIONS = --syntax cameligo --warn true
+
 # Compile code
-BUILD = $(LIGO) compile-contract --syntax cameligo
+BUILD = $(LIGO) compile contract
 
 # Compile storage
-BUILD_STORAGE = $(LIGO) compile-storage --syntax cameligo
+BUILD_STORAGE = $(LIGO) compile storage
 
 # Gather code statistics
-MEASURE = $(LIGO) measure --syntax cameligo
+MEASURE = $(LIGO) info measure-contract
 
 # Where to put build files
 OUT ?= out
@@ -76,8 +79,8 @@ $(OUT)/segmented_cfmm_%.tz: $(shell find ligo -name '*.mligo')
 	echo "(* Import of the main module *)" >> $(TOTAL_FILE)
 	echo "#include \"main.mligo\"" >> $(TOTAL_FILE)
 	# ============ Compiling ligo contract $@ ============ #
-	$(BUILD) $(TOTAL_FILE) main --output-file $@ || ( rm $(TOTAL_FILE) && exit 1 )
-	$(if $(debug), $(MEASURE) $(TOTAL_FILE) main, rm $(TOTAL_FILE))
+	$(BUILD) $(TOTAL_FILE) -e main -o $@ $(LIGO_OPTIONS) || ( rm $(TOTAL_FILE) && exit 1 )
+	$(if $(debug), $(MEASURE) $(TOTAL_FILE) -e main $(LIGO_OPTIONS), rm $(TOTAL_FILE))
 
 $(OUT)/storage_%.tz : fee_bps = 10
 $(OUT)/storage_%.tz : ctez_burn_fee_bps = 5
@@ -90,8 +93,8 @@ $(OUT)/storage_%.tz : tick_spacing = 1
 $(OUT)/storage_%.tz : metadata_map = (Big_map.empty : metadata_map)
 $(OUT)/storage_%.tz: $(shell find ligo -name '*.mligo')
 	mkdir -p $(OUT)
-	# ============== Compiling default LIGO storage ============== #
-	$(BUILD_STORAGE) ligo/defaults.mligo entrypoint "default_storage( \
+	# ============== Compiling ligo storage ============== #
+	$(BUILD_STORAGE) ligo/defaults.mligo "default_storage( \
 	    { fee_bps = $(fee_bps)n \
 			; ctez_burn_fee_bps = $(ctez_burn_fee_bps)n \
 			; x_token_id = $(x_token_id)n \
@@ -100,13 +103,13 @@ $(OUT)/storage_%.tz: $(shell find ligo -name '*.mligo')
 			; y_token_address = (\"$(y_token_address)\" : address) \
 			; tick_spacing = $(tick_spacing)n \
 	    }) ($(init_cumulatives_buffer_extra_slots)n) ($(metadata_map))" \
-        --output-file $@
+        -e entrypoint -o $@ $(LIGO_OPTIONS)
 
 $(OUT)/storage_increased_buffer_10.tz: init_cumulatives_buffer_extra_slots = 10
 
 $(OUT)/liquidity_mining.tz: ligo/liquidity_mining.mligo ligo/types.mligo
 	mkdir -p $(OUT)
-	$(BUILD) ligo/liquidity_mining.mligo main --output-file $@
+	$(BUILD) ligo/liquidity_mining.mligo -e main -o $@ $(LIGO_OPTIONS)
 
 prepare_lib : debug = 1
 prepare_lib: every

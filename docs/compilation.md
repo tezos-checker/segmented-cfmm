@@ -11,7 +11,7 @@ in particular its CameLIGO dialect.
 To compile to Michelson the contract code and/or its storage, you'll need to have
 the [ligo executable](https://ligolang.org/docs/intro/installation) installed.
 
-The latest working version tested is [0.16.1](https://gitlab.com/ligolang/ligo/-/releases/0.16.1).
+The latest working version tested is [0.30.0](https://gitlab.com/ligolang/ligo/-/releases/0.30.0).
 
 ## Compiling the contract
 
