@@ -35,6 +35,7 @@
               "sqrt_price_move_x 100n {x80 = 12089258196146291747061760n} 10n"
             6044629098073145873530880
    *)
+[@inline]
 let sqrt_price_move_x (liquidity : nat) (sqrt_price_old : x80n) (dx : nat) : x80n =
     (* floordiv because we want to overstate how much this trade lowers the price *)
     let sqrt_price_new =
