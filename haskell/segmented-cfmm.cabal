@@ -18,7 +18,7 @@ extra-doc-files:
 
 source-repository head
   type: git
-  location: git@github.com:serokell/segmented-cfmm.git
+  location: git@github.com:tezos-checker/segmented-cfmm.git
 
 library
   exposed-modules:

@@ -6,7 +6,7 @@ version:             0.0.1.0
 license:             MIT
 license-file:        LICENSE
 author:              Serokell, Arthur Breitman
-git:                 git@github.com:serokell/segmented-cfmm.git
+git:                 git@github.com:tezos-checker/segmented-cfmm.git
 copyright:           2021 Arthur Breitman
 
 extra-doc-files:
