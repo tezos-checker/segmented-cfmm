@@ -9,16 +9,6 @@
 #include "swaps.mligo"
 #include "token/fa2.mligo"
 
-[@inline]
-let get_registered_cumulatives_unsafe (buffer : timed_cumulatives_buffer) (i : nat) : timed_cumulatives =
-    match Big_map.find_opt i buffer.map with
-        | None -> failwith internal_bad_access_to_observation_buffer
-        | Some v -> v
-
-[@inline]
-let get_last_cumulatives (buffer : timed_cumulatives_buffer) : timed_cumulatives =
-    get_registered_cumulatives_unsafe buffer buffer.last
-
 let rec initialize_tick ((ticks, tick_index, tick_witness,
     initial_tick_cumulative_outside,
     initial_fee_growth_outside,
@@ -226,8 +216,9 @@ let update_cur_tick_witness (s : storage) (tick_index : tick_index) : storage =
 
 let set_position (s : storage) (p : set_position_param) : result =
     let _: unit = check_deadline p.deadline in
-    let _: unit = check_multiple_of_tick_spacing (p.lower_tick_index, s) in
-    let _: unit = check_multiple_of_tick_spacing (p.upper_tick_index, s) in
+    let allowed_tick_spacing = s.constants.tick_spacing in
+    let _: unit = check_multiple_of_tick_spacing (p.lower_tick_index, allowed_tick_spacing) in
+    let _: unit = check_multiple_of_tick_spacing (p.upper_tick_index, allowed_tick_spacing) in
     let _: unit = if p.lower_tick_index >= p.upper_tick_index then failwith tick_order_err else unit in
 
     // Creating position with 0 liquidity must result in no changes being made

@@ -92,12 +92,14 @@ let sqrt_price_move_y (liquidity : nat) (sqrt_price_old : x80n) (dy : nat) : x80
     sqrt_price_new
 
 (* Helper function to grab a tick we know exists in the tick indexed state. *)
+[@inline]
 let get_tick (ticks : (tick_index, tick_state) big_map) (index: tick_index) (error_code: nat) : tick_state =
     match Big_map.find_opt index ticks with
     | None -> failwith error_code
     | Some state -> state
 
 (* Check if a request has expired. *)
+[@inline]
 let check_deadline (deadline : timestamp) : unit =
     if Tezos.now > deadline
         then ([%Michelson ({| { FAILWITH } |} : nat * (timestamp * timestamp) -> unit)]
@@ -107,8 +109,8 @@ let check_deadline (deadline : timestamp) : unit =
 [@inline]
 let get_registered_cumulatives_unsafe (buffer : timed_cumulatives_buffer) (i : nat) : timed_cumulatives =
     match Big_map.find_opt i buffer.map with
-        | None -> failwith internal_bad_access_to_observation_buffer
-        | Some v -> v
+    | None -> failwith internal_bad_access_to_observation_buffer
+    | Some v -> v
 
 [@inline]
 let get_last_cumulatives (buffer : timed_cumulatives_buffer) : timed_cumulatives =
@@ -117,8 +119,8 @@ let get_last_cumulatives (buffer : timed_cumulatives_buffer) : timed_cumulatives
 
 (* Ensure tick index is multiple of tick spacing. *)
 [@inline]
-let check_multiple_of_tick_spacing (tick_index, storage: tick_index * storage) : unit =
-    if (tick_index.i mod storage.constants.tick_spacing = 0n)
+let check_multiple_of_tick_spacing (tick_index, tick_spacing: tick_index * nat) : unit =
+    if (tick_index.i mod tick_spacing = 0n)
         then unit
         else failwith incorrect_tick_spacing_err
 
