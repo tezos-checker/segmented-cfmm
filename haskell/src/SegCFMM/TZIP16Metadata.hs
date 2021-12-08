@@ -79,7 +79,7 @@ mkSegCfmmMetadata settings =
       , version . fromString $ showVersion Paths.version
       , license $ License "MIT" Nothing
       , authors [Author "Serokell", Author "Arthur Breitman"]
-      , homepage "https://github.com/serokell/segmented-cfmm"
+      , homepage "https://github.com/tezos-checker/segmented-cfmm"
       , interfaces [tzip 16]
       , views (segCfmmViews settings)
       ]

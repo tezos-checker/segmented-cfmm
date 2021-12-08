@@ -132,8 +132,8 @@ let default_storage
 
 (* Identity contract using 'parameter' and 'storage'.
  *
- * This is only used for the purpose of providing an `ENTRY_POINT` to the
- * `compile-storage` command of LIGO.
+ * This is only used for the purpose of providing an `--entry-point` to the
+ * `compile storage` command of LIGO.
 *)
 let entrypoint (_param, store : parameter * storage) : result =
   (([] : operation list), store)

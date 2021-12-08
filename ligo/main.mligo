@@ -9,16 +9,6 @@
 #include "swaps.mligo"
 #include "token/fa2.mligo"
 
-[@inline]
-let get_registered_cumulatives_unsafe (buffer : timed_cumulatives_buffer) (i : nat) : timed_cumulatives =
-    match Big_map.find_opt i buffer.map with
-        | None -> failwith internal_bad_access_to_observation_buffer
-        | Some v -> v
-
-[@inline]
-let get_last_cumulatives (buffer : timed_cumulatives_buffer) : timed_cumulatives =
-    get_registered_cumulatives_unsafe buffer buffer.last
-
 let rec initialize_tick ((ticks, tick_index, tick_witness,
     initial_tick_cumulative_outside,
     initial_fee_growth_outside,
@@ -219,6 +209,7 @@ let update_balances_after_position_change
     If it does, we need to move `cur_tick_witness` forward to maintain its invariant:
         `cur_tick_witness` is the highest initialized tick lower than or equal to `cur_tick_index`.
 *)
+[@inline]
 let update_cur_tick_witness (s : storage) (tick_index : tick_index) : storage =
     if tick_index > s.cur_tick_witness && tick_index <= s.cur_tick_index
         then { s with cur_tick_witness = tick_index }
@@ -226,8 +217,9 @@ let update_cur_tick_witness (s : storage) (tick_index : tick_index) : storage =
 
 let set_position (s : storage) (p : set_position_param) : result =
     let _: unit = check_deadline p.deadline in
-    let _: unit = check_multiple_of_tick_spacing (p.lower_tick_index, s) in
-    let _: unit = check_multiple_of_tick_spacing (p.upper_tick_index, s) in
+    let allowed_tick_spacing = s.constants.tick_spacing in
+    let _: unit = check_multiple_of_tick_spacing (p.lower_tick_index, allowed_tick_spacing) in
+    let _: unit = check_multiple_of_tick_spacing (p.upper_tick_index, allowed_tick_spacing) in
     let _: unit = if p.lower_tick_index >= p.upper_tick_index then failwith tick_order_err else unit in
 
     // Creating position with 0 liquidity must result in no changes being made
@@ -235,47 +227,59 @@ let set_position (s : storage) (p : set_position_param) : result =
 
     (* Initialize ticks if need be. *)
     let ticks = s.ticks in
-    let ticks = if s.cur_tick_index.i >= p.lower_tick_index.i then
-        let sums = get_last_cumulatives s.cumulatives_buffer in
-        initialize_tick
-            ( ticks, p.lower_tick_index, p.lower_tick_witness
-            , sums.tick.sum, s.fee_growth
-            , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
-            , sums.spl.sum
-            , s.ladder
-            )
-    else
-        initialize_tick
-            ( ticks
-            , p.lower_tick_index
-            , p.lower_tick_witness
-            , 0
-            , {x = {x128 = 0n} ; y = {x128 = 0n}}
-            , 0n
-            , {x128 = 0n}
-            , s.ladder
-            )
+    let (init_tick_cumul_out, init_fee_growth_out, init_secs_out, init_spl_outside) =
+            if s.cur_tick_index.i >= p.lower_tick_index.i then
+                let sums = get_last_cumulatives s.cumulatives_buffer in
+                ( sums.tick.sum
+                , s.fee_growth
+                , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
+                , sums.spl.sum
+                )
+            else
+                ( 0
+                , {x = {x128 = 0n} ; y = {x128 = 0n}}
+                , 0n
+                , {x128 = 0n}
+                )
     in
-    let ticks = if s.cur_tick_index.i >= p.upper_tick_index.i then
-        let sums = get_last_cumulatives s.cumulatives_buffer in
-        initialize_tick
-            ( ticks, p.upper_tick_index, p.upper_tick_witness
-            , sums.tick.sum, s.fee_growth
-            , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
-            , sums.spl.sum
-            , s.ladder
-            )
-    else
-        initialize_tick
-            ( ticks
-            , p.upper_tick_index
-            , p.upper_tick_witness
-            , 0
-            , {x = {x128 = 0n} ; y = {x128 = 0n}}
-            , 0n
-            , {x128 = 0n}
-            , s.ladder
-            )
+    let ticks =
+            initialize_tick
+                ( ticks
+                , p.lower_tick_index
+                , p.lower_tick_witness
+                , init_tick_cumul_out
+                , init_fee_growth_out
+                , init_secs_out
+                , init_spl_outside
+                , s.ladder
+                )
+    in
+    let (init_tick_cumul_out, init_fee_growth_out, init_secs_out, init_spl_outside) =
+            if s.cur_tick_index.i >= p.upper_tick_index.i then
+                let sums = get_last_cumulatives s.cumulatives_buffer in
+                ( sums.tick.sum
+                , s.fee_growth
+                , assert_nat (Tezos.now - epoch_time, internal_epoch_bigger_than_now_err)
+                , sums.spl.sum
+                )
+            else
+                ( 0
+                , {x = {x128 = 0n} ; y = {x128 = 0n}}
+                , 0n
+                , {x128 = 0n}
+                )
+    in
+    let ticks =
+            initialize_tick
+                ( ticks
+                , p.upper_tick_index
+                , p.upper_tick_witness
+                , init_tick_cumul_out
+                , init_fee_growth_out
+                , init_secs_out
+                , init_spl_outside
+                , s.ladder
+                )
     in
     let s = {s with ticks = ticks} in
 
@@ -311,7 +315,7 @@ let update_position (s : storage) (p : update_position_param) : result =
     let _: unit = check_deadline p.deadline in
 
     (* Grab the existing position *)
-    let position = get_position (p.position_id, s) in
+    let position = get_position (p.position_id, s.positions) in
     (* Get accumulated fees for this position. *)
     let s, fees, position = collect_fees s p.position_id position in
 
@@ -431,6 +435,7 @@ let increase_observation_count (s, p : storage * increase_observation_count_para
     in (([] : operation list), {s with cumulatives_buffer = buffer})
 
 // Calculate seconds_per_liquidity cumulative diff.
+[@inline]
 let eval_seconds_per_liquidity_x128(liquidity, duration : nat * nat) =
     if liquidity = 0n
     // It actually doesn't really matter how much we add to this accumulator
@@ -451,9 +456,8 @@ let rec find_cumulatives_around (buffer, t, l, r : timed_cumulatives_buffer * ti
         let m_i = (l_i + r_i) / 2n in
         let m_v = get_registered_cumulatives_unsafe buffer m_i in
         let m = (m_i, m_v) in
-        if m_v.time > t
-        then find_cumulatives_around (buffer, t, l, m)
-        else find_cumulatives_around (buffer, t, m, r)
+        let (new_l, new_r) = if m_v.time > t then (l, m) else (m, r) in
+        find_cumulatives_around (buffer, t, new_l, new_r)
     else
         (l_v, r_v, assert_nat (t - l_v.time, internal_observe_bin_search_failed))
 
@@ -551,7 +555,7 @@ let update_timed_cumulatives (s : storage) : storage =
         in {s with cumulatives_buffer = new_buffer}
 
 let get_position_info (s : storage) (p : get_position_info_param) : result =
-    let position = get_position(p.position_id, s) in
+    let position = get_position(p.position_id, s.positions) in
     let result =
         { liquidity = position.liquidity
         ; owner = position.owner
