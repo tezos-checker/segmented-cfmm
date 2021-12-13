@@ -66,15 +66,6 @@ steps:
       - nix-build ci.nix -A packages.segmented-cfmm.tests.segmented-cfmm-test
       - ./result/bin/segmented-cfmm-test --nettest-mode=disable-network
 
-  - label: ligo-test-local-chain-010
-    if: *not-scheduled
-    <<: *network-tests
-    env:
-      # this key is defined in local-chain bootstrap accounts list in
-      # https://github.com/serokell/aquarius-infra/blob/master/servers/albali/chain.nix
-      TASTY_NETTEST_IMPORT_SECRET_KEY: "unencrypted:edsk42cYfuawC5i3PmuS3Lq73pAzgrJyVNcv9CXQspM2dG4M9QMpeS"
-      TASTY_NETTEST_NODE_ENDPOINT: "http://localhost:8733"
-
   - label: ligo-test-local-chain-011
     if: *not-scheduled
     <<: *network-tests
@@ -83,15 +74,6 @@ steps:
       # https://github.com/serokell/aquarius-infra/blob/master/servers/albali/chain.nix
       TASTY_NETTEST_IMPORT_SECRET_KEY: "unencrypted:edsk42cYfuawC5i3PmuS3Lq73pAzgrJyVNcv9CXQspM2dG4M9QMpeS"
       TASTY_NETTEST_NODE_ENDPOINT: "http://localhost:8734"
-
-  - label: ligo-test-granadanet-scheduled
-    if: *scheduled
-    <<: *network-tests
-    env:
-      # Note that testnet moneybag can run out of tz. If this happened, someone should transfer it some
-      # more tz, its address: tz1Nbp1gNPMzn9MB9ZhBnfsajsaQBLYScdd5
-      TASTY_NETTEST_IMPORT_SECRET_KEY: "unencrypted:edsk48WyaFHvsqLYQBrCBiRUdnPa7VduZbePo5UAbyMJRN8Eob5PvL"
-      TASTY_NETTEST_NODE_ENDPOINT: "https://granada.testnet.tezos.serokell.team"
 
   - label: ligo-test-hangzhounet-scheduled
     if: *scheduled
