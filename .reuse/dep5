@@ -1,0 +1,5 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+
+Files: typescript/segmented-cfmm/package.json typescript/segmented-cfmm/etc/* typescript/segmented-cfmm/yarn.lock typescript/segmented-cfmm/src/generated/* .github/ISSUE_TEMPLATE/* .github/pull_request_template.md .idea/*
+Copyright: 2021 Arthur Breitman
+License: LicenseRef-MIT-Arthur-Breitman

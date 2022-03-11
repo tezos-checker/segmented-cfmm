@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2021 Arthur Breitman
+# SPDX-License-Identifier: LicenseRef-MIT-Arthur-Breitman
+
 .#*
 
 .DS_Store
@@ -48,3 +51,11 @@ dune-project
 
 ## File-based project format:
 *.iws
+
+# Ligo output
+out/
+ligo/total-*.mligo
+
+# Haskell
+.stack-work/
+haskell/test/*.tz
